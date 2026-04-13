@@ -16,12 +16,17 @@ classifiers = [
   "Programming Language :: Python :: 3",
 ]
 readme = "README.md"
-requires-python = ">=3.12"
+requires-python = ">=3.11, <3.12"
 dependencies = [
+    "datasets>=4.8.4",
     "fastapi==0.115.6",
+    "huggingface-hub>=1.7.2",
     "torch==2.6.0",
+    "torchaudio>=2.6.0",
+    "transformers>=5.3.0",
     "typer==0.15.1",
     "uvicorn==0.34.0",
+    "whisperx>=3.4.4",
 ]
 
 [dependency-groups]
@@ -36,22 +41,17 @@ dev = [
     "mkdocstrings-python==2.0.1",
 ]
 
-
-[tool.uv.sources]
-torch = [
-    { index = "pytorch-cpu" },
-]
-torchvision = [
-    { index = "pytorch-cpu" },
-]
-
-[[tool.uv.index]]
-name = "pytorch-cpu"
-url = "https://download.pytorch.org/whl/cpu"
-explicit = true
+[tool.coverage.run]
+omit = ["tests/*"]
 
 [tool.ruff]
 line-length = 120
 
-[tool.coverage.run]
-omit = ["tests/*"]
+[[tool.uv.index]]
+name = "pytorch-cu118"
+url = "https://download.pytorch.org/whl/cu118"
+explicit = true
+
+[tool.uv.sources]
+torch = { index = "pytorch-cu118" }
+torchaudio = { index = "pytorch-cu118" }

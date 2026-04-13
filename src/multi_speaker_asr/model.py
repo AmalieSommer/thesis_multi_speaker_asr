@@ -1,11 +1,21 @@
 from torch import nn
 import torch
 
+from transformers import pipeline
+
 class Model(nn.Module):
-    """Just a dummy model to show how to structure your code"""
-    def __init__(self):
+    """
+    The chosen ASR model based on Whisper-large-v3, with the baseline and finetuned versions
+    """
+    MODELS_DICT = {
+        "base": "CoRal-project/roest-v3-whisper-1.5b",
+        "finetuned": ""
+    }
+
+    def __init__(self, model: str = "base"):
         super().__init__()
-        self.layer = nn.Linear(1, 1)
+
+        
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         return self.layer(x)

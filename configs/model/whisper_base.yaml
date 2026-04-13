@@ -1,0 +1,2 @@
+_target_: multi_speaker_asr.models.whisper.Whisper
+model_name: CoRal-project/roest-v3-whisper-1.5b
