@@ -18,13 +18,31 @@ class WhisperBase(nn.Module):
     
     def load_processor(self):
         """Load the pretrained processor into the AutoProcessor"""
-        processor = self.config.model_name
-        self.processor = AutoProcessor.from_pretrained(processor)
+        self.processor = AutoProcessor.from_pretrained(
+            self.config.model_name
+            ).to(self.device)
 
     def load_model(self):
         """Load the pretrained STT model from Huggingface"""
-        model = self.config.model_name
-        self.model = AutoModelForSpeechSeq2Seq.from_pretrained(model)
+        self.model = AutoModelForSpeechSeq2Seq.from_pretrained(
+            self.config.model_name
+            ).to(self.device)
+    
+
+    def forward(self, audio, transcripts):
+        """Defines the models forward pass"""
+        inputs = self.processor(
+            audio=audio, 
+            text=transcripts, 
+            sampling_rate=16000, 
+            return_tensors="pt", 
+            padding=True
+            ) 
+               
+        return self.model(
+            input_features=inputs.input_features, 
+            labels=inputs.labels
+            ) # returns the models loss and logits...
     
 
     def save_model(self):
@@ -41,6 +59,7 @@ class WhisperZeroShot(WhisperBase):
     @torch.no_grad()
     def evaluate(self):
         """Run zero-shot evaluation on the base model for batch testing"""
+        
         return
     
 
