@@ -50,8 +50,7 @@ class Data(Dataset):
         sample = self.datasamples[index]
 
         if self.data_path == None:
-            custom_sample = custom_decode(sample)
-            audio = custom_sample["audio"]
+            audio = sample["audio"]
             wav = audio["array"]
             sr = audio["sampling_rate"]
         else:
