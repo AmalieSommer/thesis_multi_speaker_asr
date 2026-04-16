@@ -1,5 +1,4 @@
 from pathlib import Path
-import typer
 import json
 import os
 from torch.utils.data import Dataset
@@ -10,13 +9,24 @@ class Data(Dataset):
     """
     Data wrapper class to load either local or Huggingface datasets. Perform preprocessing, resampling and formatting as preparation for model training and inference.
     """
-    def __init__(self, data_path, metadata, target_sr=16000):
+    def __init__(self, local_data=True, data_path=None, metadata=None, target_sr=16000):
+        super().__init__()
         self.data_path = data_path
         self.metadata = metadata
         self.target_sr = target_sr
 
         # Load data into memory
-        self.load()
+        if local_data:
+            self.load()
+
+
+    def load_hf(self, name, configuration, split):
+        self.datasamples = load_dataset(
+            path=name,
+            name=configuration,
+            split=split,
+            decode=False
+        )
 
 
     def load(self):
@@ -24,7 +34,8 @@ class Data(Dataset):
         Loading data from either local path or Huggingface.
         """
         self.datasamples = []
-        with open(self.metadata, "r") as file:
+        metadata_path = os.path.join(self.data_path, self.metadata)
+        with open(metadata_path, "r") as file:
             for line in file:
                 self.datasamples.append(json.loads(line))
 
@@ -33,15 +44,23 @@ class Data(Dataset):
         """Return the length of the dataset."""
         return len(self.datasamples)
 
+
     def __getitem__(self, index: int):
         """Return a given sample from the dataset."""
         sample = self.datasamples[index]
 
-        audio_path = os.path.join(self.data_path, sample["audio_filepath"])
-        wav, sr = torchaudio.load(audio_path)
+        if self.data_path == None:
+            custom_sample = custom_decode(sample)
+            audio = custom_sample["audio"]
+            wav = audio["array"]
+            sr = audio["sampling_rate"]
+        else:
+            audio_path = os.path.join(self.data_path, sample["audio_filepath"])
+            wav, sr = torchaudio.load(audio_path)
 
         if sr != self.target_sr:
             wav = torchaudio.functional.resample(waveform=wav, orig_freq=sr, new_freq=self.target_sr)
+
 
         return {
             "audio": wav,

@@ -1,10 +1,10 @@
 import torch
-from .collator import Collator
-from .data import Data
+from multi_speaker_asr.collator import Collator
+from multi_speaker_asr.data import Data
 from torch.utils.data import DataLoader
-from torchmetrics import WordErrorRate, CharErrorRate
+from torchmetrics.text import WordErrorRate, CharErrorRate
 
-def evaluate(model, processor, device):
+def evaluate(model, processor, device, dataset):
     model.eval()
 
     wer = WordErrorRate()
@@ -13,13 +13,15 @@ def evaluate(model, processor, device):
     cer.to(device)
 
     collator_fn = Collator(processor)
+    """
     dataset = Data(
         data_path="data/lillelyd-main",
         metadata="manifest_test.jsonl"
     )
+    """
     dataloader = DataLoader(
         dataset=dataset,
-        batch_size=4,
+        batch_size=8,
         collate_fn=collator_fn
     )
 
@@ -31,6 +33,7 @@ def evaluate(model, processor, device):
         for batch in dataloader:
             input_features = batch["input_features"].to(device)
             labels = batch["labels"].to(device)
+            attention_mask = batch["attention_mask"].to(device)
 
             outputs = model(
                 input_features,
@@ -39,7 +42,12 @@ def evaluate(model, processor, device):
 
             total_loss += outputs["loss"] # Saves cross-entropy loss
 
-            pred_ids = model.generate(input_features)
+            pred_ids = model.model.generate(
+                input_features=input_features,
+                attention_mask=attention_mask,
+                task="transcribe",
+                language="da"
+                )
             pred_transcripts = processor.batch_decode(
                 pred_ids,
                 skip_special_tokens=True
@@ -64,7 +72,9 @@ def evaluate(model, processor, device):
     cer_final = cer.compute()
 
     return {
-        "loss": avg_loss,
-        "wer": wer_final,
-        "cer": cer_final
+        "loss": avg_loss.item(),
+        "wer": wer_final.item(),
+        "cer": cer_final.item(),
+        "predictions": all_predictions,
+        "ground_truths": all_transcripts 
     }

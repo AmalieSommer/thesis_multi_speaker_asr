@@ -1,5 +1,7 @@
 import torch.nn as nn
 from torchmetrics.text import WordErrorRate, CharErrorRate
+import io
+import librosa
 
 
 import logging

@@ -3,8 +3,6 @@ import torch.nn as nn
 import torch
 import transformers
 from transformers import AutoProcessor, AutoModelForSpeechSeq2Seq
-from torch.utils.data import DataLoader
-from ..utils.utils import Metrics
 
 
 import logging
@@ -15,26 +13,27 @@ logger.setLevel(logging.INFO)
 class WhisperBase(nn.Module):
     """Base pretrained Whisper-based model loaded from Huggingface."""
     
-    def __init__(self, config: DictConfig):
+    def __init__(self, model_name):
         """Initialize the model with the appropriate config file"""
-        self.config = config
+        super().__init__()
+
+        #self.config = config
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-
-        self.processor: AutoProcessor
-        self.model: AutoModelForSpeechSeq2Seq
-
+        self.model_name = model_name
+        
+        self.load_processor()
+        self.load_model()
     
     def load_processor(self):
         """Load the pretrained processor into the AutoProcessor"""
         self.processor = AutoProcessor.from_pretrained(
-            self.config.model_name
-            ).to(self.device)
-
+            self.model_name
+            )
 
     def load_model(self):
         """Load the pretrained STT model from Huggingface"""
         self.model = AutoModelForSpeechSeq2Seq.from_pretrained(
-            self.config.model_name
+            self.model_name
             ).to(self.device)
 
 
@@ -53,6 +52,13 @@ class WhisperBase(nn.Module):
             "encoder_last_hidden_state": outputs.encoder_last_hidden_state,
             "decoder_last_hidden_state": outputs.decoder_hidden_states[-1]
         }
+    
+
+    def get_processor(self):
+        return self.processor
+    
+    def get_model(self):
+        return self.model
     
 
 
