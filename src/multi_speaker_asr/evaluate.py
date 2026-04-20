@@ -18,24 +18,28 @@ def evaluate(model, processor, device, dataset):
     semdist = MetricStats(metric=compute_cosine_sim)
 
     collator_fn = Collator(processor)
-    """
-    dataset = Data(
-        data_path="data/lillelyd-main",
-        metadata="manifest_test.jsonl"
-    )
-    """
+
     dataloader = DataLoader(
         dataset=dataset,
-        batch_size=8,
+        batch_size=24,
         collate_fn=collator_fn
     )
+
+    print("Dataloader created...")
 
     total_loss = 0
     all_predictions = []
     all_transcripts = []
 
+    iter = 0
+
     with torch.no_grad():
+        print("Starting batch evaluation...")
         for batch in dataloader:
+            iter += 1
+
+            print("Running batch iteration: ", iter)
+
             input_features = batch["input_features"].to(device)
             labels = batch["labels"].to(device)
             attention_mask = batch["attention_mask"].to(device)
@@ -46,7 +50,10 @@ def evaluate(model, processor, device, dataset):
                 labels
             )
 
-            total_loss += outputs["loss"] # Saves cross-entropy loss
+            loss = outputs["loss"]
+            total_loss += loss # Saves cross-entropy loss
+
+            print("Batch loss: ", loss)
 
             pred_ids = model.model.generate(
                 input_features=input_features,

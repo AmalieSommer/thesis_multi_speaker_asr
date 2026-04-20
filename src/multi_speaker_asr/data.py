@@ -20,14 +20,6 @@ class Data(Dataset):
             self.load()
 
 
-    def load_hf(self, name, configuration, split):
-        self.datasamples = load_dataset(
-            path=name,
-            name=configuration,
-            split=split,
-            decode=False
-        )
-
 
     def load(self):
         """
@@ -49,13 +41,8 @@ class Data(Dataset):
         """Return a given sample from the dataset."""
         sample = self.datasamples[index]
 
-        if self.data_path == None:
-            audio = sample["audio"]
-            wav = audio["array"]
-            sr = audio["sampling_rate"]
-        else:
-            audio_path = os.path.join(self.data_path, sample["audio_filepath"])
-            wav, sr = torchaudio.load(audio_path)
+        audio_path = os.path.join(self.data_path, sample["audio_filepath"])
+        wav, sr = torchaudio.load(audio_path)
 
         if sr != self.target_sr:
             wav = torchaudio.functional.resample(waveform=wav, orig_freq=sr, new_freq=self.target_sr)
