@@ -24,6 +24,7 @@ class WhisperBase(nn.Module):
         self.load_processor()
         self.load_model()
     
+    
     def load_processor(self):
         """Load the pretrained processor into the AutoProcessor"""
         self.processor = AutoProcessor.from_pretrained(
@@ -52,13 +53,6 @@ class WhisperBase(nn.Module):
             "encoder_last_hidden_state": outputs.encoder_last_hidden_state,
             "decoder_last_hidden_state": outputs.decoder_hidden_states[-1]
         }
-    
-
-    def get_processor(self):
-        return self.processor
-    
-    def get_model(self):
-        return self.model
     
 
 

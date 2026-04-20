@@ -22,6 +22,4 @@ results = evaluate(
 )
 
 print("Result is the following: ")
-print("Loss: ", results["loss"], ", WER: ", results["wer"], ", CER: ", results["cer"])
-print(results["predictions"])
-print(results["ground_truths"])
+print("Loss: ", results["loss"], ", WER: ", results["wer"], ", CER: ", results["cer"], "SemDist: ", results["semdist"])

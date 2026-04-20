@@ -3,6 +3,9 @@ from multi_speaker_asr.collator import Collator
 from multi_speaker_asr.data import Data
 from torch.utils.data import DataLoader
 from torchmetrics.text import WordErrorRate, CharErrorRate
+from multi_speaker_asr.utils.utils import compute_cosine_sim
+from speechbrain.utils.metric_stats import MetricStats
+
 
 def evaluate(model, processor, device, dataset):
     model.eval()
@@ -11,6 +14,8 @@ def evaluate(model, processor, device, dataset):
     wer.to(device)
     cer = CharErrorRate()
     cer.to(device)
+
+    semdist = MetricStats(metric=compute_cosine_sim)
 
     collator_fn = Collator(processor)
     """
@@ -34,6 +39,7 @@ def evaluate(model, processor, device, dataset):
             input_features = batch["input_features"].to(device)
             labels = batch["labels"].to(device)
             attention_mask = batch["attention_mask"].to(device)
+            ids = batch["ids"] # for calculating semdist metric using speechbrain library
 
             outputs = model(
                 input_features,
@@ -62,6 +68,8 @@ def evaluate(model, processor, device, dataset):
             wer.update(preds=pred_transcripts, target=transcripts)
             cer.update(preds=pred_transcripts, target=transcripts)
 
+            semdist.append(ids=ids, preds=pred_transcripts, targets=transcripts)
+
             # Save predicted and actual transcripts for later check:
             all_predictions.append(pred_transcripts)
             all_transcripts.append(transcripts)
@@ -70,11 +78,13 @@ def evaluate(model, processor, device, dataset):
     avg_loss = total_loss / len(dataloader)
     wer_final = wer.compute()
     cer_final = cer.compute()
+    semdist_avg = semdist.summarize()
 
     return {
         "loss": avg_loss.item(),
         "wer": wer_final.item(),
         "cer": cer_final.item(),
+        "semdist": semdist_avg,
         "predictions": all_predictions,
         "ground_truths": all_transcripts 
     }

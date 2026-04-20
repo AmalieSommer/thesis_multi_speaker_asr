@@ -7,6 +7,7 @@ class Collator:
 
         audio = [item["audio"].squeeze(0).numpy() for item in batch]
         transcript = [item["text"] for item in batch]
+        ids = [item["id"] for item in batch]
 
         inputs = self.processor(
             audio,
@@ -27,5 +28,6 @@ class Collator:
         return {
             "input_features": inputs.input_features,
             "labels": labels,
-            "attention_mask": inputs.attention_mask 
+            "ids": ids,
+            "attention_mask": inputs.attention_mask
         }

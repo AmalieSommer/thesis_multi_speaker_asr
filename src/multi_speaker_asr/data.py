@@ -59,13 +59,16 @@ class Data(Dataset):
 
         if sr != self.target_sr:
             wav = torchaudio.functional.resample(waveform=wav, orig_freq=sr, new_freq=self.target_sr)
+        
+        sample_id = [value for key, value in sample.items() if "id" in key][0]
 
 
         return {
             "audio": wav,
             "text": sample["text"],
             "sampling_rate": self.target_sr,
-            "audio_path": audio_path
+            "audio_path": audio_path,
+            "id": sample_id
         }
 
 
