@@ -20,15 +20,13 @@ def compute_cer(pred, target):
 
 
 #TODO: Move BERT to a model class!
-bert_model = SentenceTransformer("sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2")
+#bert_model = SentenceTransformer("sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2")
 
-def compute_cosine_sim(preds, targets):
-    pred_embs = bert_model.encode(preds, convert_to_tensor=True)
-    target_embs = bert_model.encode(targets, convert_to_tensor=True)
-    similarity = cosine_similarity(pred_embs, target_embs)
-    return 1 - similarity
+def compute_cosine_sim(pred_embeddings, target_embeddings):
+    return 1 - cosine_similarity(pred_embeddings, target_embeddings)
 
 
 def compute_ember(pred_emb, target_emb):
 
     return None
+

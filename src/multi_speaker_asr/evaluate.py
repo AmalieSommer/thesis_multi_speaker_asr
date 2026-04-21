@@ -7,8 +7,10 @@ from multi_speaker_asr.utils.utils import compute_cosine_sim
 from speechbrain.utils.metric_stats import MetricStats
 
 
-def evaluate(model, processor, device, dataset):
-    model.eval()
+def evaluate(whisper, dataset, bert):
+    whisper.eval()
+
+    device = whisper.device
 
     wer = WordErrorRate()
     wer.to(device)
@@ -16,12 +18,11 @@ def evaluate(model, processor, device, dataset):
     cer.to(device)
 
     semdist = MetricStats(metric=compute_cosine_sim)
-
-    collator_fn = Collator(processor)
+    collator_fn = Collator(whisper.processor)
 
     dataloader = DataLoader(
         dataset=dataset,
-        batch_size=24,
+        batch_size=4,
         collate_fn=collator_fn
     )
 
@@ -45,38 +46,46 @@ def evaluate(model, processor, device, dataset):
             attention_mask = batch["attention_mask"].to(device)
             ids = batch["ids"] # for calculating semdist metric using speechbrain library
 
-            outputs = model(
-                input_features,
-                labels
+            outputs = whisper(
+                input_features=input_features, 
+                labels=labels,
             )
 
-            loss = outputs["loss"]
+            loss = outputs["loss"].item()
             total_loss += loss # Saves cross-entropy loss
 
             print("Batch loss: ", loss)
 
-            pred_ids = model.model.generate(
-                input_features=input_features,
-                attention_mask=attention_mask,
-                task="transcribe",
-                language="da"
-                )
-            pred_transcripts = processor.batch_decode(
+            pred_ids = whisper.generate(input_features=input_features, attention_mask=attention_mask)
+            pred_transcripts = whisper.processor.batch_decode(
                 pred_ids,
                 skip_special_tokens=True
             )
 
-            labels[labels == -100] = processor.tokenizer.pad_token_id
-            transcripts = processor.batch_decode(
+            labels[labels == -100] = whisper.processor.tokenizer.pad_token_id
+            transcripts = whisper.processor.batch_decode(
                 labels,
                 skip_special_tokens=True
             )
 
+            #print("AFTER RUNNING GENERATE FUNCTION...")
             wer.update(preds=pred_transcripts, target=transcripts)
             cer.update(preds=pred_transcripts, target=transcripts)
 
-            semdist.append(ids=ids, preds=pred_transcripts, targets=transcripts)
+            encoded_pred_transcripts = bert.tokenizer(pred_transcripts, padding=True, truncation=True, return_tensors='pt')
+            encoded_target_transcripts = bert.tokenizer(transcripts, padding=True, truncation=True, return_tensors='pt')
 
+            pred_transcripts_embeddings = bert(
+                input_ids=encoded_pred_transcripts.input_ids.to(device),
+                attention_mask=encoded_pred_transcripts.attention_mask.to(device)
+            )
+            transcripts_embeddings = bert(
+                input_ids=encoded_target_transcripts.input_ids.to(device),
+                attention_mask=encoded_target_transcripts.attention_mask.to(device)
+            )
+            #print("AFTER RUNNING BERT AND GETTING THE SENTENCE EMBEDDINGS...")
+            semdist.append(ids=ids, pred_embeddings=pred_transcripts_embeddings, target_embeddings=transcripts_embeddings)
+            #print("AFTER CALCULATING SEMDIST METRIC...")
             # Save predicted and actual transcripts for later check:
             all_predictions.append(pred_transcripts)
             all_transcripts.append(transcripts)
@@ -88,7 +97,7 @@ def evaluate(model, processor, device, dataset):
     semdist_avg = semdist.summarize()
 
     return {
-        "loss": avg_loss.item(),
+        "loss": avg_loss,
         "wer": wer_final.item(),
         "cer": cer_final.item(),
         "semdist": semdist_avg,

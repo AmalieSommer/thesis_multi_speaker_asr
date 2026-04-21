@@ -2,6 +2,7 @@ import torch
 from multi_speaker_asr.evaluate import evaluate
 from multi_speaker_asr.models.whisper import WhisperBase
 from multi_speaker_asr.data import Data
+from multi_speaker_asr.models.bert import BERT
 
 import json
 import argparse
@@ -18,17 +19,17 @@ args = parser.parse_args()
 
 data = "data/" + args.data_path
 
-whisper = WhisperBase("openai/whisper-tiny")
+bert = BERT("sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2")
+whisper = WhisperBase("openai/whisper-small")
 dataset = Data(
     local_data=True,
     data_path=data,
     metadata=args.metadata_path
     )
 results = evaluate(
-    model=whisper,
-    processor=whisper.processor,
-    device=whisper.device,
-    dataset=dataset
+    whisper=whisper,
+    dataset=dataset,
+    bert=bert
 )
 
 file_path = "src/multi_speaker_asr/results/" + args.output

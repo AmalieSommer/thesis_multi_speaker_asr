@@ -38,6 +38,14 @@ class WhisperBase(nn.Module):
             ).to(self.device)
 
 
+    def generate(self, input_features, attention_mask):
+        return self.model.generate(
+                input_features=input_features,
+                attention_mask=attention_mask,
+                task="transcribe",
+                language="da",
+                )
+
 
     def forward(self, input_features, labels=None):
         """Defines the models forward pass"""
