@@ -9,16 +9,23 @@ class Data(Dataset):
     """
     Data wrapper class to load either local or Huggingface datasets. Perform preprocessing, resampling and formatting as preparation for model training and inference.
     """
-    def __init__(self, local_data=True, data_path=None, metadata=None, target_sr=16000):
+    def __init__(self, temp_file=False, data_path=None, metadata=None, target_sr=16000):
         super().__init__()
         self.data_path = data_path
         self.metadata = metadata
         self.target_sr = target_sr
 
         # Load data into memory
-        if local_data:
+        if temp_file:
+            self.load_temp()
+        else:
             self.load()
 
+
+    def load_temp(self):
+        with open(self.data_path, "r") as file:
+            for line in file:
+                self.datasamples.append(json.loads(line))
 
 
     def load(self):

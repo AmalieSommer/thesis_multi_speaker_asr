@@ -6,6 +6,10 @@ from torchmetrics.text import WordErrorRate, CharErrorRate
 from multi_speaker_asr.utils.utils import compute_cosine_sim
 from speechbrain.utils.metric_stats import MetricStats
 
+import os
+import tempfile
+import json
+
 
 def evaluate(whisper, dataset, bert):
     whisper.eval()
@@ -68,6 +72,22 @@ def evaluate(whisper, dataset, bert):
                 skip_special_tokens=True
             )
 
+
+            with tempfile.TemporaryDirectory() as tempDir:
+                path = os.path.join(tempDir, "whisper_output.jsonl")
+                with open(path, "w") as f:
+                    
+                    for i in range(len(pred_transcripts)):
+                        data = {
+                            "id": ids[i],
+                            "prediction": pred_transcripts[i],
+                            "transcripts": transcripts[i]
+                        }
+                        json_str = json.dumps(data, indent=4)
+                        f.write(json_str)
+
+
+"""
             #print("AFTER RUNNING GENERATE FUNCTION...")
             wer.update(preds=pred_transcripts, target=transcripts)
             cer.update(preds=pred_transcripts, target=transcripts)
@@ -86,6 +106,7 @@ def evaluate(whisper, dataset, bert):
             #print("AFTER RUNNING BERT AND GETTING THE SENTENCE EMBEDDINGS...")
             semdist.append(ids=ids, pred_embeddings=pred_transcripts_embeddings, target_embeddings=transcripts_embeddings)
             #print("AFTER CALCULATING SEMDIST METRIC...")
+
             # Save predicted and actual transcripts for later check:
             all_predictions.append(pred_transcripts)
             all_transcripts.append(transcripts)
@@ -104,3 +125,93 @@ def evaluate(whisper, dataset, bert):
         "predictions": all_predictions,
         "ground_truths": all_transcripts 
     }
+"""
+
+def compute_eval(bert, dataset):
+    bert.eval()
+
+    device = bert.device
+    dataloader = DataLoader(
+        dataset=dataset,
+        batch_size=24,
+        shuffle=False,
+        collate_fn=lambda item: item
+    )
+
+    with torch.no_grad():
+        for batch in dataloader:
+            ids = batch["ids"]
+            pred_transcripts = batch["predictions"]
+            transcripts = batch["transcripts"]
+
+    return
+
+
+
+
+def compute_transcripts(whisper, dataset):
+    whisper.eval()
+
+    device = whisper.device
+    collator_fn = Collator(whisper.processor)
+
+    dataloader = DataLoader(
+        dataset=dataset,
+        batch_size=4,
+        collate_fn=collator_fn
+    )
+
+    print("Dataloader created...")
+
+    total_loss = 0
+    iter = 0
+
+    with torch.no_grad():
+        print("Starting batch evaluation...")
+        for batch in dataloader:
+            iter += 1
+
+            print("Running batch iteration: ", iter)
+
+            input_features = batch["input_features"].to(device)
+            labels = batch["labels"].to(device)
+            attention_mask = batch["attention_mask"].to(device)
+            ids = batch["ids"] # for calculating semdist metric using speechbrain library
+
+            outputs = whisper(
+                input_features=input_features, 
+                labels=labels,
+            )
+
+            loss = outputs["loss"].item()
+            total_loss += loss # Saves cross-entropy loss
+
+            print("Batch loss: ", loss)
+
+            pred_ids = whisper.generate(input_features=input_features, attention_mask=attention_mask)
+            pred_transcripts = whisper.processor.batch_decode(
+                pred_ids,
+                skip_special_tokens=True
+            )
+
+            labels[labels == -100] = whisper.processor.tokenizer.pad_token_id
+            transcripts = whisper.processor.batch_decode(
+                labels,
+                skip_special_tokens=True
+            )
+
+
+            with tempfile.TemporaryDirectory() as tempDir:
+                path = os.path.join(tempDir, "whisper_output.jsonl")
+                with open(path, "w") as f:
+                    
+                    for i in range(len(pred_transcripts)):
+                        data = {
+                            "ids": ids[i],
+                            "predictions": pred_transcripts[i],
+                            "transcripts": transcripts[i]
+                        }
+                        json_str = json.dumps(data, indent=4)
+                        f.write(json_str)
+
+        return path

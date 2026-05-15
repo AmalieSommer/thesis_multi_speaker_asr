@@ -25,6 +25,8 @@ class Collator:
 
         labels[labels == self.processor.tokenizer.pad_token_id] = -100
 
+        print("Inside Collator... Inputs: ", inputs.input_features)
+
         return {
             "input_features": inputs.input_features,
             "labels": labels,
