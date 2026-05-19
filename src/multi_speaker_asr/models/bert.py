@@ -5,7 +5,7 @@ import transformers
 from transformers import AutoTokenizer, AutoModel
 
 class BERT(nn.Module):
-
+    """BERT Model for creating embeddings to be used with semantic evaluations (e.g. SemDist)"""
     def __init__(self, model_name, pooling="cls"):
         super().__init__()
         #self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
