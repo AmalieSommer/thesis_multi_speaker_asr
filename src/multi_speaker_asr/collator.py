@@ -8,6 +8,7 @@ class Collator:
         audio = [item["audio"].squeeze(0).numpy() for item in batch]
         transcript = [item["text"] for item in batch]
         ids = [item["id"] for item in batch]
+        audiopath = [item['audio_path'] for item in batch]
 
         inputs = self.processor(
             audio,

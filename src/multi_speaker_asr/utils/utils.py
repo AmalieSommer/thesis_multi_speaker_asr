@@ -1,5 +1,4 @@
 from torchmetrics.text import WordErrorRate, CharErrorRate
-from sentence_transformers import SentenceTransformer
 from torch.nn.functional import cosine_similarity
 from difflib import SequenceMatcher
 

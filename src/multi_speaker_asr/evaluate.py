@@ -1,14 +1,89 @@
 import torch
-from multi_speaker_asr.collator import Collator
-from multi_speaker_asr.data import Data
 from torch.utils.data import DataLoader
 from torchmetrics.text import WordErrorRate, CharErrorRate
-from multi_speaker_asr.utils.utils import compute_cosine_sim
+from utils.utils import compute_cosine_sim
 from speechbrain.utils.metric_stats import MetricStats
-
 import os
 import tempfile
 import json
+import soundfile as sf
+import io
+
+
+def collator_fn(batch):
+    audio = []
+    text = []
+    ids = []
+    for item in batch:
+        bytes = item["audio"]['bytes']
+        audio_bytes = io.BytesIO(bytes)
+        audio.append(audio_bytes)
+        text.append(item['text'])
+        ids.append(item['id_conversation'])
+
+    return {
+        'audio': audio,
+        'text': text,
+        'ids': ids
+    }
+
+def inference(whisper, dataset, bert):
+    device = whisper.device
+
+    wer = WordErrorRate()
+    wer.to(device)
+    cer = CharErrorRate()
+    cer.to(device)
+
+    all_predictions = []
+    all_transcripts = []
+
+    semdist = MetricStats(metric=compute_cosine_sim)
+    dataloader = DataLoader(
+        dataset=dataset,
+        batch_size=1,
+        collate_fn=collator_fn
+    )
+
+    for batch in dataloader:
+        target_text = batch['text'][0]
+        segments, _ = whisper.model.transcribe(batch['audio'][0], without_timestamps=True)
+        segments = [item.text for item in segments]
+        transcript = " ".join(segments)
+        print(f'Pred: {transcript}, Target: {target_text}')
+
+        wer.update(preds=transcript, target=target_text)
+        cer.update(preds=transcript, target=target_text)
+
+        encoded_pred_transcripts = bert.tokenizer(transcript, padding=True, truncation=True, return_tensors='pt')
+        encoded_target_transcripts = bert.tokenizer(target_text, padding=True, truncation=True, return_tensors='pt')
+
+        pred_transcripts_embeddings = bert(
+            input_ids=encoded_pred_transcripts.input_ids.to(device),
+            attention_mask=encoded_pred_transcripts.attention_mask.to(device)
+        )
+        transcripts_embeddings = bert(
+            input_ids=encoded_target_transcripts.input_ids.to(device),
+            attention_mask=encoded_target_transcripts.attention_mask.to(device)
+        )
+        semdist.append(ids=batch['ids'], pred_embeddings=pred_transcripts_embeddings, target_embeddings=transcripts_embeddings)
+
+        # Save predicted and actual transcripts for later check:
+        all_predictions.append(transcript)
+        all_transcripts.append(target_text)
+
+
+    wer_final = wer.compute()
+    cer_final = cer.compute()
+    semdist_avg = semdist.summarize()
+
+    return {
+        "wer": wer_final.item(),
+        "cer": cer_final.item(),
+        "semdist": semdist_avg,
+        "predictions": all_predictions,
+        "ground_truths": all_transcripts 
+    }
 
 
 def evaluate(whisper, dataset, bert):
@@ -26,7 +101,7 @@ def evaluate(whisper, dataset, bert):
 
     dataloader = DataLoader(
         dataset=dataset,
-        batch_size=4,
+        batch_size=6,
         collate_fn=collator_fn
     )
 
@@ -86,9 +161,6 @@ def evaluate(whisper, dataset, bert):
                         json_str = json.dumps(data, indent=4)
                         f.write(json_str)
 
-
-"""
-            #print("AFTER RUNNING GENERATE FUNCTION...")
             wer.update(preds=pred_transcripts, target=transcripts)
             cer.update(preds=pred_transcripts, target=transcripts)
 
@@ -125,7 +197,6 @@ def evaluate(whisper, dataset, bert):
         "predictions": all_predictions,
         "ground_truths": all_transcripts 
     }
-"""
 
 def compute_eval(bert, dataset):
     bert.eval()
@@ -145,9 +216,6 @@ def compute_eval(bert, dataset):
             transcripts = batch["transcripts"]
 
     return
-
-
-
 
 def compute_transcripts(whisper, dataset):
     whisper.eval()

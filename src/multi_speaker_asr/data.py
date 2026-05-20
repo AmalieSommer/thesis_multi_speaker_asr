@@ -2,68 +2,50 @@ from pathlib import Path
 import json
 import os
 from torch.utils.data import Dataset
-from datasets import load_dataset
-import torchaudio
+from datasets import load_dataset, Audio
+import soundfile as sf
+import librosa
+from omegaconf import DictConfig
+
+
 
 class Data(Dataset):
     """
     Data wrapper class to load either local or Huggingface datasets. Perform preprocessing, resampling and formatting as preparation for model training and inference.
     """
-    def __init__(self, temp_file=False, data_path=None, metadata=None, target_sr=16000):
+    def __init__(self, target_sr=16000):
         super().__init__()
-        self.data_path = data_path
-        self.metadata = metadata
         self.target_sr = target_sr
 
-        # Load data into memory
-        if temp_file:
-            self.load_temp()
-        else:
-            self.load()
 
-
-    def load_temp(self):
-        with open(self.data_path, "r") as file:
-            for line in file:
-                self.datasamples.append(json.loads(line))
-
-
-    def load(self):
+    def load_from_hf(self, config: DictConfig):
         """
-        Loading data from either local path or Huggingface.
+        Loads dataset from Huggingface, without decoding the audio files.
+        This will avoid any need for FFMPEG installation.
         """
-        self.datasamples = []
-        metadata_path = os.path.join(self.data_path, self.metadata)
-        with open(metadata_path, "r") as file:
-            for line in file:
-                self.datasamples.append(json.loads(line))
+        data = load_dataset(path=config.data.path, name=config.data.name, split=config.data.split, streaming=True)
+        data = data.cast_column('audio', Audio(decode=False, sampling_rate=self.target_sr))
+        self.dataset = data
+
+
+    def load_from_local(self, path):
+        """
+        Loads a dataset from a local path.
+        Assumes the dataset can be loaded to a dataset from a metadata.jsonl file.
+        """
+        with open(path, 'r') as file:
+            self.dataset = [json.loads(line) for line in file]
 
 
     def __len__(self) -> int:
         """Return the length of the dataset."""
-        return len(self.datasamples)
+        return len(self.dataset)
 
 
     def __getitem__(self, index: int):
-        """Return a given sample from the dataset."""
-        sample = self.datasamples[index]
-
-        audio_path = os.path.join(self.data_path, sample["audio_filepath"])
-        wav, sr = torchaudio.load(audio_path)
-
-        if sr != self.target_sr:
-            wav = torchaudio.functional.resample(waveform=wav, orig_freq=sr, new_freq=self.target_sr)
+        """Return a given sample from the dataset. (Useful for streaming dataset from HF)"""
+        return self.dataset[index]
         
-        sample_id = [value for key, value in sample.items() if "id" in key][0]
-
-
-        return {
-            "audio": wav,
-            "text": sample["text"],
-            "sampling_rate": self.target_sr,
-            "audio_path": audio_path,
-            "id": sample_id
-        }
 
 
     def preprocess(self, output_folder: Path) -> None:

@@ -1,50 +1,42 @@
 import torch
-from multi_speaker_asr.evaluate import evaluate, compute_transcripts, compute_eval
-from multi_speaker_asr.models.whisper import WhisperBase
-from multi_speaker_asr.data import Data
-from multi_speaker_asr.models.bert import BERT
-
+import os
 import json
-import argparse
-
+from data import Data
+from models.asr import Whisper
+from hydra import initialize, compose
+from evaluate import evaluate, inference
+from models.bert import BERT
 
 device = "cuda" if torch.cuda.is_available() else "cpu"
 print(f"Device: {device}")
 
-parser = argparse.ArgumentParser()
-parser.add_argument("-o", "--output", type=str, required=True)
-parser.add_argument("-data", "--data_path", type=str, required=True)
-parser.add_argument("-metadata", "--metadata_path", type=str, required=True)
-args = parser.parse_args()
-
-data = "data/" + args.data_path
 
 bert = BERT("sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2")
-whisper = WhisperBase("openai/whisper-base")
-dataset = Data(
-    temp_file=False,
-    data_path=data,
-    metadata=args.metadata_path
-    )
-temp_filepath = compute_transcripts(whisper=whisper, dataset=dataset)
-temp_transcripts = Data(
-    temp_file=True,
-    data_path=temp_filepath
-)
+with initialize(version_base=None, config_path='..\\configs'):
+    config_data = compose(config_name='data')
+    config_model = compose(config_name='whisper-base')
 
-results = evaluate(
+print(f'Data config file: {config_data}')
+ds = Data()
+ds.load_from_hf(config=config_data)
+
+print(f'Model config file: {config_model}')
+whisper = Whisper()
+whisper.load(config=config_model)
+
+results = inference(
     whisper=whisper,
-    dataset=dataset,
+    dataset=ds.dataset,
     bert=bert
 )
 
-file_path = "src/multi_speaker_asr/results/" + args.output
+file_path = 'src\\results'
 try:
-    with open(file_path, "w") as f:
+    with open(os.path.join(file_path, 'experiment.json'), "w") as f:
         json.dump(results, f, indent=4)
-    print(f"Successfully saved the results to file: {args.output}")
+    print(f"Successfully saved the results to file")
 except Exception as e:
     print(f"Error saving results to file: {e}")
 
 print("Result is the following: ")
-print("Loss: ", results["loss"], ", WER: ", results["wer"], ", CER: ", results["cer"], "SemDist: ", results["semdist"])
+print("WER: ", results["wer"], ", CER: ", results["cer"], "SemDist: ", results["semdist"])
