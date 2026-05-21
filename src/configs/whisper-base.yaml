@@ -1,4 +1,4 @@
 asr:
-  name: tiny
+  name: small
   device: cpu
   compute_type: int8

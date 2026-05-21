@@ -4,14 +4,15 @@ import json
 from data import Data
 from models.asr import Whisper
 from hydra import initialize, compose
-from evaluate import evaluate, inference
+from evaluate import inference, eval_bert
 from models.bert import BERT
+import ctranslate2
+import gc
 
 device = "cuda" if torch.cuda.is_available() else "cpu"
 print(f"Device: {device}")
+print(f'Supported Compute Types: {ctranslate2.get_supported_compute_types(device)}')
 
-
-bert = BERT("sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2")
 with initialize(version_base=None, config_path='..\\configs'):
     config_data = compose(config_name='data')
     config_model = compose(config_name='whisper-base')
@@ -24,11 +25,27 @@ print(f'Model config file: {config_model}')
 whisper = Whisper()
 whisper.load(config=config_model)
 
-results = inference(
+out = inference(
     whisper=whisper,
-    dataset=ds.dataset,
-    bert=bert
+    ds=ds.dataset
 )
+
+# UNLOAD WHISPER FROM MEMORY
+del whisper
+gc.collect()
+
+# LOAD BERT INTO MEMORY
+bert = BERT("sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2")
+semdist = eval_bert(
+    bert,
+    out['info']
+)
+
+results = {
+    'wer': out['wer'],
+    'cer': out['cer'],
+    'semdist': semdist
+}
 
 file_path = 'src\\results'
 try:
