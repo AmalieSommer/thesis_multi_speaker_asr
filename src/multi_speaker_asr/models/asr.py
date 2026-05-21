@@ -4,7 +4,6 @@ import pickle
 import os
 import torch.nn as nn
 from faster_whisper import WhisperModel, BatchedInferencePipeline
-from whisperx import load_model
 
 
 MODEL_PATH = "src\\saved_models\\asr"
@@ -40,10 +39,9 @@ class Whisper(nn.Module):
         if self.name in cwdir:
             self.model = pickle.load(open(self.name, 'rb')).to(self.device)
         else:
-            model = WhisperModel(
+            self.model = WhisperModel(
                 model_size_or_path=self.name, 
                 device=self.device, 
                 compute_type=self.compute_type,
                 cpu_threads=6)
-            self.model = BatchedInferencePipeline(model=model)
       

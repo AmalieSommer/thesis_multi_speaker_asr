@@ -39,10 +39,9 @@ def inference(whisper, ds):
 
         bytes = item["audio"]['bytes']
         audio_bytes = io.BytesIO(bytes)
-        results = whisper.model.transcribe(audio_bytes, without_timestamps=True, language='da', vad_filter=True)
-        print(f'Results: {results['segments']}')
-        segments = [item.text for item in segments]
-        transcript = " ".join(segments)
+        segments, _ = whisper.model.transcribe(audio_bytes, without_timestamps=True, language='da', vad_filter=True)
+        all_segments = [i.text for i in segments]
+        transcript = " ".join(all_segments)
 
         wer.update(preds=transcript, target=target_text)
         cer.update(preds=transcript, target=target_text)
