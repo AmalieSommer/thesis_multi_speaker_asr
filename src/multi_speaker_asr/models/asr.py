@@ -6,7 +6,7 @@ import torch.nn as nn
 from faster_whisper import WhisperModel, BatchedInferencePipeline
 
 
-MODEL_PATH = "src\\saved_models\\asr"
+MODEL_PATH = "src/saved_models/asr"
 
 class Whisper(nn.Module):
     """
@@ -16,11 +16,11 @@ class Whisper(nn.Module):
     Otherwise, it will load model from local path.
     """
 
-    def __init__(self):
+    def __init__(self, device='cpu'):
         self.model = None
         self.name = None
         self.compute_type = None
-        self.device = 'cpu'
+        self.device = device
 
     def save(self):
         """Will save the compressed models locally to folder; \\saved_models\\asr"""
@@ -34,12 +34,7 @@ class Whisper(nn.Module):
         self.name = config.asr.name
         self.compute_type = config.asr.compute_type
         self.device = config.asr.device
-        
-        cwdir = os.listdir(os.path.join(os.getcwd(), MODEL_PATH))
-        if self.name in cwdir:
-            self.model = pickle.load(open(self.name, 'rb')).to(self.device)
-        else:
-            self.model = WhisperModel(
+        self.model = WhisperModel(
                 model_size_or_path=self.name, 
                 device=self.device, 
                 compute_type=self.compute_type,

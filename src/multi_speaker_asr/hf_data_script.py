@@ -59,7 +59,4 @@ with open(manifest_path, "w", encoding="utf-8") as manifest_file:
         # Write the JSON object as a single line to the .jsonl file
         manifest_file.write(json.dumps(manifest_entry) + "\n")
 
-    
-   
-
 print("Successfully exported audio to FLAC and created manifest.jsonl!")

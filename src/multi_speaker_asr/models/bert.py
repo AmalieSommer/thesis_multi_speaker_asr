@@ -6,10 +6,9 @@ from transformers import AutoTokenizer, AutoModel
 
 class BERT(nn.Module):
     """BERT Model for creating embeddings to be used with semantic evaluations (e.g. SemDist)"""
-    def __init__(self, model_name, pooling="cls"):
+    def __init__(self, model_name, pooling="cls", device='cpu'):
         super().__init__()
-        #self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-        self.device = "cpu"
+        self.device = device
         self.model_name = model_name
         self.pooling = pooling
         self.load() # load model when initialized...
@@ -29,12 +28,5 @@ class BERT(nn.Module):
         hidden_state = outputs.last_hidden_state
 
         if self.pooling == "cls":
-            # using semdist...
             return hidden_state[:, 0]
-        elif self.pooling == "mean":
-            # using ember...
-            mask = attention_mask.unsqueeze(-1).to(self.device)
-            return (hidden_state * mask).sum(dim=1) / mask.sum(dim=1)
-        else:
-            raise ValueError("Invalid pooling type...")
 

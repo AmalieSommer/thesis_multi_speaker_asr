@@ -13,14 +13,14 @@ def compute_wer(pred, target):
     wer = WordErrorRate()
     pred = normalize(pred)
     target = normalize(target)
-    return wer(pred, target)
+    return wer(pred, target).item()
 
 
 def compute_cer(pred, target):
     cer = CharErrorRate()
     pred = normalize(pred)
     target = normalize(target)
-    return cer(pred, target)
+    return cer(pred, target).item()
 
 def normalize(text):
     text = text.lower()
@@ -28,7 +28,8 @@ def normalize(text):
     return text
 
 def compute_cosine_sim(pred_embeddings, target_embeddings):
-    return 1 - cosine_similarity(pred_embeddings, target_embeddings)
+    sim = cosine_similarity(pred_embeddings, target_embeddings).item()
+    return 1 - sim
 
 
 def compute_ember(pred_emb, target_emb):
@@ -36,4 +37,3 @@ def compute_ember(pred_emb, target_emb):
     seq = SequenceMatcher(None, a=pred_emb, b=target_emb)
     substitutions = seq.get_opcodes()
     return substitutions
-
