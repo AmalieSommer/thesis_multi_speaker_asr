@@ -3,7 +3,7 @@ from omegaconf import DictConfig
 import pickle
 import os
 import torch.nn as nn
-from faster_whisper import WhisperModel, BatchedInferencePipeline
+from faster_whisper import WhisperModel
 
 
 MODEL_PATH = "src/saved_models/asr"
