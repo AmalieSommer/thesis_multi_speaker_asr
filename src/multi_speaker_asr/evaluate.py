@@ -1,15 +1,11 @@
 import torch
 
-from torchmetrics.text import WordErrorRate, CharErrorRate
 from .utils.utils import compute_cosine_sim, compute_cer, compute_wer
-from speechbrain.utils.metric_stats import MetricStats
-import os
-import tempfile
-import json
-import soundfile as sf
 import io
 from tqdm import tqdm
 from time import sleep
+from whisperx.alignment import align
+import soundfile as sf
 
 
 def inference(whisper, ds):
@@ -24,6 +20,8 @@ def inference(whisper, ds):
 
         bytes = item["audio"]['bytes']
         audio_bytes = io.BytesIO(bytes)
+
+
         segments, _ = whisper.model.transcribe(audio_bytes, without_timestamps=True, language='da', vad_filter=True)
         all_segments = [i.text for i in segments]
         transcript = " ".join(all_segments)
@@ -45,7 +43,6 @@ def inference(whisper, ds):
 
         sleep(0.01)
 
-    print(info)
     sum_wer = sum(c['wer'] for c in info)
     sum_cer = sum(c['cer'] for c in info)
 
@@ -74,3 +71,28 @@ def eval_bert(bert, info):
         item['semdist'] = score
 
     return info
+
+
+def timestamp_alignment(model, info_item, correct_transcript=None, local_audio=None):
+    """To generate timestamps using forced alignment with the wav2vec2 phoneme model"""
+    if correct_transcript and local_audio: # If using the function to align transcripts with accurate transcripts (non whisper generated)
+        return align(
+            transcript=correct_transcript,
+            model=model.model,
+            align_model_metadata=model.metadata,
+            audio=local_audio,
+            device=model.device
+        )
+    else:
+        bytes = info_item["audio"]['bytes']
+        audio_bytes = io.BytesIO(bytes)
+        wav, sr = sf.read(audio_bytes)
+
+        transcript = info_item['pred']
+        return align(
+            transcript=transcript,
+            model=model.model,
+            align_model_metadata=model.metadata,
+            audio=wav.ravel(),
+            device=model.device
+        )
