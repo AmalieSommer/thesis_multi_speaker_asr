@@ -25,6 +25,7 @@ class Data(Dataset):
         """
         data = load_dataset(path=config.data.path, name=config.data.name, split=config.data.split, streaming=True)
         data = data.cast_column('audio', Audio(decode=False, sampling_rate=self.target_sr))
+
         self.dataset = data
 
 

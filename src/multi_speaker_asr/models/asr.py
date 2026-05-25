@@ -3,12 +3,12 @@ from omegaconf import DictConfig
 import pickle
 import os
 import torch.nn as nn
-from faster_whisper import WhisperModel
+#from faster_whisper import WhisperModel
+from whisperx.asr import WhisperModel
+from whisperx.asr import load_model
 
 
-MODEL_PATH = "src/saved_models/asr"
-
-class Whisper(nn.Module):
+class Whisper:
     """
     A wrapper class for the ASR models.
 
@@ -18,25 +18,18 @@ class Whisper(nn.Module):
 
     def __init__(self, device='cpu'):
         self.model = None
-        self.name = None
-        self.compute_type = None
         self.device = device
-
-    def save(self):
-        """Will save the compressed models locally to folder; \\saved_models\\asr"""
-        if self.model:
-            filename = f'{self.name}.pkl'
-            with open(filename, 'wb') as file:
-                pickle.dump(filename, file)
+        self.threads = 6
 
     def load(self, config: DictConfig):
         """To be called when wanting to instantiate the model"""
-        self.name = config.asr.name
-        self.compute_type = config.asr.compute_type
-        self.device = config.asr.device
-        self.model = WhisperModel(
-                model_size_or_path=self.name, 
-                device=self.device, 
-                compute_type=self.compute_type,
-                cpu_threads=6)
+        self.model = load_model(
+            whisper_arch=config.asr.name,
+            language='da',
+            device=self.device,
+            compute_type=config.asr.compute_type,
+            threads=self.threads
+        )
       
+    def unload(self):
+        self.model = None

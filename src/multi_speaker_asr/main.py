@@ -1,4 +1,3 @@
-import torch
 import os
 import json
 from multi_speaker_asr.data import Data
@@ -9,7 +8,21 @@ from multi_speaker_asr.evaluate import inference, eval_bert, timestamp_alignment
 from multi_speaker_asr.models.bert import BERT
 import ctranslate2
 import gc
-import tempfile
+from multi_speaker_asr.evaluate import inference_asr, inference_align
+import torch
+
+
+# BECAUSE OF PYTORCH LOAD() CHANGE FOR PYTORCH>=2.6
+# Gem den originale load-funktion
+original_torch_load = torch.load
+
+# Lav en modificeret udgave, der altid slår weights_only fra
+def trusted_torch_load(*args, **kwargs):
+    kwargs['weights_only'] = False
+    return original_torch_load(*args, **kwargs)
+
+# Overskriv PyTorchs standardfunktion
+torch.load = trusted_torch_load
 
 
 device = "cuda" if torch.cuda.is_available() else "cpu"
@@ -28,86 +41,51 @@ print(f'Model config file: {config_asr}')
 RESULTS_FILEPATH = 'src/results'
 
 
-def run_asr_inference(filename):
-    ds = Data()
-    ds.load_from_hf(config=config_data)
-
-    whisper = Whisper()
-    whisper.load(config=config_asr)
-    out = inference(
-        whisper=whisper,
-        ds=ds.dataset
-    )
-
-    # UNLOAD WHISPER FROM MEMORY
-    del whisper
-    gc.collect()
-
-    # LOAD BERT INTO MEMORY
-    bert = BERT("sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2")
-    info_updated = eval_bert(
-        bert,
-        out['info']
-    )
-
-    results = {
-        'wer': out['avg_wer'],
-        'cer': out['avg_cer'],
-        'info': info_updated
-    }
-
-    try:
-        with open(os.path.join(RESULTS_FILEPATH, f'{filename}.json'), "w") as f:
-            json.dump(results, f, indent=4)
-        print(f"Successfully saved the results to file")
-    except Exception as e:
-        print(f"Error saving results to file: {e}")
-
-    print("Result is the following: ")
-    print("WER: ", results["wer"], ", CER: ", results["cer"])
-
-    # UNLOAD BERT FROM MEMORY
-    del bert
-    gc.collect()
-
-
-def run_timestamp_alignment(filename):
-    # LOAD PHONEME MODEL INTO MEMORY
-    phoneme = Wav2Vec2()
-    phoneme.load(config=config_phoneme)
-
+def fetch_data(filename):
     # Fetch transcripts from file:
     try:
-        with open(os.path.join(RESULTS_FILEPATH, f'{filename}.json'), "r") as f:
-            data = json.load(f)
+        data = {}
+        with open(os.path.join(RESULTS_FILEPATH, f'{filename}.jsonl'), "r") as file:
+            for line in file:
+                entry = json.loads(line)
+                data.update(entry)
         print(f"Successfully loaded file.")
+        return data
     except Exception as e:
         print(f"Error reading from file: {e}")
 
-    for item in data['info']:
 
-        result = timestamp_alignment(
-            model=phoneme,
-            info=item
-        )
 
-        item['aligned_segments'] = result['segments']
-
+def save_data(result, filename):
     # Update json file with added aligned transcripts:
     try:
-        with open(os.path.join(RESULTS_FILEPATH, f'{filename}.json'), "w") as f:
-            json.dumps(data, f, indent=4)
+        with open(os.path.join(RESULTS_FILEPATH, f'{filename}.jsonl'), "w") as file:
+            for key, value in result.items():
+                json_line = json.dumps({key: value})
+                file.write(json_line + '\n')
         print(f"Successfully updated the file")
     except Exception as e:
         print(f"Error updating the file: {e}")
 
 
+
+def main():
+
+    filename = 'testing_sa_asr'
+    ds = Data()
+    ds.load_from_hf(config=config_data)
+
+    res = inference_asr(ds.dataset, config=config_asr)
+    save_data(result=res, filename=filename)
+
+
+    data_table = fetch_data(filename=filename)
+    updated_res = inference_align(dataset=ds.dataset, config=config_phoneme, res_dict=data_table)
+    save_data(updated_res, filename=filename)
+
 if __name__=='__main__':
-    temp_dir = tempfile.TemporaryDirectory()
-    try:
-        filename = 'testing_sa_asr'
-        run_asr_inference(filename=filename)
-        run_timestamp_alignment(filename=filename)
+    main()
     
-    finally:
-        temp_dir.cleanup()
+
+    
+    

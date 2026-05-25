@@ -1,61 +1,106 @@
-import torch
-
+import numpy as np
 from .utils.utils import compute_cosine_sim, compute_cer, compute_wer
 import io
 from tqdm import tqdm
 from time import sleep
 from whisperx.alignment import align
+from whisperx.types import SingleSegment
 import soundfile as sf
+import torch
+from multi_speaker_asr.models.asr import Whisper
+from multi_speaker_asr.models.alignment import Wav2Vec2
+import gc
 
 
-def inference(whisper, ds):
-    info = []
-    total = 5
-    print('Before for loop...')
-    for iter, item in enumerate(tqdm(ds, total=total)):
-        if iter > total:
-            break
-        target_text = item['text']
-        print(f'For loop: {target_text}')
-
-        bytes = item["audio"]['bytes']
-        audio_bytes = io.BytesIO(bytes)
+def convert_audio(bytes):
+    audio_bytes = io.BytesIO(bytes)
+    wav, _ = sf.read(audio_bytes)
+    audio = wav.astype(np.float32)
+    return audio
 
 
-        segments, _ = whisper.model.transcribe(audio_bytes, without_timestamps=True, language='da', vad_filter=True)
-        all_segments = [i.text for i in segments]
-        transcript = " ".join(all_segments)
 
-        wer = compute_wer(transcript, target_text)
-        cer = compute_cer(transcript, target_text)
+def inference_asr(dataset, config):
+    model = Whisper()
+    model.load(config=config)
 
-        # Save predicted and actual transcripts for later check:
-        info.append({
-            'id_audio': item['id_conversation'],
-            'id_speaker': item['id_speaker'],
-            'age': item['age'],
-            'gender': item['gender'],
-            'pred': transcript,
-            'target': target_text,
-            'wer': wer,
-            'cer': cer
-        })
+    iter = 2
+    try:
+        res_dict = {} # All transcription results to save in a jsonl file
+        for i, sample in enumerate(tqdm(dataset, total=8440)):
+            if i > iter:
+                break
+            id = sample['id_conversation'] # ID of audio file
+            bytes = sample['audio']['bytes']
+            audio = convert_audio(bytes)
+            output = model.model.transcribe(audio=audio, language='da')
+            seg_list = []
+            for segment in output['segments']:
+                item = {
+                    'start': segment['start'],
+                    'end': segment['end'],
+                    'text': segment['text']
+                }
+                seg_list.append(item)
+            res_dict[id] = {
+                'segments': seg_list
+            }
+    finally:
+        # Remove model from memory...
+        model.unload()
+        gc.collect()
+        
+        return res_dict
 
-        sleep(0.01)
 
-    sum_wer = sum(c['wer'] for c in info)
-    sum_cer = sum(c['cer'] for c in info)
 
-    return {
-        "avg_wer": sum_wer / total,
-        "avg_cer": sum_cer / total,
-        "info": info
-    }
+def inference_align(dataset, config, res_dict):
+    model = Wav2Vec2()
+    model.load(config=config)
+    iter = 2
+    model.model.eval()
+    with torch.no_grad():
+        aligned_dict = res_dict.copy()
+        for i, sample in enumerate(tqdm(dataset, total=8440)):
+            if i > iter:
+                break
+            id = sample['id_conversation']
+            obj = res_dict.get(id)
+            print(obj)
+
+            asr_output = []
+            for seg in obj['segments']:
+                asr_output.append(
+                    SingleSegment({
+                        'start': seg['start'],
+                        'end': seg['end'],
+                        'text': seg['text']
+                    })
+                )
+
+            bytes = sample['audio']['bytes']
+            audio = convert_audio(bytes)
+            res = align(
+                transcript=asr_output,
+                model=model.model.float(),
+                align_model_metadata=model.metadata,
+                audio=audio,
+                device=model.device
+            )
+            aligned_dict[id]['aligned'] = res['word_segments']
+
+    # Remove model from memory...
+    model.unload()
+    gc.collect()
+    
+    return aligned_dict
+
+
+
 
 
 def eval_bert(bert, info):
-    for item in info:
-
+    for item in info.values():
         encoded_pred_transcripts = bert.tokenizer(item['pred'], padding=True, truncation=True, return_tensors='pt')
         encoded_target_transcripts = bert.tokenizer(item['target'], padding=True, truncation=True, return_tensors='pt')
 
@@ -72,27 +117,3 @@ def eval_bert(bert, info):
 
     return info
 
-
-def timestamp_alignment(model, info_item, correct_transcript=None, local_audio=None):
-    """To generate timestamps using forced alignment with the wav2vec2 phoneme model"""
-    if correct_transcript and local_audio: # If using the function to align transcripts with accurate transcripts (non whisper generated)
-        return align(
-            transcript=correct_transcript,
-            model=model.model,
-            align_model_metadata=model.metadata,
-            audio=local_audio,
-            device=model.device
-        )
-    else:
-        bytes = info_item["audio"]['bytes']
-        audio_bytes = io.BytesIO(bytes)
-        wav, sr = sf.read(audio_bytes)
-
-        transcript = info_item['pred']
-        return align(
-            transcript=transcript,
-            model=model.model,
-            align_model_metadata=model.metadata,
-            audio=wav.ravel(),
-            device=model.device
-        )
