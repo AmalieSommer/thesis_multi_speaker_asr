@@ -19,7 +19,7 @@ class Whisper:
     def __init__(self, device='cpu'):
         self.model = None
         self.device = device
-        self.threads = 6
+        self.threads = 3
 
     def load(self, config: DictConfig):
         """To be called when wanting to instantiate the model"""

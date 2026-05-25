@@ -25,7 +25,7 @@ class Data(Dataset):
         """
         data = load_dataset(path=config.data.path, name=config.data.name, split=config.data.split, streaming=True)
         data = data.cast_column('audio', Audio(decode=False, sampling_rate=self.target_sr))
-
+        data = data.iter(batch_size=4)
         self.dataset = data
 
 
@@ -48,6 +48,9 @@ class Data(Dataset):
         return self.dataset[index]
         
 
+
+    def delete_dataset(self):
+        self.dataset = None
 
     def preprocess(self, output_folder: Path) -> None:
         """Preprocess the raw data and save it to the output folder."""

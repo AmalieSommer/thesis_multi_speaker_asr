@@ -10,6 +10,9 @@ import torch
 from multi_speaker_asr.models.asr import Whisper
 from multi_speaker_asr.models.alignment import Wav2Vec2
 import gc
+from itertools import islice
+from multi_speaker_asr.data import Data
+
 
 
 def convert_audio(bytes):
@@ -19,17 +22,29 @@ def convert_audio(bytes):
     return audio
 
 
+def iterate_batch(batched_dataset):
+    for batch in batched_dataset:
+        rand_key = list(batch.keys())[0]
+        batch_length = len(batch[rand_key])
 
-def inference_asr(dataset, config):
+        for i in range(batch_length):
+            sample = {key: batch[key][i] for key in batch.keys()}
+            yield sample
+
+
+def inference_asr(asrConfig, dataConfig):
+    dataset = Data()
+    dataset.load_from_hf(config=dataConfig)
     model = Whisper()
-    model.load(config=config)
+    model.load(config=asrConfig)
 
-    iter = 2
+
+    limit = 2
+    batch_iter = iterate_batch(dataset.dataset)
     try:
         res_dict = {} # All transcription results to save in a jsonl file
-        for i, sample in enumerate(tqdm(dataset, total=8440)):
-            if i > iter:
-                break
+        for sample in tqdm(islice(batch_iter, limit), total=limit):
+
             id = sample['id_conversation'] # ID of audio file
             bytes = sample['audio']['bytes']
             audio = convert_audio(bytes)
@@ -46,54 +61,57 @@ def inference_asr(dataset, config):
                 'segments': seg_list
             }
     finally:
-        # Remove model from memory...
         model.unload()
+        dataset.delete_dataset()
         gc.collect()
         
         return res_dict
 
 
 
-def inference_align(dataset, config, res_dict):
+def inference_align(alignConfig, datasetConfig, res_dict):
+    dataset = Data()
+    dataset.load_from_hf(config=datasetConfig)
     model = Wav2Vec2()
-    model.load(config=config)
-    iter = 2
-    model.model.eval()
-    with torch.no_grad():
-        aligned_dict = res_dict.copy()
-        for i, sample in enumerate(tqdm(dataset, total=8440)):
-            if i > iter:
-                break
-            id = sample['id_conversation']
-            obj = res_dict.get(id)
-            print(obj)
-
-            asr_output = []
-            for seg in obj['segments']:
-                asr_output.append(
-                    SingleSegment({
-                        'start': seg['start'],
-                        'end': seg['end'],
-                        'text': seg['text']
-                    })
-                )
-
-            bytes = sample['audio']['bytes']
-            audio = convert_audio(bytes)
-            res = align(
-                transcript=asr_output,
-                model=model.model.float(),
-                align_model_metadata=model.metadata,
-                audio=audio,
-                device=model.device
-            )
-            aligned_dict[id]['aligned'] = res['word_segments']
-
-    # Remove model from memory...
-    model.unload()
-    gc.collect()
+    model.load(config=alignConfig)
     
-    return aligned_dict
+    limit = 2
+    batch_iter = iterate_batch(dataset.dataset)
+    try:
+        model.model.eval()
+        with torch.no_grad():
+            aligned_dict = res_dict.copy()
+            for sample in tqdm(islice(batch_iter, limit), total=limit):
+
+                id = sample['id_conversation']
+                obj = res_dict.get(id)
+
+                asr_output = []
+                for seg in obj['segments']:
+                    asr_output.append(
+                        SingleSegment({
+                            'start': seg['start'],
+                            'end': seg['end'],
+                            'text': seg['text']
+                        })
+                    )
+
+                bytes = sample['audio']['bytes']
+                audio = convert_audio(bytes)
+                res = align(
+                    transcript=asr_output,
+                    model=model.model.float(),
+                    align_model_metadata=model.metadata,
+                    audio=audio,
+                    device=model.device
+                )
+                aligned_dict[id]['aligned'] = res['word_segments']
+    finally:
+        model.unload()
+        dataset.delete_dataset()
+        gc.collect()
+    
+        return aligned_dict
 
 
 

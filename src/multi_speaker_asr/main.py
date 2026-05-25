@@ -1,16 +1,13 @@
 import os
 import json
-from multi_speaker_asr.data import Data
 from multi_speaker_asr.models.asr import Whisper
 from multi_speaker_asr.models.alignment import Wav2Vec2
 from hydra import initialize, compose
-from multi_speaker_asr.evaluate import inference, eval_bert, timestamp_alignment
+from multi_speaker_asr.evaluate import eval_bert
 from multi_speaker_asr.models.bert import BERT
 import ctranslate2
-import gc
 from multi_speaker_asr.evaluate import inference_asr, inference_align
 import torch
-
 
 # BECAUSE OF PYTORCH LOAD() CHANGE FOR PYTORCH>=2.6
 # Gem den originale load-funktion
@@ -24,6 +21,7 @@ def trusted_torch_load(*args, **kwargs):
 # Overskriv PyTorchs standardfunktion
 torch.load = trusted_torch_load
 
+torch.set_num_threads(2) # Experiment a bit to see what it can handle with alignment model
 
 device = "cuda" if torch.cuda.is_available() else "cpu"
 print(f"Device: {device}")
@@ -72,20 +70,13 @@ def save_data(result, filename):
 def main():
 
     filename = 'testing_sa_asr'
-    ds = Data()
-    ds.load_from_hf(config=config_data)
 
-    res = inference_asr(ds.dataset, config=config_asr)
+    res = inference_asr(asrConfig=config_asr, dataConfig=config_data)
     save_data(result=res, filename=filename)
 
-
     data_table = fetch_data(filename=filename)
-    updated_res = inference_align(dataset=ds.dataset, config=config_phoneme, res_dict=data_table)
+    updated_res = inference_align(alignConfig=config_phoneme, datasetConfig=config_data, res_dict=data_table)
     save_data(updated_res, filename=filename)
 
 if __name__=='__main__':
     main()
-    
-
-    
-    
