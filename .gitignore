@@ -1,5 +1,10 @@
 docs/site/
 src/multi_speaker_asr/results
+*.txt
+*.sh
+
+/pyproject.toml
+/uv.lock
 
 # test cache
 manual_test/

@@ -6,9 +6,15 @@ from hydra import initialize, compose
 from multi_speaker_asr.evaluate import eval_bert
 from multi_speaker_asr.models.bert import BERT
 import ctranslate2
-from multi_speaker_asr.evaluate import inference_asr, inference_align
+from multi_speaker_asr.evaluate import inference_asr, inference_align, inference_diarize
 import torch
+import threading
+import time
+import sys
+from tqdm import tqdm
 
+
+tqdm.monitor_interval = 0 # Stops the tqdm from creating monitoring threads causing shutdown-race conditions...
 # BECAUSE OF PYTORCH LOAD() CHANGE FOR PYTORCH>=2.6
 # Gem den originale load-funktion
 original_torch_load = torch.load
@@ -21,7 +27,7 @@ def trusted_torch_load(*args, **kwargs):
 # Overskriv PyTorchs standardfunktion
 torch.load = trusted_torch_load
 
-torch.set_num_threads(2) # Experiment a bit to see what it can handle with alignment model
+torch.set_num_threads(1) # Experiment a bit to see what it can handle with alignment model
 
 device = "cuda" if torch.cuda.is_available() else "cpu"
 print(f"Device: {device}")
@@ -78,5 +84,25 @@ def main():
     updated_res = inference_align(alignConfig=config_phoneme, datasetConfig=config_data, res_dict=data_table)
     save_data(updated_res, filename=filename)
 
+    data_table = fetch_data(filename=filename)
+    final_output = inference_diarize()
+
+
 if __name__=='__main__':
     main()
+
+    print("\nTHREADS BEFORE EXIT:")
+    for t in threading.enumerate():
+        print(
+            f"name={t.name}, "
+            f"daemon={t.daemon}, "
+            f"alive={t.is_alive()}"
+        )
+        print("THREAD:", t)
+        print("TARGET:", getattr(t, "_target", None))
+        print("DAEMON:", t.daemon)
+        print("CLASS:", type(t))
+        print("---")
+
+    sys.stdout.flush()
+    time.sleep(1)

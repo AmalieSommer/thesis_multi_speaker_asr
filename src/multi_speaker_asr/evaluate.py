@@ -12,6 +12,9 @@ from multi_speaker_asr.models.alignment import Wav2Vec2
 import gc
 from itertools import islice
 from multi_speaker_asr.data import Data
+from carbontracker.tracker import CarbonTracker
+from carbontracker import parser
+from multi_speaker_asr.models.diarization import Diarize
 
 
 
@@ -39,11 +42,14 @@ def inference_asr(asrConfig, dataConfig):
     model.load(config=asrConfig)
 
 
-    limit = 2
+    # Add carbon tracking:
+    limit = 4
+    tracker = CarbonTracker(epochs=limit)
     batch_iter = iterate_batch(dataset.dataset)
     try:
         res_dict = {} # All transcription results to save in a jsonl file
         for sample in tqdm(islice(batch_iter, limit), total=limit):
+            tracker.epoch_start()
 
             id = sample['id_conversation'] # ID of audio file
             bytes = sample['audio']['bytes']
@@ -60,7 +66,11 @@ def inference_asr(asrConfig, dataConfig):
             res_dict[id] = {
                 'segments': seg_list
             }
+            tracker.epoch_end()
+
     finally:
+        tracker.stop()
+
         model.unload()
         dataset.delete_dataset()
         gc.collect()
@@ -75,7 +85,7 @@ def inference_align(alignConfig, datasetConfig, res_dict):
     model = Wav2Vec2()
     model.load(config=alignConfig)
     
-    limit = 2
+    limit = 4
     batch_iter = iterate_batch(dataset.dataset)
     try:
         model.model.eval()
@@ -112,6 +122,45 @@ def inference_align(alignConfig, datasetConfig, res_dict):
         gc.collect()
     
         return aligned_dict
+
+
+def inference_diarize(diarizeConfig, datasetConfig, res_dict):
+    dataset = Data()
+    dataset.load_from_hf(config=datasetConfig)
+    diarize = Diarize()
+    diarize.load(config=diarizeConfig)
+
+    limit = 4
+    batch_iter = iterate_batch(dataset.dataset)
+    try:
+        diarize.model.eval()
+        with torch.no_grad():
+            for sample in tqdm(islice(batch_iter, limit), total=limit):
+
+                id = sample['id_conversation']
+                obj = res_dict.get(id)
+
+                bytes = sample['audio']['bytes']
+                audio = convert_audio(bytes)
+                diarization_res = diarize.model(
+                    audio=audio,
+                    min_speakers=1,
+                    max_speakers=2,
+                    return_embeddings=True
+                )
+                aligned_res = res_dict[id]['aligned']
+                speaker_transcripts, speaker_embeddings = diarize.assign_wordlevel_speakers(
+                    diarize_segments=diarization_res,
+                    transcript=aligned_res
+                )
+
+    finally:
+        diarize.unload()
+        dataset.delete_dataset()
+        gc.collect()
+
+
+    
 
 
 
