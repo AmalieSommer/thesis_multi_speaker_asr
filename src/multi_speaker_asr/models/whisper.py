@@ -1,7 +1,6 @@
 from omegaconf import DictConfig
 import torch.nn as nn
 import torch
-import transformers
 from transformers import AutoProcessor, AutoModelForSpeechSeq2Seq
 
 

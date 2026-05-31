@@ -1,18 +1,16 @@
 import numpy as np
-from .utils.utils import compute_cosine_sim, compute_cer, compute_wer
-import io
+#from .utils.utils import compute_cosine_sim
 from tqdm import tqdm
-from time import sleep
-from whisperx.alignment import align
-from whisperx.types import SingleSegment
+#from time import sleep
+#from whisperx.alignment import align
 import torch
 from multi_speaker_asr.models.asr import Whisper
-from multi_speaker_asr.models.alignment import Wav2Vec2
+#from multi_speaker_asr.models.alignment import Wav2Vec2
 import gc
-from itertools import islice
+#from itertools import islice
 from multi_speaker_asr.data import Data
 from carbontracker.tracker import CarbonTracker
-from multi_speaker_asr.models.diarization import Diarize
+#from multi_speaker_asr.models.diarization import Diarize
 from torch.utils.data import DataLoader
 from torch.nn.utils.rnn import pad_sequence
 
@@ -82,9 +80,9 @@ def inference_asr(model_size, compute_type, device, data_path, batch_size):
                 seg_list = []
                 for segment in segments:
                     item = {
-                        'start': segment['start'],
-                        'end': segment['end'],
-                        'text': segment['text']
+                        'start': segment.start,
+                        'end': segment.end,
+                        'text': segment.text
                     }
                     seg_list.append(item)
                 res_dict[id] = {
@@ -101,7 +99,7 @@ def inference_asr(model_size, compute_type, device, data_path, batch_size):
         return res_dict
 
 
-
+"""
 def inference_align(alignConfig, datasetConfig, res_dict):
     dataset = Data()
     dataset.load_from_hf(config=datasetConfig)
@@ -201,3 +199,4 @@ def eval_bert(bert, info):
 
     return info
 
+"""

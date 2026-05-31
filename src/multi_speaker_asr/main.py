@@ -1,19 +1,14 @@
 import os
 import json
 import ctranslate2
-from multi_speaker_asr.evaluate import inference_asr, inference_align, inference_diarize
+from multi_speaker_asr.evaluate import inference_asr
 import torch
 from tqdm import tqdm
-import ctypes
+import logging
 
 
-temp = os.environ.get('LD_LIBRARY_PATH')
-
-print(f'cuDNN version: {torch.backends.cudnn.version()}')
-print(f'torch file: {torch.__file__}')
-print(f'LD Library Path: {temp}')
-c_temp = ctypes.CDLL('libcudnn_ops_infer.so.8')
-print(f'ctypes: {c_temp}')
+print(torch.cuda.is_available())
+print(torch.backends.cudnn.version())
 
 
 tqdm.monitor_interval = 0 # Stops the tqdm from creating monitoring threads causing shutdown-race conditions...
@@ -27,6 +22,9 @@ def trusted_torch_load(*args, **kwargs):
     return original_torch_load(*args, **kwargs)
 # Overskriv PyTorchs standardfunktion
 torch.load = trusted_torch_load
+
+logging.basicConfig()
+logging.getLogger("faster_whisper").setLevel(logging.DEBUG)
 
 RESULTS_FILEPATH = 'src/results'
 DATA_PATH = 'data/en/metadata.csv' # relative to the cwd...
@@ -91,6 +89,11 @@ parser.add_argument('--batchsize', type=int, required=False, help='Determines th
 args = parser.parse_args()
 
 if __name__=='__main__':
+    print(torch.__version__)
+    print(torch.cuda.is_available())
+    print(torch.cuda.device_count())
+    print(torch.cuda.get_device_name(0))
+
     model_size = args.modelsize
     device = args.device
     compute_type = args.computetype

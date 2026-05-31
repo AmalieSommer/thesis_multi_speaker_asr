@@ -1,9 +1,5 @@
-import torch
-import whisperx
-from omegaconf import DictConfig
-import pickle
-import os
-import torch.nn as nn
+#import whisperx
+#from omegaconf import DictConfig
 
 class Wav2Vec2:
     """
@@ -18,7 +14,7 @@ class Wav2Vec2:
         self.device = device
 
 
-    def load(self, config: DictConfig):
+    def load(self, config):
         self.model, self.metadata = whisperx.load_align_model(
             language_code='da',
             model_name=config.alignment.name, 
