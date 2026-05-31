@@ -5,7 +5,6 @@ from tqdm import tqdm
 from time import sleep
 from whisperx.alignment import align
 from whisperx.types import SingleSegment
-import soundfile as sf
 import torch
 from multi_speaker_asr.models.asr import Whisper
 from multi_speaker_asr.models.alignment import Wav2Vec2
@@ -13,64 +12,88 @@ import gc
 from itertools import islice
 from multi_speaker_asr.data import Data
 from carbontracker.tracker import CarbonTracker
-from carbontracker import parser
 from multi_speaker_asr.models.diarization import Diarize
+from torch.utils.data import DataLoader
+from torch.nn.utils.rnn import pad_sequence
+
+
+def collator_fn(batch):
+    """To generate batches of arbitrary size for batched inference"""
+    samples = []
+    batch = list(filter(lambda x: x is not None, batch))
+    if len(batch) == 0:
+        return None
+
+    audio = [torch.from_numpy(item["audio"]) for item in batch if item is not None]
+    audio_t = pad_sequence(audio, batch_first=True)
+    audio_n = []
+    for i in range(len(audio_t)):
+        num_arr = audio_t[i, :].numpy()
+        audio_n.append(num_arr)
+
+    for i, sample in enumerate(batch):
+        if sample is None:
+            continue
+        res = {
+            'uuid': sample['uuid'],
+            'audio_path': sample['audio_path'],
+            'audio': audio_n[i],
+            'transcription': sample['transcription'],
+            'speaker_id': sample["client_id"],
+            'sentence_id': sample["sentence_id"]
+        }
+        samples.append(res)
+
+    if len(samples) == 0:
+        return None
+    
+    return samples
 
 
 
-def convert_audio(bytes):
-    audio_bytes = io.BytesIO(bytes)
-    wav, _ = sf.read(audio_bytes)
-    audio = wav.astype(np.float32)
-    return audio
+def inference_asr(model_size, compute_type, device, data_path, batch_size):
+    dataset = Data(path=data_path)
+    dataset.load()
+    model = Whisper(device=device)
+    model.load(model_size=model_size, compute_type=compute_type)
 
-
-def iterate_batch(batched_dataset):
-    for batch in batched_dataset:
-        rand_key = list(batch.keys())[0]
-        batch_length = len(batch[rand_key])
-
-        for i in range(batch_length):
-            sample = {key: batch[key][i] for key in batch.keys()}
-            yield sample
-
-
-def inference_asr(asrConfig, dataConfig):
-    dataset = Data()
-    dataset.load_from_hf(config=dataConfig)
-    model = Whisper()
-    model.load(config=asrConfig)
-
+    loader = DataLoader(
+        dataset=dataset,
+        batch_size=12,
+        collate_fn=collator_fn
+    )
 
     # Add carbon tracking:
-    limit = 4
-    tracker = CarbonTracker(epochs=limit)
-    batch_iter = iterate_batch(dataset.dataset)
+    tracker = CarbonTracker(epochs=len(dataset))
+    tracker.epoch_start()
     try:
         res_dict = {} # All transcription results to save in a jsonl file
-        for sample in tqdm(islice(batch_iter, limit), total=limit):
-            tracker.epoch_start()
+        for batch in tqdm(loader):
+            if batch is None or None in batch:
+                continue
 
-            id = sample['id_conversation'] # ID of audio file
-            bytes = sample['audio']['bytes']
-            audio = convert_audio(bytes)
-            output = model.model.transcribe(audio=audio, language='da')
-            seg_list = []
-            for segment in output['segments']:
-                item = {
-                    'start': segment['start'],
-                    'end': segment['end'],
-                    'text': segment['text']
+            for sample in batch:
+                if sample is None:
+                    continue
+
+                id = sample['uuid'] # ID of audio file
+                audio_arr = sample['audio']
+                segments, _ = model.model.transcribe(audio=audio_arr, batch_size=batch_size)
+                seg_list = []
+                for segment in segments:
+                    item = {
+                        'start': segment['start'],
+                        'end': segment['end'],
+                        'text': segment['text']
+                    }
+                    seg_list.append(item)
+                res_dict[id] = {
+                    'segments': seg_list
                 }
-                seg_list.append(item)
-            res_dict[id] = {
-                'segments': seg_list
-            }
-            tracker.epoch_end()
 
     finally:
+        tracker.epoch_end()
         tracker.stop()
-
         model.unload()
         dataset.delete_dataset()
         gc.collect()
@@ -158,12 +181,6 @@ def inference_diarize(diarizeConfig, datasetConfig, res_dict):
         diarize.unload()
         dataset.delete_dataset()
         gc.collect()
-
-
-    
-
-
-
 
 
 def eval_bert(bert, info):

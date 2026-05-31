@@ -1,11 +1,5 @@
-import torch
-from omegaconf import DictConfig
-import pickle
-import os
-import torch.nn as nn
-#from faster_whisper import WhisperModel
-from whisperx.asr import WhisperModel
-from whisperx.asr import load_model
+from faster_whisper import WhisperModel
+from faster_whisper import BatchedInferencePipeline
 
 
 class Whisper:
@@ -19,16 +13,16 @@ class Whisper:
     def __init__(self, device='cpu'):
         self.model = None
         self.device = device
-        self.threads = 3
 
-    def load(self, config: DictConfig):
+    def load(self, model_size, compute_type):
         """To be called when wanting to instantiate the model"""
-        self.model = load_model(
-            whisper_arch=config.asr.name,
-            language='da',
+        whisper_model = WhisperModel(
+            model_size_or_path=model_size,
             device=self.device,
-            compute_type=config.asr.compute_type,
-            threads=self.threads
+            compute_type=compute_type
+        )
+        self.model = BatchedInferencePipeline(
+            model=whisper_model
         )
       
     def unload(self):

@@ -1,5 +1,6 @@
 docs/site/
 src/multi_speaker_asr/results
+mozdata/
 *.txt
 *.sh
 

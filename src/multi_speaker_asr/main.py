@@ -1,17 +1,19 @@
 import os
 import json
-from multi_speaker_asr.models.asr import Whisper
-from multi_speaker_asr.models.alignment import Wav2Vec2
-from hydra import initialize, compose
-from multi_speaker_asr.evaluate import eval_bert
-from multi_speaker_asr.models.bert import BERT
 import ctranslate2
 from multi_speaker_asr.evaluate import inference_asr, inference_align, inference_diarize
 import torch
-import threading
-import time
-import sys
 from tqdm import tqdm
+import ctypes
+
+
+temp = os.environ.get('LD_LIBRARY_PATH')
+
+print(f'cuDNN version: {torch.backends.cudnn.version()}')
+print(f'torch file: {torch.__file__}')
+print(f'LD Library Path: {temp}')
+c_temp = ctypes.CDLL('libcudnn_ops_infer.so.8')
+print(f'ctypes: {c_temp}')
 
 
 tqdm.monitor_interval = 0 # Stops the tqdm from creating monitoring threads causing shutdown-race conditions...
@@ -23,26 +25,11 @@ original_torch_load = torch.load
 def trusted_torch_load(*args, **kwargs):
     kwargs['weights_only'] = False
     return original_torch_load(*args, **kwargs)
-
 # Overskriv PyTorchs standardfunktion
 torch.load = trusted_torch_load
 
-torch.set_num_threads(1) # Experiment a bit to see what it can handle with alignment model
-
-device = "cuda" if torch.cuda.is_available() else "cpu"
-print(f"Device: {device}")
-print(f'Supported Compute Types: {ctranslate2.get_supported_compute_types(device)}')
-
-with initialize(version_base=None, config_path='../configs'):
-    config_data = compose(config_name='data')
-    config_asr = compose(config_name='whisper-base')
-    config_phoneme = compose(config_name='wav2vec2')
-
-print(f'Data config file: {config_data}')
-print(f'Model config file: {config_asr}')
-
-
 RESULTS_FILEPATH = 'src/results'
+DATA_PATH = 'data/en/metadata.csv' # relative to the cwd...
 
 
 def fetch_data(filename):
@@ -72,37 +59,51 @@ def save_data(result, filename):
         print(f"Error updating the file: {e}")
 
 
-
-def main():
-
-    filename = 'testing_sa_asr'
-
-    res = inference_asr(asrConfig=config_asr, dataConfig=config_data)
+def exp1(filename, model_size, compute_type, device, batch_size):
+    """Run ASR inference on varying Whisper models under resource constraints"""
+    res = inference_asr(
+        model_size=model_size,
+        compute_type=compute_type,
+        device=device,
+        data_path=DATA_PATH,
+        batch_size=batch_size
+    )
     save_data(result=res, filename=filename)
 
+
+def exp2(filename):
+    """Read output from selected Whisper models from exp1 and run inference on the full SA-ASR pipeline"""
     data_table = fetch_data(filename=filename)
     updated_res = inference_align(alignConfig=config_phoneme, datasetConfig=config_data, res_dict=data_table)
     save_data(updated_res, filename=filename)
 
     data_table = fetch_data(filename=filename)
     final_output = inference_diarize()
+    #TODO Save the final results
 
+
+import argparse
+parser = argparse.ArgumentParser(description='ASR Inference Runs')
+parser.add_argument('--modelsize', type=str, required=True)
+parser.add_argument('--device', type=str, required=True)
+parser.add_argument('--computetype', type=str, required=True)
+parser.add_argument('--batchsize', type=int, required=False, help='Determines the batch size for inference. Defaults to 1. When on CPU keep low 1 to 2, if on GPU try ranges 8 to 16', default=1)
+args = parser.parse_args()
 
 if __name__=='__main__':
-    main()
+    model_size = args.modelsize
+    device = args.device
+    compute_type = args.computetype
+    batch_size = args.batchsize
 
-    print("\nTHREADS BEFORE EXIT:")
-    for t in threading.enumerate():
-        print(
-            f"name={t.name}, "
-            f"daemon={t.daemon}, "
-            f"alive={t.is_alive()}"
-        )
-        print("THREAD:", t)
-        print("TARGET:", getattr(t, "_target", None))
-        print("DAEMON:", t.daemon)
-        print("CLASS:", type(t))
-        print("---")
+    print(f"Device: {device}")
+    print(f'Supported Compute Types: {ctranslate2.get_supported_compute_types(device)}')
 
-    sys.stdout.flush()
-    time.sleep(1)
+    res_filename = f'whisper_{model_size}_{compute_type}_{device}'
+    exp1(
+        filename=res_filename,
+        model_size=model_size,
+        compute_type=compute_type,
+        device=device,
+        batch_size=batch_size
+    )
