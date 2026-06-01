@@ -7,9 +7,6 @@ from tqdm import tqdm
 import logging
 
 
-print(torch.cuda.is_available())
-print(torch.backends.cudnn.version())
-
 
 tqdm.monitor_interval = 0 # Stops the tqdm from creating monitoring threads causing shutdown-race conditions...
 # BECAUSE OF PYTORCH LOAD() CHANGE FOR PYTORCH>=2.6
@@ -23,9 +20,10 @@ def trusted_torch_load(*args, **kwargs):
 # Overskriv PyTorchs standardfunktion
 torch.load = trusted_torch_load
 
-logging.basicConfig()
-logging.getLogger("faster_whisper").setLevel(logging.DEBUG)
+#logging.basicConfig()
+#logging.getLogger("faster_whisper").setLevel(logging.DEBUG)
 
+HPC_DIR_PATH = '/zhome/28/9/151118'
 RESULTS_FILEPATH = 'src/results'
 DATA_PATH = 'data/en/metadata.csv' # relative to the cwd...
 
@@ -85,7 +83,13 @@ parser = argparse.ArgumentParser(description='ASR Inference Runs')
 parser.add_argument('--modelsize', type=str, required=True)
 parser.add_argument('--device', type=str, required=True)
 parser.add_argument('--computetype', type=str, required=True)
-parser.add_argument('--batchsize', type=int, required=False, help='Determines the batch size for inference. Defaults to 1. When on CPU keep low 1 to 2, if on GPU try ranges 8 to 16', default=1)
+parser.add_argument('--batchsize',
+                     type=int, 
+                     required=False,
+                      default=1, 
+                     help='Determines the batch size for inference. Defaults to 1. When on CPU keep low 1 to 2, if on GPU try ranges 8 to 16'
+                     )
+parser.add_argument('--path', type=str, required=True) # For running on HPC set this to the complete directory path
 args = parser.parse_args()
 
 if __name__=='__main__':

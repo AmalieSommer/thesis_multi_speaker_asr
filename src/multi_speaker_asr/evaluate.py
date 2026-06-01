@@ -57,7 +57,7 @@ def inference_asr(model_size, compute_type, device, data_path, batch_size):
 
     loader = DataLoader(
         dataset=dataset,
-        batch_size=12,
+        batch_size=8,
         collate_fn=collator_fn
     )
 
