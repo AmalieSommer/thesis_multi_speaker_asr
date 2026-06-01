@@ -3,6 +3,7 @@ src/results
 mozdata/
 *.txt
 *.sh
+*.ipynb
 
 /pyproject.toml
 /uv.lock
