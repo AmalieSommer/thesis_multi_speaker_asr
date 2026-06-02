@@ -5,8 +5,10 @@ from multi_speaker_asr.evaluate import inference_asr
 import torch
 from tqdm import tqdm
 import logging
+from dotenv import load_dotenv
+import yaml
 
-
+load_dotenv()
 
 tqdm.monitor_interval = 0 # Stops the tqdm from creating monitoring threads causing shutdown-race conditions...
 # BECAUSE OF PYTORCH LOAD() CHANGE FOR PYTORCH>=2.6
@@ -20,19 +22,16 @@ def trusted_torch_load(*args, **kwargs):
 # Overskriv PyTorchs standardfunktion
 torch.load = trusted_torch_load
 
-#logging.basicConfig()
-#logging.getLogger("faster_whisper").setLevel(logging.DEBUG)
 
-HPC_DIR_PATH = '/zhome/28/9/151118'
-RESULTS_FILEPATH = 'src/results'
-DATA_PATH = 'data/en/metadata.csv' # relative to the cwd...
+DATA_PATH = '/zhome/28/9/151118/thesis/thesis_multi_speaker_asr/data' # relative to the cwd...
+RESULT_PATH = '/zhome/28/9/151118/thesis/thesis_multi_speaker_asr/src/results'
 
 
 def fetch_data(filename):
     # Fetch transcripts from file:
     try:
         data = {}
-        with open(os.path.join(RESULTS_FILEPATH, f'{filename}.jsonl'), "r") as file:
+        with open(os.path.join(RESULT_PATH, f'{filename}.jsonl'), "r") as file:
             for line in file:
                 entry = json.loads(line)
                 data.update(entry)
@@ -46,7 +45,7 @@ def fetch_data(filename):
 def save_data(result, filename):
     # Update json file with added aligned transcripts:
     try:
-        with open(os.path.join(RESULTS_FILEPATH, f'{filename}.jsonl'), "w") as file:
+        with open(os.path.join(RESULT_PATH, f'{filename}.jsonl'), "w") as file:
             for key, value in result.items():
                 json_line = json.dumps({key: value})
                 file.write(json_line + '\n')
@@ -55,16 +54,17 @@ def save_data(result, filename):
         print(f"Error updating the file: {e}")
 
 
-def exp1(filename, model_size, compute_type, device, batch_size):
+def exp1(model_size, compute_type, device, batch_size, cpu_threads):
     """Run ASR inference on varying Whisper models under resource constraints"""
     res = inference_asr(
         model_size=model_size,
         compute_type=compute_type,
         device=device,
         data_path=DATA_PATH,
-        batch_size=batch_size
+        batch_size=batch_size,
+        cpu_threads=cpu_threads
     )
-    save_data(result=res, filename=filename)
+    return res
 
 
 def exp2(filename):
@@ -80,37 +80,55 @@ def exp2(filename):
 
 import argparse
 parser = argparse.ArgumentParser(description='ASR Inference Runs')
+parser.add_argument('--config', type=str, required=True)
+
+
+def load_config(filepath):
+    with open(filepath, 'r') as file:
+        return yaml.safe_load(file)
+
+
+"""
 parser.add_argument('--modelsize', type=str, required=True)
 parser.add_argument('--device', type=str, required=True)
 parser.add_argument('--computetype', type=str, required=True)
 parser.add_argument('--batchsize',
                      type=int, 
                      required=False,
-                      default=1, 
+                      default=2, # same as in faster-whisper documentation 
                      help='Determines the batch size for inference. Defaults to 1. When on CPU keep low 1 to 2, if on GPU try ranges 8 to 16'
                      )
-parser.add_argument('--path', type=str, required=True) # For running on HPC set this to the complete directory path
+parser.add_argument('--filename', type=str, required=True) # The filename for the result
+parser.add_argument('--threads', type=str, required=True, default=1, help='Should be equal to the number of CPU cores.')
+"""
+
 args = parser.parse_args()
 
-if __name__=='__main__':
-    print(torch.__version__)
-    print(torch.cuda.is_available())
-    print(torch.cuda.device_count())
-    print(torch.cuda.get_device_name(0))
 
+if __name__=='__main__':
+
+    config = load_config(args.config)
+    result = exp1(
+        model_size=config['modelsize'],
+        compute_type=config['computetype'],
+        device=config['device'],
+        batch_size=int(config['batchsize']),
+        cpu_threads=int(config['threads'])
+    )
+
+    save_data(result=result, filename=config['filename'])
+
+
+"""
     model_size = args.modelsize
     device = args.device
     compute_type = args.computetype
     batch_size = args.batchsize
+    filename = args.filename
+    threads = args.threads
 
     print(f"Device: {device}")
     print(f'Supported Compute Types: {ctranslate2.get_supported_compute_types(device)}')
-
-    res_filename = f'whisper_{model_size}_{compute_type}_{device}'
-    exp1(
-        filename=res_filename,
-        model_size=model_size,
-        compute_type=compute_type,
-        device=device,
-        batch_size=batch_size
-    )
+"""
+    #res_filename = f'whisper_{model_size}_{compute_type}_{device}'
+    

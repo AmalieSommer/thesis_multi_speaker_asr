@@ -21,7 +21,8 @@ class Data(Dataset):
         Loads a dataset from a local path.
         Assumes the dataset can be loaded to a dataset from a metadata.jsonl file.
         """
-        self.df = pd.read_csv(self.path)
+        path = os.path.join(self.path, 'metadata.csv')
+        self.df = pd.read_csv(path)
         print(self.df.shape)
 
     def __len__(self) -> int:
@@ -33,7 +34,7 @@ class Data(Dataset):
         """Return a given sample from the dataset. (Useful for streaming dataset from HF)"""
         row = self.df.iloc[index]
         audio_path = row['path']
-        path = Path(os.path.join(os.getcwd(), 'data/en/clips', audio_path))
+        path = Path(os.path.join(self.path, 'clips', audio_path))
         try:
             if path.exists():
                 waveform, sr = librosa.load(path=path, sr=self.target_sr)
@@ -42,7 +43,7 @@ class Data(Dataset):
         except Exception as e:
             print(f'Failed with error: {e}')
         return {
-            'uuid': row['uuid'],
+            'id': row['id'],
             'audio_path': audio_path,
             'audio': waveform,
             'samplerate': sr,

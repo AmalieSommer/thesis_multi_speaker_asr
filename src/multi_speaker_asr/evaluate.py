@@ -33,7 +33,7 @@ def collator_fn(batch):
         if sample is None:
             continue
         res = {
-            'uuid': sample['uuid'],
+            'id': sample['id'],
             'audio_path': sample['audio_path'],
             'audio': audio_n[i],
             'transcription': sample['transcription'],
@@ -49,11 +49,11 @@ def collator_fn(batch):
 
 
 
-def inference_asr(model_size, compute_type, device, data_path, batch_size):
+def inference_asr(model_size, compute_type, device, data_path, batch_size, cpu_threads):
     dataset = Data(path=data_path)
     dataset.load()
     model = Whisper(device=device)
-    model.load(model_size=model_size, compute_type=compute_type)
+    model.load(model_size=model_size, compute_type=compute_type, cpu_threads=cpu_threads)
 
     loader = DataLoader(
         dataset=dataset,
@@ -74,7 +74,7 @@ def inference_asr(model_size, compute_type, device, data_path, batch_size):
                 if sample is None:
                     continue
 
-                id = sample['uuid'] # ID of audio file
+                id = sample['id'] # ID of audio file
                 audio_arr = sample['audio']
                 segments, _ = model.model.transcribe(audio=audio_arr, batch_size=batch_size)
                 seg_list = []

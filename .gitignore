@@ -4,6 +4,9 @@ mozdata/
 *.txt
 *.sh
 *.ipynb
+*.out
+*.err
+\configs
 
 /pyproject.toml
 /uv.lock
