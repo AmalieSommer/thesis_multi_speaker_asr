@@ -23,8 +23,10 @@ def trusted_torch_load(*args, **kwargs):
 torch.load = trusted_torch_load
 
 
-DATA_PATH = '/zhome/28/9/151118/thesis/thesis_multi_speaker_asr/data' # relative to the cwd...
-RESULT_PATH = '/zhome/28/9/151118/thesis/thesis_multi_speaker_asr/src/results'
+#DATA_PATH = '/zhome/28/9/151118/thesis/thesis_multi_speaker_asr/data' # relative to the cwd...
+#RESULT_PATH = '/zhome/28/9/151118/thesis/thesis_multi_speaker_asr/src/results'
+DATA_PATH = '/root/master_thesis/thesis_multi_speaker_asr/data' # relative to the cwd...
+RESULT_PATH = '/root/master_thesis/thesis_multi_speaker_asr/src/results'
 
 
 def fetch_data(filename):

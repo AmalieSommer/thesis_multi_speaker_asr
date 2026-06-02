@@ -13,6 +13,7 @@ from carbontracker.tracker import CarbonTracker
 #from multi_speaker_asr.models.diarization import Diarize
 from torch.utils.data import DataLoader
 from torch.nn.utils.rnn import pad_sequence
+import time
 
 
 def collator_fn(batch):
@@ -38,7 +39,8 @@ def collator_fn(batch):
             'audio': audio_n[i],
             'transcription': sample['transcription'],
             'speaker_id': sample["client_id"],
-            'sentence_id': sample["sentence_id"]
+            'sentence_id': sample["sentence_id"],
+            'duration': sample['duration']
         }
         samples.append(res)
 
@@ -71,9 +73,12 @@ def inference_asr(model_size, compute_type, device, data_path, batch_size, cpu_t
                 continue
 
             for sample in batch:
+                # Measure single sample processing time for calculating RTF:
+                start_time = time.time()
+
                 if sample is None:
                     continue
-
+                
                 id = sample['id'] # ID of audio file
                 audio_arr = sample['audio']
                 segments, _ = model.model.transcribe(audio=audio_arr, batch_size=batch_size)
@@ -85,9 +90,14 @@ def inference_asr(model_size, compute_type, device, data_path, batch_size, cpu_t
                         'text': segment.text
                     }
                     seg_list.append(item)
+                processing_time = time.time() - start_time
+                rtf = processing_time / (sample['duration'] / 1000.0) # audio duration is currently in milliseconds
                 res_dict[id] = {
-                    'segments': seg_list
+                    'segments': seg_list,
+                    'rtf': rtf
                 }
+                
+
 
     finally:
         tracker.epoch_end()

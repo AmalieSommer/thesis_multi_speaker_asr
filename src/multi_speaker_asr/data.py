@@ -53,7 +53,7 @@ class Data(Dataset):
             'age': row['age'],
             'gender': row['gender'],
             'accent': row['accents'],
-            'duration': row['duration[ms]']
+            'duration': row['duration']
         }
 
         
