@@ -8,13 +8,15 @@ from multi_speaker_asr.models.asr import Whisper
 #from multi_speaker_asr.models.alignment import Wav2Vec2
 import gc
 #from itertools import islice
-from multi_speaker_asr.data import Data
+from multi_speaker_asr.data import Data, clean_transcription
 from carbontracker.tracker import CarbonTracker
 #from multi_speaker_asr.models.diarization import Diarize
 from torch.utils.data import DataLoader
 from torch.nn.utils.rnn import pad_sequence
 import time
 
+
+END_POINT = 5 # Run 5 batches...
 
 def collator_fn(batch):
     """To generate batches of arbitrary size for batched inference"""
@@ -23,24 +25,14 @@ def collator_fn(batch):
     if len(batch) == 0:
         return None
 
-    audio = [torch.from_numpy(item["audio"]) for item in batch if item is not None]
-    audio_t = pad_sequence(audio, batch_first=True)
-    audio_n = []
-    for i in range(len(audio_t)):
-        num_arr = audio_t[i, :].numpy()
-        audio_n.append(num_arr)
-
     for i, sample in enumerate(batch):
         if sample is None:
             continue
         res = {
             'id': sample['id'],
-            'audio_path': sample['audio_path'],
-            'audio': audio_n[i],
-            'transcription': sample['transcription'],
-            'speaker_id': sample["client_id"],
-            'sentence_id': sample["sentence_id"],
-            'duration': sample['duration']
+            'audio': sample['audio'],
+            'text': sample['text'],
+            'path': sample['path']
         }
         samples.append(res)
 
@@ -59,7 +51,7 @@ def inference_asr(model_size, compute_type, device, data_path, batch_size, cpu_t
 
     loader = DataLoader(
         dataset=dataset,
-        batch_size=8,
+        batch_size=4, # audio is long-form so keeping the data sample batch_sizes smaller
         collate_fn=collator_fn
     )
 
@@ -78,10 +70,12 @@ def inference_asr(model_size, compute_type, device, data_path, batch_size, cpu_t
 
                 if sample is None:
                     continue
-                
+
                 id = sample['id'] # ID of audio file
-                audio_arr = sample['audio']
-                segments, _ = model.model.transcribe(audio=audio_arr, batch_size=batch_size)
+                audio_arr = sample['audio']['array']
+                segments, _ = model.model.transcribe(audio=audio_arr, 
+                                                     batch_size=batch_size,
+                                                     language='en')
                 seg_list = []
                 for segment in segments:
                     item = {
@@ -90,12 +84,22 @@ def inference_asr(model_size, compute_type, device, data_path, batch_size, cpu_t
                         'text': segment.text
                     }
                     seg_list.append(item)
+
+
                 processing_time = time.time() - start_time
-                rtf = processing_time / (sample['duration'] / 1000.0) # audio duration is currently in milliseconds
+                rtf = processing_time / (sample['audio']['duration']) # audio duration is currently in milliseconds
+                
+                lst = [item['text'] for item in seg_list]
+                print(lst)
+                hypothesis = ' '.join(lst)
+                temp = calculate_wer(clean_transcription(sample['text']), clean_transcription(hypothesis))
+                
                 res_dict[id] = {
+                    'wer': temp,
                     'segments': seg_list,
                     'rtf': rtf
                 }
+                print(f'WER: {temp}')
                 
 
 
@@ -108,6 +112,23 @@ def inference_asr(model_size, compute_type, device, data_path, batch_size, cpu_t
         
         return res_dict
 
+
+def calculate_wer(reference, hypothesis):
+	ref_words = reference.split()
+	hyp_words = hypothesis.split()
+
+	# Counting the number of substitutions, deletions, and insertions
+	substitutions = sum(1 for ref, hyp in zip(ref_words, hyp_words) if ref != hyp)
+	deletions = len(ref_words) - len(hyp_words)
+	insertions = len(hyp_words) - len(ref_words)
+
+	# Total number of words in the reference text
+	total_words = len(ref_words)
+
+	# Calculating the Word Error Rate (WER)
+	wer = (substitutions + deletions + insertions) / total_words
+
+	return wer
 
 """
 def inference_align(alignConfig, datasetConfig, res_dict):

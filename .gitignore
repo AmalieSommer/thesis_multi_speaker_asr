@@ -3,7 +3,6 @@ src/results
 mozdata/
 *.txt
 *.sh
-*.ipynb
 *.out
 *.err
 \configs

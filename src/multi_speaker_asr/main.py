@@ -25,7 +25,7 @@ torch.load = trusted_torch_load
 
 #DATA_PATH = '/zhome/28/9/151118/thesis/thesis_multi_speaker_asr/data' # relative to the cwd...
 #RESULT_PATH = '/zhome/28/9/151118/thesis/thesis_multi_speaker_asr/src/results'
-DATA_PATH = '/root/master_thesis/thesis_multi_speaker_asr/data' # relative to the cwd...
+DATA_PATH = '/root/master_thesis/thesis_multi_speaker_asr/data/CORAAL/ATL' # relative to the cwd...
 RESULT_PATH = '/root/master_thesis/thesis_multi_speaker_asr/src/results'
 
 
@@ -62,7 +62,7 @@ def exp1(model_size, compute_type, device, batch_size, cpu_threads):
         model_size=model_size,
         compute_type=compute_type,
         device=device,
-        data_path=DATA_PATH,
+        data_path='amicorpus',
         batch_size=batch_size,
         cpu_threads=cpu_threads
     )

@@ -4,6 +4,28 @@ import os
 import pandas as pd
 import librosa
 from pathlib import Path
+from pandas import DataFrame
+import uuid
+import re
+from num2words import num2words
+
+
+CWD = os.getcwd()
+DATA_PATH = {
+    'coraal': {
+        'metadata': f'{CWD}/data/CORAAL/metadata.csv',
+        'audio': f'{CWD}/data/CORAAL/wav'
+    },
+    'cv': {
+        'metadata': f'{CWD}/data/cv/metadata.csv',
+        'audio': f'{CWD}/data/cv/wav'
+    },
+    'amicorpus': {
+        'metadata': f'{CWD}/data/amicorpus/metadata_4.csv',
+        'audio': f'{CWD}/data/amicorpus/wav'
+    }
+}
+
 
 class Data(Dataset):
     """
@@ -12,7 +34,9 @@ class Data(Dataset):
     def __init__(self, path, target_sr=16000):
         super().__init__()
         self.target_sr = target_sr
-        self.path = path
+
+        datapath = DATA_PATH[path]
+        self.path = datapath
         self.df = None
 
 
@@ -21,8 +45,8 @@ class Data(Dataset):
         Loads a dataset from a local path.
         Assumes the dataset can be loaded to a dataset from a metadata.jsonl file.
         """
-        path = os.path.join(self.path, 'metadata.csv')
-        self.df = pd.read_csv(path)
+        self.df = pd.read_csv(self.path['metadata'])
+        self.preprocess()
         print(self.df.shape)
 
     def __len__(self) -> int:
@@ -33,40 +57,68 @@ class Data(Dataset):
     def __getitem__(self, index: int):
         """Return a given sample from the dataset. (Useful for streaming dataset from HF)"""
         row = self.df.iloc[index]
-        audio_path = row['path']
-        path = Path(os.path.join(self.path, 'clips', audio_path))
-        try:
-            if path.exists():
-                waveform, sr = librosa.load(path=path, sr=self.target_sr)
-            else:
-                raise Exception('Audio path does not exist.')
-        except Exception as e:
-            print(f'Failed with error: {e}')
-        return {
-            'id': row['id'],
-            'audio_path': audio_path,
-            'audio': waveform,
-            'samplerate': sr,
-            'transcription': row['sentence'],
-            'client_id': row['client_id'],
-            'sentence_id': row['sentence_id'],
-            'age': row['age'],
-            'gender': row['gender'],
-            'accent': row['accents'],
-            'duration': row['duration']
-        }
-
+        return row     
+    
         
     def delete_dataset(self):
         self.df = None
 
-    def preprocess(self, output_folder: Path) -> None:
+
+    def preprocess(self) -> None:
         """Preprocess the raw data and save it to the output folder."""
         #TODO: Should iterate through the metadata file and ensure type consistency, e.g. column names and value types to avoid errors...
+        df = self.df.dropna(subset=['text', 'path']) # Removing any rows missing wav files or transcriptions
+        columns = df.columns
+        if 'id' not in columns:
+            # Add a unique identifier (UUID)
+            df['id'] = [str(uuid.uuid4()) for _ in range(len(df))]
+        
+        # Decode audio path to an Audio object containing audio array, sample rate and audio path
+        audio_arr = []
+        for i, row in df.iterrows():
+            audio_path = row['path']
+            path = Path(os.path.join(self.path['audio'], audio_path))
+            try:
+                if path.exists():
+                    waveform, sr = librosa.load(path=path, sr=self.target_sr)
+                    duration = librosa.get_duration(y=waveform, sr=sr)
+                    item = {
+                        'array': waveform,
+                        'samplerate': sr,
+                        'path': path,
+                        'duration': duration
+                    }
+                    audio_arr.append(item)
+                else:
+                    raise Exception(f'Audio path, {path}, does not exist.')
+            except Exception as e:
+                print(f'Failed with error: {e}')
+        df['audio'] = audio_arr
+        
+        # Set the modified dataframe as class param:
+        self.df = df
 
 
-
-def preprocess(data_path: Path, output_folder: Path) -> None:
-    print("Preprocessing data...")
+def clean_transcription(sentence: str):
+    """
+    Function to preprocess the ground truth and predicted transcripts before computing the performance using WER, CER etc...
+    Should standardize the text to lowercase, no punctuations or special characters.
+    It should also map all occurrences of numbers to textual representations using library function.
+    """
+    sentence = str.lower(sentence)
+    sentence = re.sub(r'-(?!\d)', '', sentence)             # Remove - that are not followed by a number
+    sentence = re.sub(r'(?<!\d)\.|\.?(?!\d)', ' ', sentence) # Remove . that are not enclosed by two numbers
+    sentence = re.sub(r'[^\w\s.-]', '', sentence)           # Remove all punctuation except for the - and .
+    sentence = re.sub(' +', ' ', sentence)                  # Replacing all duplicate spaces with single space.
     
+    sentence_copy = str(sentence)
 
+    for s in sentence.split():
+        try: 
+            num = float(s)
+            word_rep = str(num2words(number=num))
+            sentence_copy = sentence_copy.replace(s, word_rep)
+        except ValueError as e:
+            continue
+
+    return sentence_copy    
