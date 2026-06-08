@@ -21,8 +21,8 @@ DATA_PATH = {
         'audio': f'{CWD}/data/cv/wav'
     },
     'amicorpus': {
-        'metadata': f'{CWD}/data/amicorpus/metadata_4.csv',
-        'audio': f'{CWD}/data/amicorpus/wav'
+        'metadata': f'{CWD}/data/amicorpus/metadata.csv',
+        'audio': f'{CWD}/data/amicorpus/test_split'
     }
 }
 
@@ -107,7 +107,7 @@ def clean_transcription(sentence: str):
     """
     sentence = str.lower(sentence)
     sentence = re.sub(r'-(?!\d)', '', sentence)             # Remove - that are not followed by a number
-    sentence = re.sub(r'(?<!\d)\.|\.?(?!\d)', ' ', sentence) # Remove . that are not enclosed by two numbers
+    sentence = re.sub(r'(?<!\d)\.|\.?(?!\d)', '', sentence) # Remove . that are not enclosed by two numbers
     sentence = re.sub(r'[^\w\s.-]', '', sentence)           # Remove all punctuation except for the - and .
     sentence = re.sub(' +', ' ', sentence)                  # Replacing all duplicate spaces with single space.
     

@@ -14,9 +14,9 @@ from carbontracker.tracker import CarbonTracker
 from torch.utils.data import DataLoader
 from torch.nn.utils.rnn import pad_sequence
 import time
+from jiwer import wer
 
 
-END_POINT = 5 # Run 5 batches...
 
 def collator_fn(batch):
     """To generate batches of arbitrary size for batched inference"""
@@ -25,7 +25,7 @@ def collator_fn(batch):
     if len(batch) == 0:
         return None
 
-    for i, sample in enumerate(batch):
+    for _, sample in enumerate(batch):
         if sample is None:
             continue
         res = {
@@ -90,11 +90,11 @@ def inference_asr(model_size, compute_type, device, data_path, batch_size, cpu_t
                 rtf = processing_time / (sample['audio']['duration']) # audio duration is currently in milliseconds
                 
                 lst = [item['text'] for item in seg_list]
-                print(lst)
                 hypothesis = ' '.join(lst)
                 temp = calculate_wer(clean_transcription(sample['text']), clean_transcription(hypothesis))
                 
                 res_dict[id] = {
+                    'path': sample['path'],
                     'wer': temp,
                     'segments': seg_list,
                     'rtf': rtf
@@ -114,21 +114,7 @@ def inference_asr(model_size, compute_type, device, data_path, batch_size, cpu_t
 
 
 def calculate_wer(reference, hypothesis):
-	ref_words = reference.split()
-	hyp_words = hypothesis.split()
-
-	# Counting the number of substitutions, deletions, and insertions
-	substitutions = sum(1 for ref, hyp in zip(ref_words, hyp_words) if ref != hyp)
-	deletions = len(ref_words) - len(hyp_words)
-	insertions = len(hyp_words) - len(ref_words)
-
-	# Total number of words in the reference text
-	total_words = len(ref_words)
-
-	# Calculating the Word Error Rate (WER)
-	wer = (substitutions + deletions + insertions) / total_words
-
-	return wer
+	return wer(reference=reference, hypothesis=hypothesis)
 
 """
 def inference_align(alignConfig, datasetConfig, res_dict):

@@ -33,6 +33,7 @@ dependencies = [
     "ipykernel>=7.2.0",
     "num2words>=0.5.14",
     "pydub>=0.25.1",
+    "jiwer>=4.0.0",
 ]
 
 [dependency-groups]
