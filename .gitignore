@@ -1,11 +1,11 @@
 docs/site/
-src/results
+src/results/
 mozdata/
 *.txt
 *.sh
 *.out
 *.err
-\configs
+src/configs/
 
 /pyproject.toml
 /uv.lock
