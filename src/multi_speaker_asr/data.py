@@ -1,13 +1,10 @@
-from pathlib import Path
 from torch.utils.data import Dataset
 import os
 import pandas as pd
 import librosa
-from pathlib import Path
-from pandas import DataFrame
-import uuid
 import re
 from num2words import num2words
+from memory_profiler import profile
 
 
 CWD = os.getcwd()
@@ -27,76 +24,57 @@ DATA_PATH = {
 }
 
 
-class Data(Dataset):
+class AudioData(Dataset):
     """
     Data wrapper class to load either local or Huggingface datasets. Perform preprocessing, resampling and formatting as preparation for model training and inference.
     """
     def __init__(self, path, target_sr=16000):
         super().__init__()
         self.target_sr = target_sr
-
         datapath = DATA_PATH[path]
-        self.path = datapath
-        self.df = None
-
-
-    def load(self):
-        """
-        Loads a dataset from a local path.
-        Assumes the dataset can be loaded to a dataset from a metadata.jsonl file.
-        """
-        self.df = pd.read_csv(self.path['metadata'])
+        self.audio_path = datapath['audio']
+        self.df = pd.read_csv(datapath['metadata'])
         self.preprocess()
-        print(self.df.shape)
 
     def __len__(self) -> int:
-        """Return the length of the dataset."""
-        return len(self.df)
+        """Return the length of the audio dataset."""
+        return len(self.df['path'].unique())
 
 
     def __getitem__(self, index: int):
-        """Return a given sample from the dataset. (Useful for streaming dataset from HF)"""
-        row = self.df.iloc[index]
-        return row     
+        """Return a given sample from the dataset."""
+        
+        item = self.df.iloc[index]
+        print(f'Get Item: {item}')
+
+        audio_path = os.path.join(self.audio_path, item['path'])
+        wav, sr = librosa.load(path=audio_path, sr=self.target_sr)
+
+        # Check the shape of the array
+        if wav.ndim == 1:
+            print("This is a mono file.")
+        elif wav.ndim == 2:
+            print(f"This is a stereo file with {wav.shape[0]} channels.")
+
+        duration = librosa.get_duration(y=wav, sr=sr)
+        return {
+            'id': item['meeting_id'],
+            'audio': wav,
+            'sr': sr,
+            'duration': duration,
+            'path': item['path']
+        }   
     
         
     def delete_dataset(self):
         self.df = None
 
 
+    #@profile
     def preprocess(self) -> None:
         """Preprocess the raw data and save it to the output folder."""
-        #TODO: Should iterate through the metadata file and ensure type consistency, e.g. column names and value types to avoid errors...
-        df = self.df.dropna(subset=['text', 'path']) # Removing any rows missing wav files or transcriptions
-        columns = df.columns
-        if 'id' not in columns:
-            # Add a unique identifier (UUID)
-            df['id'] = [str(uuid.uuid4()) for _ in range(len(df))]
+        self.df = self.df.dropna(subset=['path']) # Removing any rows missing wav files or transcriptions
         
-        # Decode audio path to an Audio object containing audio array, sample rate and audio path
-        audio_arr = []
-        for i, row in df.iterrows():
-            audio_path = row['path']
-            path = Path(os.path.join(self.path['audio'], audio_path))
-            try:
-                if path.exists():
-                    waveform, sr = librosa.load(path=path, sr=self.target_sr)
-                    duration = librosa.get_duration(y=waveform, sr=sr)
-                    item = {
-                        'array': waveform,
-                        'samplerate': sr,
-                        'path': path,
-                        'duration': duration
-                    }
-                    audio_arr.append(item)
-                else:
-                    raise Exception(f'Audio path, {path}, does not exist.')
-            except Exception as e:
-                print(f'Failed with error: {e}')
-        df['audio'] = audio_arr
-        
-        # Set the modified dataframe as class param:
-        self.df = df
 
 
 def clean_transcription(sentence: str):

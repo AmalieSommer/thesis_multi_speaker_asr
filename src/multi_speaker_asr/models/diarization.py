@@ -1,28 +1,30 @@
-from omegaconf import DictConfig
-from whisperx.diarize import DiarizationPipeline
-from whisperx.diarize import assign_word_speakers
 import pandas as pd
+from pyannote.audio import Pipeline
+
+
+MODEL = {
+    'py3': 'pyannote/speaker-diarization-3.0',
+    'py3.1': 'pyannote/speaker-diarization-3.1',
+    'custom': '' # TODO: implement custom option based on code in evaluate.py
+}
+
 
 class Diarize:
-    def __init__(self, device='cpu'):
+    def __init__(self, device='cpu', pipeline='py3'):
         self.device = device
         self.model = None
+        self.model_path = MODEL[pipeline]
 
     
-    def load(self, config: DictConfig):
-        self.model = DiarizationPipeline(
-            model_name=config.name,
-            device=self.device,
-            use_auth_token=config.hf_token
-        )
+    def load(self, token):
+        self.model = Pipeline.from_pretrained(
+            self.model_path, 
+            use_auth_token=token
+            )
 
-    def assign_wordlevel_speakers(self, diarize_segments, transcript):
-        return assign_word_speakers(
-            diarize_df=diarize_segments,
-            transcript_result=transcript,
-            speaker_embeddings=True
-        )
-    
+    # TODO: Implement speaker assignment given the asr and diarization output...
+    def assign_wordlevel_speakers(self):
+        return None
 
     def unload(self):
         self.model = None

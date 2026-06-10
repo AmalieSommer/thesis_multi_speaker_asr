@@ -17,10 +17,10 @@ class Whisper:
     def load(self, model_size, compute_type, cpu_threads):
         """To be called when wanting to instantiate the model"""
         whisper_model = WhisperModel(
-            model_size,
+            model_size_or_path=model_size,
             device=self.device,
             compute_type=compute_type,
-            cpu_threads=cpu_threads,
+            cpu_threads=int(cpu_threads),
             num_workers=1
         )
         self.model = BatchedInferencePipeline(

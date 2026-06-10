@@ -1,5 +1,4 @@
-#import whisperx
-#from omegaconf import DictConfig
+
 
 class Wav2Vec2:
     """
