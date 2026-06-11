@@ -5,6 +5,8 @@ mozdata/
 *.sh
 *.out
 *.err
+*.ipynb
+*.prof
 src/configs/
 
 /pyproject.toml

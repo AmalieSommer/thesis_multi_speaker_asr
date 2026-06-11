@@ -1,3 +1,4 @@
-defaults: 
-  - asr: whisper-base
-  - alignment: 
+device: 'cpu'
+filename: 'roest_whisper_baseline'
+model: 'roest-whisper'
+data: 'coral'

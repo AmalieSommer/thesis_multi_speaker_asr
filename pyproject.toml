@@ -36,6 +36,7 @@ dependencies = [
     "jiwer>=4.0.0",
     "memory-profiler>=0.61.0",
     "pyannote-audio>=3.4.0",
+    "datasets>=5.0.0"
 ]
 
 [dependency-groups]
