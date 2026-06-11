@@ -5,7 +5,8 @@ import re
 import io
 from num2words import num2words
 from memory_profiler import profile
-from datasets import load_dataset, Audio, Dataset
+from datasets import load_dataset, Audio
+from torch.utils.data import Dataset
 
 
 CWD = os.getcwd()
@@ -41,35 +42,41 @@ class AudioData(Dataset):
     def __init__(self, path, target_sr=16000):
         super().__init__()
         self.target_sr = target_sr
-        data = self.DATA[path]
-        
+        self.path = self.DATA[path]
+        self.df = None
         #datapath = DATA_PATH[path]
         #self.audio_path = datapath['audio']
         #self.df = pd.read_csv(datapath['metadata'])
         #self.preprocess()
 
 
-    def load(self, data_path):
+    def load(self):
+        data_path = self.path
         ds = load_dataset(
             path=data_path['name'],
             name=data_path['type'],
             split=data_path['split'],
             streaming=True
         )
+        
         # Ensure it does not decode audio using torchDecoder
-        self.ds = ds.cast_column('audio', Audio(decode=False))
-        self.ds = ds.rename_column('id_conversation', 'id')
-
+        ds = ds.cast_column('audio', Audio(decode=False))
+        ds = ds.rename_column('id_conversation', 'id')
+        self.ds = ds
+        self.df = ds.to_pandas()
+        print(f'Loaded dataset has shape: {self.df.shape}')
 
 
     def __len__(self) -> int:
         """Return the length of the audio dataset."""
-        return len(self.df['path'].unique())
+        return len(self.df)
 
 
     def __getitem__(self, index: int):
         """Return a given sample from the dataset."""
-        item = self.ds.get(index)
+        print(f'Fetching item: {index}...')
+        #print(f'Fetching item index: {index}')
+        item = self.df.iloc[index]
         bytes_arr = io.BytesIO(item['audio']['bytes'])
         wav, sr = librosa.load(bytes_arr, sr=self.target_sr)
         duration = librosa.get_duration(y=wav, sr=sr)

@@ -11,6 +11,8 @@ from torch.nn.utils.rnn import pad_sequence
 from multi_speaker_asr.models.asr import Whisper
 from multi_speaker_asr.models.diarization import Diarize
 import argparse
+import numpy as np
+
 
 
 
@@ -29,7 +31,7 @@ def trusted_torch_load(*args, **kwargs):
 # Overskriv PyTorchs standardfunktion
 torch.load = trusted_torch_load
 
-
+RESULT_PATH = '/zhome/28/9/151118/thesis/thesis_multi_speaker_asr/src/results'
 
 def fetch_data(filename):
     # Fetch transcripts from file:
@@ -60,6 +62,7 @@ def save_data(result, filename):
 
 
 def load_config():
+    print('Loading config file...')
     parser = argparse.ArgumentParser(description='ASR Inference Runs')
     parser.add_argument('--config', type=str, required=True)
     args = parser.parse_args()
@@ -69,17 +72,14 @@ def load_config():
 
 def collator_fn(batch):
     """To generate batches for batched inference"""
-    for i, item in enumerate(batch):
-        audio = item['audio']
-        audio_arr_length = len(audio)
-        sample = item
-        sample['length'] = audio_arr_length
-        batch[i] = sample # Update the sample with the audio array length
+    print('Refactoring in collator...')    
     return batch
 
 
 def load_data(path):
+    print('Loading data...')
     data = AudioData(path=path)
+    data.load()
     loader = DataLoader(
         dataset=data,
         batch_size=32, # audio is long-form so keeping the data sample batch_sizes smaller
@@ -92,18 +92,16 @@ def load_data(path):
 def main(config):
 
     model = Whisper(device=config['device'])
-    model.load_model(
-        name=config['model']
-    )
-
+    model.load_model(name=config['model'])
     loader = load_data(config['data'])
 
     asr_results = inference_asr(
         loader=loader,
         model=model
     )
+    print(asr_results)
 
-    save_data(asr_results, filename=config['filename'])
+    #save_data(asr_results, filename=config['filename'])
 
     # NOTE FOR LATER:
     # WhisperX library is not compatible with current environment.
@@ -111,6 +109,7 @@ def main(config):
     # Alternatively start with just running faster-whisper .transcribe() with word_timestamps=True and see how that works.
 
     # Call diarization model using Pyannote.audio modules:
+    """"
     pipeline = Diarize()
     pipeline.load(token=HF_TOKEN)
     diarization_results = inference_diarize(
@@ -121,9 +120,10 @@ def main(config):
     
     diarize_filename = 'diarize_' + config['filename']
     save_data(diarization_results, filename=diarize_filename)
-
+    """
     # TODO: Call function for aligning the asr output and speaker segments on timestamps and return one final batched result:
 
 if __name__=='__main__':
+    print('Starting...')
     config = load_config()
     main(config=config)

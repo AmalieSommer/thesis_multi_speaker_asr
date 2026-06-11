@@ -21,6 +21,7 @@ class Whisper:
         self.device = device
 
     def load_model(self, name):
+        print(f'Loading model {name}...')
         model_name = self.MODEL[name]
         self.pipeline = pipeline("automatic-speech-recognition", model=model_name)
 

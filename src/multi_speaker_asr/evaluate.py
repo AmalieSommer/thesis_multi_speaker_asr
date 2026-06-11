@@ -13,6 +13,7 @@ def inference_asr(loader, model):
     # Add carbon tracking:
     tracker = CarbonTracker(epochs=loader.batch_size)
     tracker.epoch_start()
+    print('Starting inference...')
     try:
         results = []
         
@@ -27,7 +28,8 @@ def inference_asr(loader, model):
                                                         language='en',
                                                         word_timestamps=True)
                 """
-                segments = model.pipeline(sample['wav'])
+                output = model.pipeline(sample['wav'])
+                """
                 seg_list = []
                 for segment in segments:
                     item = {
@@ -36,17 +38,18 @@ def inference_asr(loader, model):
                         'text': segment.text
                     }
                     seg_list.append(item)
-
+                """
                 processing_time = time.time() - start_time
                 rtf = processing_time # currently just passes total processing time for full batch
 
                 results.append({
                     'id': sample['id'],
-                    'path': sample['path'],
-                    'segments': seg_list,
+                    'segments': output,
                     'rtf': rtf
                 })
-            
+    except Exception as e:
+        print(f'An error occurred...{e}')
+
     finally:
         tracker.epoch_end()
         tracker.stop()
