@@ -20,6 +20,7 @@ class Whisper:
         self.model = None
         self.device = device
 
+
     def load_model(self, name):
         print(f'Loading model {name}...')
         model_name = self.MODEL[name]
@@ -29,6 +30,7 @@ class Whisper:
 
     def load(self, model_size, compute_type, cpu_threads):
         """To be called when wanting to instantiate the model"""
+        print(f'Loading model {model_size}...')
         whisper_model = WhisperModel(
             model_size_or_path=model_size,
             device=self.device,

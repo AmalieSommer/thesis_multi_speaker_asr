@@ -82,7 +82,7 @@ def load_data(path):
     data.load()
     loader = DataLoader(
         dataset=data,
-        batch_size=32, # audio is long-form so keeping the data sample batch_sizes smaller
+        batch_size=8, # audio is long-form so keeping the data sample batch_sizes smaller
         collate_fn=collator_fn,
         num_workers=0
     )
@@ -92,7 +92,12 @@ def load_data(path):
 def main(config):
 
     model = Whisper(device=config['device'])
-    model.load_model(name=config['model'])
+    model.load(
+        model_size=config['model'],
+        compute_type=config['computetype'],
+        cpu_threads=config['cputhreads']
+    )
+    #model.load_model(name=config['model'])
     loader = load_data(config['data'])
 
     asr_results = inference_asr(

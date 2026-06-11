@@ -190,4 +190,5 @@ cython_debug/
 
 
 # Local data files
+rost-whisper-ct2/model.bin
 data/

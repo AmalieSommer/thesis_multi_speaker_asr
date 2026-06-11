@@ -1,5 +1,4 @@
 from tqdm import tqdm
-from carbontracker.tracker import CarbonTracker
 import time
 from memory_profiler import profile
 import torch
@@ -11,8 +10,6 @@ from pyannote.audio.pipelines.utils.hook import ProgressHook
 def inference_asr(loader, model):
     
     # Add carbon tracking:
-    tracker = CarbonTracker(epochs=loader.batch_size)
-    tracker.epoch_start()
     print('Starting inference...')
     try:
         results = []
@@ -22,14 +19,12 @@ def inference_asr(loader, model):
             print(f'Start time...: {start_time}')
 
             for sample in batch: # Because the batching is done per audio sample for audio longer than 30 secconds, and batching beyond that does not make sense...
-                """
-                segments, _ = model.model.transcribe(audio=sample['audio'], 
-                                                        batch_size=1,
-                                                        language='en',
+
+                segments, _ = model.model.transcribe(audio=sample['wav'], 
+                                                        batch_size=2,
+                                                        language='da',
                                                         word_timestamps=True)
-                """
-                output = model.pipeline(sample['wav'])
-                """
+              
                 seg_list = []
                 for segment in segments:
                     item = {
@@ -38,21 +33,18 @@ def inference_asr(loader, model):
                         'text': segment.text
                     }
                     seg_list.append(item)
-                """
                 processing_time = time.time() - start_time
                 rtf = processing_time # currently just passes total processing time for full batch
 
                 results.append({
                     'id': sample['id'],
-                    'segments': output,
+                    'segments': seg_list,
                     'rtf': rtf
                 })
     except Exception as e:
         print(f'An error occurred...{e}')
 
     finally:
-        tracker.epoch_end()
-        tracker.stop()
         model.unload()
         model = None
         
@@ -62,8 +54,6 @@ def inference_asr(loader, model):
 #@profile
 def inference_diarize(loader, model, batch_size):
 
-    tracker = CarbonTracker(epochs=loader.batch_size)
-    tracker.epoch_start()
     try:
         results = []
         for batch in tqdm(loader):
@@ -97,8 +87,6 @@ def inference_diarize(loader, model, batch_size):
                 })
 
     finally:
-        tracker.epoch_end()
-        tracker.stop()
         model.unload()
         model = None
 

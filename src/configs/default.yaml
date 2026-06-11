@@ -1,4 +1,6 @@
 device: 'cpu'
 filename: 'roest_whisper_baseline'
-model: 'roest-whisper'
+model: 'rost-whisper-ct2'
 data: 'coral'
+computetype: float32
+cputhreads: 6
