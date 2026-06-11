@@ -21,11 +21,13 @@ def inference_asr(loader, model):
             print(f'Start time...: {start_time}')
 
             for sample in batch: # Because the batching is done per audio sample for audio longer than 30 secconds, and batching beyond that does not make sense...
+                """
                 segments, _ = model.model.transcribe(audio=sample['audio'], 
-                                                        batch_size=16,
+                                                        batch_size=1,
                                                         language='en',
                                                         word_timestamps=True)
-                
+                """
+                segments = model.pipeline(sample['wav'])
                 seg_list = []
                 for segment in segments:
                     item = {

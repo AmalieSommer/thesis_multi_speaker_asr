@@ -1,10 +1,11 @@
-from torch.utils.data import Dataset
 import os
 import pandas as pd
 import librosa
 import re
+import io
 from num2words import num2words
 from memory_profiler import profile
+from datasets import load_dataset, Audio, Dataset
 
 
 CWD = os.getcwd()
@@ -28,13 +29,38 @@ class AudioData(Dataset):
     """
     Data wrapper class to load either local or Huggingface datasets. Perform preprocessing, resampling and formatting as preparation for model training and inference.
     """
+
+    DATA = {
+        'coral': {
+            'name': 'CoRal-project/coral-v3',
+            'type': 'conversation',
+            'split': 'test'
+        }
+    }
+
     def __init__(self, path, target_sr=16000):
         super().__init__()
         self.target_sr = target_sr
-        datapath = DATA_PATH[path]
-        self.audio_path = datapath['audio']
-        self.df = pd.read_csv(datapath['metadata'])
-        self.preprocess()
+        data = self.DATA[path]
+        
+        #datapath = DATA_PATH[path]
+        #self.audio_path = datapath['audio']
+        #self.df = pd.read_csv(datapath['metadata'])
+        #self.preprocess()
+
+
+    def load(self, data_path):
+        ds = load_dataset(
+            path=data_path['name'],
+            name=data_path['type'],
+            split=data_path['split'],
+            streaming=True
+        )
+        # Ensure it does not decode audio using torchDecoder
+        self.ds = ds.cast_column('audio', Audio(decode=False))
+        self.ds = ds.rename_column('id_conversation', 'id')
+
+
 
     def __len__(self) -> int:
         """Return the length of the audio dataset."""
@@ -43,28 +69,20 @@ class AudioData(Dataset):
 
     def __getitem__(self, index: int):
         """Return a given sample from the dataset."""
-        
-        item = self.df.iloc[index]
-        print(f'Get Item: {item}')
-
-        audio_path = os.path.join(self.audio_path, item['path'])
-        wav, sr = librosa.load(path=audio_path, sr=self.target_sr)
-
-        # Check the shape of the array
-        if wav.ndim == 1:
-            print("This is a mono file.")
-        elif wav.ndim == 2:
-            print(f"This is a stereo file with {wav.shape[0]} channels.")
-
+        item = self.ds.get(index)
+        bytes_arr = io.BytesIO(item['audio']['bytes'])
+        wav, sr = librosa.load(bytes_arr, sr=self.target_sr)
         duration = librosa.get_duration(y=wav, sr=sr)
+
         return {
-            'id': item['meeting_id'],
-            'audio': wav,
+            'id': item['id'],
+            'wav': wav,
             'sr': sr,
             'duration': duration,
-            'path': item['path']
-        }   
-    
+            'speaker': item['id_speaker'],
+            'text': item['text']
+        }
+   
         
     def delete_dataset(self):
         self.df = None
@@ -100,3 +118,28 @@ def clean_transcription(sentence: str):
             continue
 
     return sentence_copy    
+
+
+
+"""        
+        item = self.df.iloc[index]
+        print(f'Get Item: {item}')
+
+        audio_path = os.path.join(self.audio_path, item['path'])
+        wav, sr = librosa.load(path=audio_path, sr=self.target_sr)
+
+        # Check the shape of the array
+        if wav.ndim == 1:
+            print("This is a mono file.")
+        elif wav.ndim == 2:
+            print(f"This is a stereo file with {wav.shape[0]} channels.")
+
+        duration = librosa.get_duration(y=wav, sr=sr)
+        return {
+            'id': item['meeting_id'],
+            'audio': wav,
+            'sr': sr,
+            'duration': duration,
+            'path': item['path']
+        }   
+""" 

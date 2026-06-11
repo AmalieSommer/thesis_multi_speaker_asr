@@ -30,11 +30,6 @@ def trusted_torch_load(*args, **kwargs):
 torch.load = trusted_torch_load
 
 
-#DATA_PATH = '/zhome/28/9/151118/thesis/thesis_multi_speaker_asr/data' # relative to the cwd...
-#RESULT_PATH = '/zhome/28/9/151118/thesis/thesis_multi_speaker_asr/src/results'
-DATA_PATH = '/root/master_thesis/thesis_multi_speaker_asr/data/CORAAL/ATL' # relative to the cwd...
-RESULT_PATH = '/root/master_thesis/thesis_multi_speaker_asr/src/results'
-
 
 def fetch_data(filename):
     # Fetch transcripts from file:
@@ -87,9 +82,9 @@ def load_data(path):
     data = AudioData(path=path)
     loader = DataLoader(
         dataset=data,
-        batch_size=2, # audio is long-form so keeping the data sample batch_sizes smaller
+        batch_size=32, # audio is long-form so keeping the data sample batch_sizes smaller
         collate_fn=collator_fn,
-        num_workers=1
+        num_workers=0
     )
     return loader
 
@@ -97,11 +92,9 @@ def load_data(path):
 def main(config):
 
     model = Whisper(device=config['device'])
-    model.load(
-        model_size=config['modelsize'], 
-        compute_type=config['computetype'], 
-        cpu_threads=config['threads']
-        )
+    model.load_model(
+        name=config['model']
+    )
 
     loader = load_data(config['data'])
 
