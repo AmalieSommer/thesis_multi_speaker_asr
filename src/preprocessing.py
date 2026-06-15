@@ -16,6 +16,7 @@ from dataclasses import dataclass, asdict
 import dataclasses
 import soundfile as sf
 from warnings import warn
+import csv
 
 
 
@@ -158,8 +159,47 @@ def segments_to_long_conversation(df: pd.DataFrame, map: dict, sr=16000):
     return conversations
 
 
+def create_metadata_csv(dir_name: str, data_dir: str = 'data', segments_filename: str = None):
+    """Unpacks the metadata jsonl file and creates a metadata.csv of the information on the locally generated long-form audio files"""
+    audio_dir = os.path.join(os.getcwd(), data_dir, dir_name)
+    audio_list = os.listdir(path=audio_dir)
+    audio_list = [audio for audio in audio_list if 'wav' in audio] # to filter out files with the wrong format (e.g. json)
+
+    if segments_filename:
+        json_filepath = os.path.join(audio_dir, segments_filename)
+
+    try:
+        data = []
+        with open(json_filepath, "r") as file:
+            for line in file:
+                entry = json.loads(line)
+                
+                data.append({
+                    'id': entry['id'],
+                    'start': entry['start'],
+                    'end': entry['end'],
+                    'path': entry['path'] 
+                })
+        print(f"Successfully loaded file.")
+
+        # Save as a csv file (without the nested segments):
+        csv_filename = os.path.join(audio_dir, 'coral_metadata.csv')
+        with open(csv_filename, mode='w', newline='') as file:
+            headers = ['id', 'start', 'end', 'path']
+            writer = csv.DictWriter(file, fieldnames=headers)
+            writer.writeheader()
+            writer.writerows(data)
+    except Exception as e:
+        print(f"Error reading from file: {e}")
+
+
+
 if __name__=='__main__':
     df = load_data(path=None)
     mappedGroup = generateMap(df=df)
     long_form_audio = segments_to_long_conversation(df=df, map=mappedGroup)
     save_data(filename='conversation_metadata', list=long_form_audio)
+    data = create_metadata_csv(
+        dir_name='coral-v3-long-form-conversations',
+        segments_filename='conversation_metadata_segments.jsonl'
+    )

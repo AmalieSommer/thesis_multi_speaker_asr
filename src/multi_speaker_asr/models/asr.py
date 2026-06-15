@@ -27,7 +27,6 @@ class Whisper:
         self.pipeline = pipeline("automatic-speech-recognition", model=model_name)
 
 
-
     def load(self, model_size, compute_type, cpu_threads):
         """To be called when wanting to instantiate the model"""
         print(f'Loading model {model_size}...')

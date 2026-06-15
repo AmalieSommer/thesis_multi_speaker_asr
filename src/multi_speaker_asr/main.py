@@ -12,26 +12,26 @@ from multi_speaker_asr.models.asr import Whisper
 from multi_speaker_asr.models.diarization import Diarize
 import argparse
 import numpy as np
-
-
-
+import librosa
 
 load_dotenv()
 HF_TOKEN = os.getenv('HF_TOKEN')
 
+
+RESULT_PATH = '/zhome/28/9/151118/thesis/thesis_multi_speaker_asr/src/results'
+
+
+
 tqdm.monitor_interval = 0 # Stops the tqdm from creating monitoring threads causing shutdown-race conditions...
 # BECAUSE OF PYTORCH LOAD() CHANGE FOR PYTORCH>=2.6
-# Gem den originale load-funktion
 original_torch_load = torch.load
 
-# Lav en modificeret udgave, der altid slår weights_only fra
+# Modified function to always trust the download source, setting the weights_only flag to False
 def trusted_torch_load(*args, **kwargs):
     kwargs['weights_only'] = False
     return original_torch_load(*args, **kwargs)
-# Overskriv PyTorchs standardfunktion
 torch.load = trusted_torch_load
 
-RESULT_PATH = '/zhome/28/9/151118/thesis/thesis_multi_speaker_asr/src/results'
 
 def fetch_data(filename):
     # Fetch transcripts from file:
@@ -47,7 +47,6 @@ def fetch_data(filename):
         print(f"Error reading from file: {e}")
 
 
-
 def save_data(result, filename):
     # Update json file with added aligned transcripts:
     try:
@@ -60,7 +59,6 @@ def save_data(result, filename):
         print(f"Error updating the file: {e}")
 
 
-
 def load_config():
     print('Loading config file...')
     parser = argparse.ArgumentParser(description='ASR Inference Runs')
@@ -70,9 +68,15 @@ def load_config():
         return yaml.safe_load(file)
 
 
+
+
 def collator_fn(batch):
-    """To generate batches for batched inference"""
-    print('Refactoring in collator...')    
+    """
+    It should use librosa.stream() to fetch only blocks of the full audio, and create batches based on a predefined length window (e.g. 30sec)
+    So, 
+    """
+    print('Refactoring in collator...')
+    cwd = os.getcwd()
     return batch
 
 
@@ -80,13 +84,15 @@ def load_data(path):
     print('Loading data...')
     data = AudioData(path=path)
     data.load()
+    """
     loader = DataLoader(
         dataset=data,
         batch_size=8, # audio is long-form so keeping the data sample batch_sizes smaller
         collate_fn=collator_fn,
         num_workers=0
     )
-    return loader
+    """
+    return data
 
 
 def main(config):
@@ -101,7 +107,7 @@ def main(config):
     loader = load_data(config['data'])
 
     asr_results = inference_asr(
-        loader=loader,
+        dataset=loader,
         model=model
     )
     print(asr_results)

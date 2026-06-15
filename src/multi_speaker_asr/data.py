@@ -5,26 +5,14 @@ import re
 import io
 from num2words import num2words
 from memory_profiler import profile
-from datasets import load_dataset, Audio, Value, Features
+from datasets import load_dataset, Audio, Dataset
 from torch.utils.data import IterableDataset
+from faster_whisper.vad import collect_chunks, VadOptions, get_speech_timestamps
+import numpy as np
+
 
 
 CWD = os.getcwd()
-DATA_PATH = {
-    'coraal': {
-        'metadata': f'{CWD}/data/CORAAL/metadata.csv',
-        'audio': f'{CWD}/data/CORAAL/wav'
-    },
-    'cv': {
-        'metadata': f'{CWD}/data/cv/metadata.csv',
-        'audio': f'{CWD}/data/cv/wav'
-    },
-    'amicorpus': {
-        'metadata': f'{CWD}/data/amicorpus/metadata.csv',
-        'audio': f'{CWD}/data/amicorpus/test_split'
-    }
-}
-
 
 class AudioData(IterableDataset):
     """
@@ -39,40 +27,46 @@ class AudioData(IterableDataset):
         }
     }
 
-    def __init__(self, path, target_sr=16000):
+    def __init__(self, path, target_sr=16000, max_segment_duration=30):
         super().__init__()
         self.target_sr = target_sr
-        self.path = self.DATA[path]
-
+        self.max_segment_duration = max_segment_duration
+        try:
+            self.path = self.DATA[path] # path to an online dataset e.g. from Huggingface
+        except:
+            self.path = path    # path to a local folder
 
     def load(self):
+        """
+        Loads a dataset either from local or online resource.
+        If the path does not exist in the DATA dict, then it is assumed local, and will be loaded manually.
+        """
         data_path = self.path
-        self.ds = load_dataset(
-            path=data_path['name'],
-            name=data_path['type'],
-            split=data_path['split'],
-            streaming=True
-        )
+
+        if data_path in self.DATA.keys():
+            # If the path is from an online resource, then load it using datasets built-in function:
+            self.ds = load_dataset(
+                path=data_path['name'],
+                name=data_path['type'],
+                split=data_path['split'],
+                streaming=True
+            )
+            # Ensure it does not decode audio using torchDecoder
+            self.ds = self.ds.cast_column('audio', Audio(decode=False))
+            self.ds = self.ds.rename_column('id_conversation', 'id')
+        else:
+            # Assumes it is a local data folder:
+            self.ds = Dataset.from_csv(path_or_paths=data_path, split='test').to_iterable_dataset()
         
-        # Ensure it does not decode audio using torchDecoder
-        self.ds = self.ds.cast_column('audio', Audio(decode=False))
-        self.ds = self.ds.rename_column('id_conversation', 'id')
-
-
     def __iter__(self):
         print(self.ds.features)
         for item in self.ds:
-            bytes_arr = io.BytesIO(item['audio']['bytes'])
-            wav, sr = librosa.load(bytes_arr, sr=self.target_sr)
-            duration = librosa.get_duration(y=wav, sr=sr)
-
+            # Return the bytes instead of the whole loaded audio array:
             yield {
                 'id': item['id'],
-                'wav': wav,
-                'sr': sr,
-                'duration': duration,
-                'speaker': item['id_speaker'],
-                'text': item['text']
+                'path': item['path'] if 'audio' not in item.keys() else item['audio']['path'],
+                'start': item['start'],
+                'end': item['end']
             }
 
 
@@ -81,6 +75,19 @@ class AudioData(IterableDataset):
         """Preprocess the raw data and save it to the output folder."""
         self.df = self.df.dropna(subset=['path']) # Removing any rows missing wav files or transcriptions
         
+
+def stream_audio(audio, sr: int = 16000):
+        frame_size = (2048 * sr) // 22050
+        hop_length = (512 * sr) // 22050
+
+        stream = librosa.stream(
+                path=audio,
+                block_length=128,
+                frame_length=frame_size,
+                hop_length=hop_length
+            )
+        
+        return stream # Returns a Generator object that when called in a loop will yield one item at a time
 
 
 def clean_transcription(sentence: str):
