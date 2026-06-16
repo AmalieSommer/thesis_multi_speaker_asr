@@ -1,4 +1,4 @@
-
+from transformers import pipeline
 
 class Wav2Vec2:
     """
@@ -14,12 +14,21 @@ class Wav2Vec2:
 
 
     def load(self, config):
-        self.model, self.metadata = whisperx.load_align_model(
-            language_code='da',
-            model_name=config.alignment.name, 
+        self.pipeline = pipeline(
+            task='automatic-speech-recognition',
+            model=config['model'],
             device=self.device
-            )
+        )
 
+    def run_pipeline(self, input, chunk_length: int = 10, stride: int = 2):
+        """When running inference, the model needs context in order to produce good results. Using chunking with strides on both sides to improve performance"""
+        output = self.pipeline(
+            inputs=input,
+            chunk_length_s=chunk_length,
+            stride_length_s=stride
+        )
+        print(output)
+        return output
 
     def unload(self):
         self.model = None

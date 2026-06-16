@@ -6,7 +6,7 @@ import io
 from num2words import num2words
 from memory_profiler import profile
 from datasets import load_dataset, Audio, Dataset
-from torch.utils.data import IterableDataset
+from torch.utils.data import IterableDataset, DataLoader
 from faster_whisper.vad import collect_chunks, VadOptions, get_speech_timestamps
 import numpy as np
 
@@ -23,7 +23,8 @@ class AudioData(IterableDataset):
         'coral': {
             'name': 'CoRal-project/coral-v3',
             'type': 'conversation',
-            'split': 'test'
+            'split': 'test',
+            'path': 'root/.cache/huggingface/datasets/CoRal-project___coral-v3/conversation/0.0.0/01f7c93c21fc9dec87fe9f7149c79569cc433f08'
         }
     }
 
@@ -43,7 +44,7 @@ class AudioData(IterableDataset):
         """
         data_path = self.path
 
-        if data_path in self.DATA.keys():
+        if type(data_path) == dict:
             # If the path is from an online resource, then load it using datasets built-in function:
             self.ds = load_dataset(
                 path=data_path['name'],
@@ -57,37 +58,55 @@ class AudioData(IterableDataset):
         else:
             # Assumes it is a local data folder:
             self.ds = Dataset.from_csv(path_or_paths=data_path, split='test').to_iterable_dataset()
+            self.len_estimate = len(os.listdir(path='/root/master_thesis/thesis_multi_speaker_asr/data/coral-v3-long-form-conversations/'))
         
     def __iter__(self):
         print(self.ds.features)
         for item in self.ds:
+
             # Return the bytes instead of the whole loaded audio array:
-            yield {
-                'id': item['id'],
-                'path': item['path'] if 'audio' not in item.keys() else item['audio']['path'],
-                'start': item['start'],
-                'end': item['end']
-            }
+            if 'audio' not in item.keys():
+                yield {
+                    'id': item['id'],
+                    'audio': item['path'],
+                    'start': item['start'] if 'start' in item.keys() else None,
+                    'end': item['end'] if 'end' in item.keys() else None
+                }
+            
+            else:
+                yield {
+                    'id': item['id'],
+                    'audio': io.BytesIO(item['audio']['bytes']),
+                    'start': item['start'] if 'start' in item.keys() else None,
+                    'end': item['end'] if 'end' in item.keys() else None
+                }
 
-
-    #@profile
     def preprocess(self) -> None:
         """Preprocess the raw data and save it to the output folder."""
         self.df = self.df.dropna(subset=['path']) # Removing any rows missing wav files or transcriptions
         
 
 def stream_audio(audio, sr: int = 16000):
-        frame_size = (2048 * sr) // 22050
-        hop_length = (512 * sr) // 22050
+        
+        frame_size = (2048 * sr) // 16000
+        hop_length = (1024 * sr) // 16000
+
+        block_length_in_sec = 30
+        block_length = int(block_length_in_sec * sr) // hop_length
 
         stream = librosa.stream(
                 path=audio,
-                block_length=128,
+                block_length=block_length,
                 frame_length=frame_size,
                 hop_length=hop_length
             )
-        
-        return stream # Returns a Generator object that when called in a loop will yield one item at a time
+        # Returns a Generator object that when called in a loop will yield one item at a time
+        return {
+            'stream': stream,
+            'frames': frame_size,
+            'hop_length': hop_length,
+            'block_size': block_length
+        }
 
 
 def clean_transcription(sentence: str):
@@ -114,27 +133,3 @@ def clean_transcription(sentence: str):
 
     return sentence_copy    
 
-
-
-"""        
-        item = self.df.iloc[index]
-        print(f'Get Item: {item}')
-
-        audio_path = os.path.join(self.audio_path, item['path'])
-        wav, sr = librosa.load(path=audio_path, sr=self.target_sr)
-
-        # Check the shape of the array
-        if wav.ndim == 1:
-            print("This is a mono file.")
-        elif wav.ndim == 2:
-            print(f"This is a stereo file with {wav.shape[0]} channels.")
-
-        duration = librosa.get_duration(y=wav, sr=sr)
-        return {
-            'id': item['meeting_id'],
-            'audio': wav,
-            'sr': sr,
-            'duration': duration,
-            'path': item['path']
-        }   
-""" 

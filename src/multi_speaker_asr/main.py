@@ -1,6 +1,6 @@
 import os
 import json
-from multi_speaker_asr.evaluate import inference_asr, inference_diarize
+from multi_speaker_asr.evaluate import inference_asr, inference_diarize, inference
 import torch
 from tqdm import tqdm
 from dotenv import load_dotenv
@@ -13,6 +13,7 @@ from multi_speaker_asr.models.diarization import Diarize
 import argparse
 import numpy as np
 import librosa
+from multi_speaker_asr.models.alignment import Wav2Vec2
 
 load_dotenv()
 HF_TOKEN = os.getenv('HF_TOKEN')
@@ -68,47 +69,34 @@ def load_config():
         return yaml.safe_load(file)
 
 
-
-
-def collator_fn(batch):
-    """
-    It should use librosa.stream() to fetch only blocks of the full audio, and create batches based on a predefined length window (e.g. 30sec)
-    So, 
-    """
-    print('Refactoring in collator...')
-    cwd = os.getcwd()
-    return batch
-
-
 def load_data(path):
     print('Loading data...')
     data = AudioData(path=path)
     data.load()
-    """
-    loader = DataLoader(
-        dataset=data,
-        batch_size=8, # audio is long-form so keeping the data sample batch_sizes smaller
-        collate_fn=collator_fn,
-        num_workers=0
-    )
-    """
     return data
+
+def load_model(config, model_type: str = 'whisper'):
+    if model_type == 'whisper':
+        model = Whisper(device=config['device'])
+        model.load(
+            model_size=config['model'],
+            compute_type=config['computetype'],
+            cpu_threads=config['cputhreads']
+        )
+    elif model_type == 'wav2vec2':
+        model = Wav2Vec2(config['device'])
+        model.load(config)
+
+    return model
 
 
 def main(config):
-
-    model = Whisper(device=config['device'])
-    model.load(
-        model_size=config['model'],
-        compute_type=config['computetype'],
-        cpu_threads=config['cputhreads']
-    )
-    #model.load_model(name=config['model'])
-    loader = load_data(config['data'])
-
-    asr_results = inference_asr(
-        dataset=loader,
-        model=model
+    data = load_data(path=config['data'])
+    model = load_model(config=config, model_type='wav2vec2')
+    asr_results = inference(
+        dataset=data,
+        model=model,
+        pre_segmented=False
     )
     print(asr_results)
 

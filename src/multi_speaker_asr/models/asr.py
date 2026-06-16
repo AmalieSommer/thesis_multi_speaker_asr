@@ -1,6 +1,7 @@
 from faster_whisper import WhisperModel
 from faster_whisper import BatchedInferencePipeline
 from transformers import pipeline
+from memory_profiler import profile
 
 
 class Whisper:
@@ -20,13 +21,14 @@ class Whisper:
         self.model = None
         self.device = device
 
-
+    """
     def load_model(self, name):
         print(f'Loading model {name}...')
         model_name = self.MODEL[name]
         self.pipeline = pipeline("automatic-speech-recognition", model=model_name)
+    """
 
-
+    @profile
     def load(self, model_size, compute_type, cpu_threads):
         """To be called when wanting to instantiate the model"""
         print(f'Loading model {model_size}...')
@@ -40,6 +42,8 @@ class Whisper:
         self.model = BatchedInferencePipeline(
             model=whisper_model
         )
+
+        
       
     def unload(self):
         self.model = None
