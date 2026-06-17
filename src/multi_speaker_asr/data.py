@@ -86,13 +86,12 @@ class AudioData(IterableDataset):
         self.df = self.df.dropna(subset=['path']) # Removing any rows missing wav files or transcriptions
         
 
-def stream_audio(audio, sr: int = 16000):
+def stream_audio(audio, sr: int = 16000, block_length_sec=30):
         
         frame_size = (2048 * sr) // 16000
         hop_length = (1024 * sr) // 16000
 
-        block_length_in_sec = 30
-        block_length = int(block_length_in_sec * sr) // hop_length
+        block_length = int(block_length_sec * sr) // hop_length
 
         stream = librosa.stream(
                 path=audio,
@@ -101,12 +100,7 @@ def stream_audio(audio, sr: int = 16000):
                 hop_length=hop_length
             )
         # Returns a Generator object that when called in a loop will yield one item at a time
-        return {
-            'stream': stream,
-            'frames': frame_size,
-            'hop_length': hop_length,
-            'block_size': block_length
-        }
+        return stream
 
 
 def clean_transcription(sentence: str):

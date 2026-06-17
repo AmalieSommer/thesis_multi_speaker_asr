@@ -1,6 +1,6 @@
 import os
 import json
-from multi_speaker_asr.evaluate import inference_asr, inference_diarize, inference
+from multi_speaker_asr.evaluate import streamed_inference, batched_inference
 import torch
 from tqdm import tqdm
 from dotenv import load_dotenv
@@ -8,12 +8,12 @@ import yaml
 from multi_speaker_asr.data import AudioData
 from torch.utils.data import DataLoader
 from torch.nn.utils.rnn import pad_sequence
-from multi_speaker_asr.models.asr import Whisper
+from multi_speaker_asr.models.asr import Whisper, Wav2Vec2
 from multi_speaker_asr.models.diarization import Diarize
 import argparse
 import numpy as np
 import librosa
-from multi_speaker_asr.models.alignment import Wav2Vec2
+
 
 load_dotenv()
 HF_TOKEN = os.getenv('HF_TOKEN')
@@ -60,6 +60,8 @@ def save_data(result, filename):
         print(f"Error updating the file: {e}")
 
 
+
+
 def load_config():
     print('Loading config file...')
     parser = argparse.ArgumentParser(description='ASR Inference Runs')
@@ -69,38 +71,35 @@ def load_config():
         return yaml.safe_load(file)
 
 
+
 def load_data(path):
     print('Loading data...')
     data = AudioData(path=path)
     data.load()
     return data
 
-def load_model(config, model_type: str = 'whisper'):
-    if model_type == 'whisper':
-        model = Whisper(device=config['device'])
-        model.load(
-            model_size=config['model'],
-            compute_type=config['computetype'],
-            cpu_threads=config['cputhreads']
-        )
-    elif model_type == 'wav2vec2':
-        model = Wav2Vec2(config['device'])
-        model.load(config)
 
-    return model
+
+def run_whisper_baseline_short_audio(config):
+    data = load_data(path=config['data'])
+    model = Whisper(
+                compute_type=config['computetype'],
+                cpu_threads=config['cputhreads'],
+                device=config['device'],
+                model=config['model']
+            )
+    asr_results = batched_inference(
+        data=data,
+        model=model
+    )
+    save_data(asr_results, f'whisper_baseline')
+
+
 
 
 def main(config):
-    data = load_data(path=config['data'])
-    model = load_model(config=config, model_type='wav2vec2')
-    asr_results = inference(
-        dataset=data,
-        model=model,
-        pre_segmented=False
-    )
-    print(asr_results)
+    run_whisper_baseline_short_audio(config=config)
 
-    #save_data(asr_results, filename=config['filename'])
 
     # NOTE FOR LATER:
     # WhisperX library is not compatible with current environment.
@@ -108,19 +107,7 @@ def main(config):
     # Alternatively start with just running faster-whisper .transcribe() with word_timestamps=True and see how that works.
 
     # Call diarization model using Pyannote.audio modules:
-    """"
-    pipeline = Diarize()
-    pipeline.load(token=HF_TOKEN)
-    diarization_results = inference_diarize(
-        loader=loader,
-        model=pipeline,
-        batch_size=config['threads']
-    )
-    
-    diarize_filename = 'diarize_' + config['filename']
-    save_data(diarization_results, filename=diarize_filename)
-    """
-    # TODO: Call function for aligning the asr output and speaker segments on timestamps and return one final batched result:
+
 
 if __name__=='__main__':
     print('Starting...')
