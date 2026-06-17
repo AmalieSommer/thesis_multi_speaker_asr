@@ -5,8 +5,9 @@ from pyannote.audio.pipelines.utils.hook import ProgressHook
 from .data import AudioData, stream_audio
 import librosa
 from torch.utils.data import DataLoader
-
+from jiwer import wer, cer
 from multi_speaker_asr.models.asr import ASR, Whisper, Wav2Vec2
+from .data import clean_transcription
 
 
 def collator_fn(batch):
@@ -43,18 +44,37 @@ def batched_inference(data: AudioData, model: ASR):
                         batch_size=4
                     )
                     for out in outputs:
+                        clean_ref = clean_transcription(sample['text'])
+                        clean_hyp = clean_transcription(out.text)
+                        word_err_rate = wer(reference=clean_ref, hypothesis=clean_hyp)
+                        char_err_rate = cer(reference=clean_ref, hypothesis=clean_hyp)
+
                         results.append({
-                            'start': out['start'],
-                            'end': out['end'],
-                            'text': out['text']
+                            'cer': char_err_rate,
+                            'wer': word_err_rate,
+                            'start': out.start,
+                            'end': out.end,
+                            'ref': sample['text'],
+                            'hyp': out.text,
+                            'id': sample['id']
                         })
 
                 elif isinstance(model, Wav2Vec2):
                     audio, _ = librosa.load(path=audio, sr=data.target_sr)
-                    outputs = model.run_pipeline(
+                    output = model.run_pipeline(
                         input=audio
                     )
-                    results.append(outputs)
+                    clean_ref = clean_transcription(sample['text'])
+                    clean_hyp = clean_transcription(out.text)
+                    word_err_rate = wer(reference=clean_ref, hypothesis=clean_hyp)
+                    char_err_rate = cer(reference=clean_ref, hypothesis=clean_hyp)
+                    results.append({
+                        'cer': char_err_rate,
+                        'wer': word_err_rate,
+                        'ref': sample['text'],
+                        'hyp': output.text,
+                        'id': sample['id']
+                    })
 
     except Exception as e:
         print(f'An error occurred...{e}')

@@ -78,7 +78,8 @@ class AudioData(IterableDataset):
                     'id': item['id'],
                     'audio': io.BytesIO(item['audio']['bytes']),
                     'start': item['start'] if 'start' in item.keys() else None,
-                    'end': item['end'] if 'end' in item.keys() else None
+                    'end': item['end'] if 'end' in item.keys() else None,
+                    'text': item['text']
                 }
 
     def preprocess(self) -> None:
