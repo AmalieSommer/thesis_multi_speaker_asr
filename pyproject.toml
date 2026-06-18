@@ -16,7 +16,7 @@ classifiers = [
   "Programming Language :: Python :: 3",
 ]
 readme = "README.md"
-requires-python = ">=3.11, <3.14"
+requires-python = ">=3.11, <3.12"
 dependencies = [
     "carbontracker>=2.4.5",
     "ctranslate2>=4.5.0",
@@ -37,6 +37,7 @@ dependencies = [
     "memory-profiler>=0.61.0",
     "pyannote-audio>=3.4.0",
     "datasets<4.0.0",
+    "scalene>=2.3.0",
 ]
 
 [dependency-groups]

@@ -1,7 +1,4 @@
 from tqdm import tqdm
-import time
-import torch
-from pyannote.audio.pipelines.utils.hook import ProgressHook
 from .data import AudioData, stream_audio
 import librosa
 from torch.utils.data import DataLoader
@@ -15,7 +12,7 @@ def collator_fn(batch):
     """Should ensure that it returns batch object of the same format, i.e. same parameter names and types"""
     return batch
 
-
+@profile
 def batched_inference(data: AudioData, model: ASR):
     """
     This assumes the dataset is pre-segmented into short chunks, and will process the chunks in batches.
@@ -87,7 +84,7 @@ def batched_inference(data: AudioData, model: ASR):
         return results
 
 
-
+@profile
 def streamed_inference(data: AudioData, model: ASR):
     """
     This assumes the dataset contains raw long-form audio recordings, and will therefore include streaming (using librosa) and process each audio stream sequentially.
@@ -114,17 +111,42 @@ def streamed_inference(data: AudioData, model: ASR):
                     
                     if isinstance(model, Whisper):
                         outputs, _ = model.pipeline.transcribe(
-                            audio=y,
-                            language='da',
-                            batch_size=4
+                        audio=y,
+                        language='da',
+                        batch_size=4
                         )
+                        for out in outputs:
+                            clean_ref = clean_transcription(sample['text'])
+                            clean_hyp = clean_transcription(out.text)
+                            word_err_rate = wer(reference=clean_ref, hypothesis=clean_hyp)
+                            char_err_rate = cer(reference=clean_ref, hypothesis=clean_hyp)
+
+                            results.append({
+                                'cer': char_err_rate,
+                                'wer': word_err_rate,
+                                'start': out.start,
+                                'end': out.end,
+                                'ref': sample['text'],
+                                'hyp': out.text,
+                                'id': sample['id']
+                            })
 
                     elif isinstance(model, Wav2Vec2):
-                        outputs = model.run_pipeline(
+                        output = model.run_pipeline(
                             input=y
                         )
+                        clean_ref = clean_transcription(sample['text'])
+                        clean_hyp = clean_transcription(out.text)
+                        word_err_rate = wer(reference=clean_ref, hypothesis=clean_hyp)
+                        char_err_rate = cer(reference=clean_ref, hypothesis=clean_hyp)
+                        results.append({
+                            'cer': char_err_rate,
+                            'wer': word_err_rate,
+                            'ref': sample['text'],
+                            'hyp': output.text,
+                            'id': sample['id']
+                        })
 
-                    [results.append(output) for output in outputs if output != None]
 
     except Exception as e:
         print(f'An error occurred...{e}')
@@ -137,6 +159,7 @@ def streamed_inference(data: AudioData, model: ASR):
         return results
 
 
+"""
 #@profile
 def inference_diarize(loader, model, batch_size):
 
@@ -197,3 +220,4 @@ def eval_bert(bert, info):
         item['semdist'] = score
 
     return info
+    """

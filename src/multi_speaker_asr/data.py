@@ -4,7 +4,6 @@ import librosa
 import re
 import io
 from num2words import num2words
-from memory_profiler import profile
 from datasets import load_dataset, Audio, Dataset
 from torch.utils.data import IterableDataset, DataLoader
 from faster_whisper.vad import collect_chunks, VadOptions, get_speech_timestamps
@@ -37,6 +36,7 @@ class AudioData(IterableDataset):
         except:
             self.path = path    # path to a local folder
 
+    @profile
     def load(self):
         """
         Loads a dataset either from local or online resource.
@@ -60,8 +60,8 @@ class AudioData(IterableDataset):
             self.ds = Dataset.from_csv(path_or_paths=data_path, split='test').to_iterable_dataset()
             self.len_estimate = len(os.listdir(path='/root/master_thesis/thesis_multi_speaker_asr/data/coral-v3-long-form-conversations/'))
         
+    @profile
     def __iter__(self):
-        print(self.ds.features)
         for item in self.ds:
 
             # Return the bytes instead of the whole loaded audio array:
@@ -86,7 +86,7 @@ class AudioData(IterableDataset):
         """Preprocess the raw data and save it to the output folder."""
         self.df = self.df.dropna(subset=['path']) # Removing any rows missing wav files or transcriptions
         
-
+@profile
 def stream_audio(audio, sr: int = 16000, block_length_sec=30):
         
         frame_size = (2048 * sr) // 16000

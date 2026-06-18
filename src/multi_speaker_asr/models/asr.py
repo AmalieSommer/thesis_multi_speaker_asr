@@ -1,8 +1,6 @@
 from faster_whisper import WhisperModel
 from faster_whisper import BatchedInferencePipeline
 from transformers import pipeline
-from memory_profiler import profile
-
 
 
 class ASR:
@@ -31,6 +29,7 @@ class Whisper(ASR):
         )
 
 
+    @profile
     def load(self, compute_type, cpu_threads):
 
         print(f'Loading model...')

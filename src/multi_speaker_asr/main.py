@@ -6,14 +6,11 @@ from tqdm import tqdm
 from dotenv import load_dotenv
 import yaml
 from multi_speaker_asr.data import AudioData
-from torch.utils.data import DataLoader
-from torch.nn.utils.rnn import pad_sequence
-from multi_speaker_asr.models.asr import Whisper, Wav2Vec2
-from multi_speaker_asr.models.diarization import Diarize
-import argparse
-import numpy as np
-import librosa
+from multi_speaker_asr.models.asr import Whisper
+import argparse  
 
+
+os.environ['OMP_NUM_THREADS'] = '4'
 
 load_dotenv()
 HF_TOKEN = os.getenv('HF_TOKEN')
@@ -95,11 +92,26 @@ def run_whisper_baseline_short_audio(config):
     save_data(asr_results, f'whisper_baseline')
 
 
+def run_whisper_baseline_streaming_audio(config):
+    data = load_data(path=config['data'])
+    model = Whisper(
+                compute_type=config['computetype'],
+                cpu_threads=config['cputhreads'],
+                device=config['device'],
+                model=config['model']
+            )
+    asr_results = streamed_inference(
+        data=data,
+        model=model
+    )
+    save_data(asr_results, f'whisper_baseline')
+
+
 
 
 def main(config):
-    run_whisper_baseline_short_audio(config=config)
-
+    #run_whisper_baseline_short_audio(config=config)
+    run_whisper_baseline_streaming_audio(config=config)
 
     # NOTE FOR LATER:
     # WhisperX library is not compatible with current environment.
@@ -111,5 +123,7 @@ def main(config):
 
 if __name__=='__main__':
     print('Starting...')
+
+
     config = load_config()
     main(config=config)

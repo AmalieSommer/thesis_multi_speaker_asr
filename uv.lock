@@ -289,6 +289,15 @@ wheels = [
 ]
 
 [[package]]
+name = "cloudpickle"
+version = "3.1.2"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/27/fb/576f067976d320f5f0114a8d9fa1215425441bb35627b1993e5afd8111e5/cloudpickle-3.1.2.tar.gz", hash = "sha256:7fda9eb655c9c230dab534f1983763de5835249750e85fbcef43aaa30a9a2414", size = 22330, upload-time = "2025-11-03T09:25:26.604Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/88/39/799be3f2f0f38cc727ee3b4f1445fe6d5e4133064ec2e4115069418a5bb6/cloudpickle-3.1.2-py3-none-any.whl", hash = "sha256:9acb47f6afd73f60dc1df93bb801b472f05ff42fa6c84167d25cb206be1fbf4a", size = 22228, upload-time = "2025-11-03T09:25:25.534Z" },
+]
+
+[[package]]
 name = "colorama"
 version = "0.4.6"
 source = { registry = "https://pypi.org/simple" }
@@ -1333,6 +1342,7 @@ dependencies = [
     { name = "num2words" },
     { name = "pyannote-audio" },
     { name = "pydub" },
+    { name = "scalene" },
     { name = "sentence-transformers" },
     { name = "soundfile" },
     { name = "torch" },
@@ -1368,6 +1378,7 @@ requires-dist = [
     { name = "num2words", specifier = ">=0.5.14" },
     { name = "pyannote-audio", specifier = ">=3.4.0" },
     { name = "pydub", specifier = ">=0.25.1" },
+    { name = "scalene", specifier = ">=2.3.0" },
     { name = "sentence-transformers" },
     { name = "soundfile", specifier = ">=0.13.1" },
     { name = "torch", specifier = ">=2.4.0,<3.0.0", index = "https://download.pytorch.org/whl/cu124" },
@@ -2492,6 +2503,26 @@ wheels = [
     { url = "https://files.pythonhosted.org/packages/4a/d8/0c8a7dc9b41dcac53c4cbf9df2b9c83e0e0097203de8b37a712b345c0be5/safetensors-0.7.0-cp38-abi3-musllinux_1_2_x86_64.whl", hash = "sha256:b0f6d66c1c538d5a94a73aa9ddca8ccc4227e6c9ff555322ea40bdd142391dd4", size = 677368, upload-time = "2025-11-19T15:18:41.627Z" },
     { url = "https://files.pythonhosted.org/packages/05/e5/cb4b713c8a93469e3c5be7c3f8d77d307e65fe89673e731f5c2bfd0a9237/safetensors-0.7.0-cp38-abi3-win32.whl", hash = "sha256:c74af94bf3ac15ac4d0f2a7c7b4663a15f8c2ab15ed0fc7531ca61d0835eccba", size = 326423, upload-time = "2025-11-19T15:18:45.74Z" },
     { url = "https://files.pythonhosted.org/packages/5d/e6/ec8471c8072382cb91233ba7267fd931219753bb43814cbc71757bfd4dab/safetensors-0.7.0-cp38-abi3-win_amd64.whl", hash = "sha256:d1239932053f56f3456f32eb9625590cc7582e905021f94636202a864d470755", size = 341380, upload-time = "2025-11-19T15:18:44.427Z" },
+]
+
+[[package]]
+name = "scalene"
+version = "2.3.0"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "cloudpickle" },
+    { name = "jinja2" },
+    { name = "numpy" },
+    { name = "nvidia-ml-py", marker = "sys_platform != 'darwin'" },
+    { name = "psutil" },
+    { name = "pydantic" },
+    { name = "pyyaml" },
+    { name = "rich" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/91/96/e2ea55e8d1d981fb2d0fe76c38c1d7ab7b91c2229176bbeed771b9da0f1f/scalene-2.3.0.tar.gz", hash = "sha256:57212ceeeeeef9891c344275592413f4b90fb407ecdec75b5b164f0eef2e6261", size = 9457857, upload-time = "2026-05-12T18:45:43.894Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/00/e3/634743a62ff8cbcefea0a7b4e04d1ef78bf3ea79ed20153befed36b6aae3/scalene-2.3.0-cp311-cp311-macosx_15_0_universal2.whl", hash = "sha256:d63903b03316b54f2487d9ea6db91e639b5f748ff37af88c80df4e0068e2a7f6", size = 1128921, upload-time = "2026-05-12T18:45:41.939Z" },
+    { url = "https://files.pythonhosted.org/packages/a6/8e/f40b8682862c47b76362bb8523646c7b3db127ff26f51c9c98cd65f3b50a/scalene-2.3.0-cp311-cp311-manylinux_2_24_x86_64.manylinux_2_28_x86_64.whl", hash = "sha256:6952d0a7c23add84a5f9f4c5fa375e44d6e5635aeb7a4198396be30aa168a772", size = 1483511, upload-time = "2026-05-12T18:46:01.879Z" },
 ]
 
 [[package]]
