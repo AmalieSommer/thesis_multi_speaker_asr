@@ -19,8 +19,8 @@ def batched_inference(data: AudioData, model: ASR):
     """
     loader = DataLoader(
         dataset=data,
-        batch_size=8,
-        num_workers=0,
+        batch_size=2,
+        num_workers=1,
         shuffle=False,
         collate_fn=collator_fn
     )
@@ -91,9 +91,10 @@ def streamed_inference(data: AudioData, model: ASR):
     """
     loader = DataLoader(
         dataset=data,
-        batch_size=1,
+        batch_size=2,
         shuffle=False,
-        collate_fn=collator_fn
+        collate_fn=collator_fn,
+        num_workers=1
     )
     results = []
 

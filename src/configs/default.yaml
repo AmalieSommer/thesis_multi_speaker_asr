@@ -2,5 +2,5 @@ device: 'cpu'
 filename: 'roest_whisper_baseline'
 model: 'pluttodk/roest-v3-whisper-1.5b-ct2'
 data: 'coral'
-computetype: int8
-cputhreads: 6
+computetype: float32
+cputhreads: 4

@@ -45,18 +45,16 @@ def fetch_data(filename):
         print(f"Error reading from file: {e}")
 
 
-def save_data(result, filename):
+def save_data(result: list[dict], filename: str):
     # Update json file with added aligned transcripts:
     try:
         with open(os.path.join(RESULT_PATH, f'{filename}.jsonl'), "w") as file:
-            for key, value in result.items():
-                json_line = json.dumps({key: value})
+            for item in result:
+                json_line = json.dumps(item)
                 file.write(json_line + '\n')
         print(f"Successfully updated the file")
     except Exception as e:
         print(f"Error updating the file: {e}")
-
-
 
 
 def load_config():
@@ -94,8 +92,9 @@ def run_whisper_baseline_short_audio(config):
 
 def run_whisper_baseline_streaming_audio(config):
     data = load_data(path=config['data'])
+    computetype = config['computetype']
     model = Whisper(
-                compute_type=config['computetype'],
+                compute_type=computetype,
                 cpu_threads=config['cputhreads'],
                 device=config['device'],
                 model=config['model']
@@ -104,7 +103,7 @@ def run_whisper_baseline_streaming_audio(config):
         data=data,
         model=model
     )
-    save_data(asr_results, f'whisper_baseline')
+    save_data(asr_results, f'whisper_baseline_{computetype}')
 
 
 
