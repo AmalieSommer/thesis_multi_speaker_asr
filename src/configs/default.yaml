@@ -1,6 +1,6 @@
 device: 'cpu'
 filename: 'roest_whisper_baseline'
 model: 'pluttodk/roest-v3-whisper-1.5b-ct2'
-data: 'coral'
-computetype: float32
-cputhreads: 4
+data: '/zhome/28/9/151118/thesis/thesis_multi_speaker_asr/data/coral-v3-long-form-conversations/coral_metadata.csv'
+computetype: int8
+cputhreads: 6

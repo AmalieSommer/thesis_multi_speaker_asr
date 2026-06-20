@@ -12,7 +12,7 @@ def collator_fn(batch):
     """Should ensure that it returns batch object of the same format, i.e. same parameter names and types"""
     return batch
 
-@profile
+
 def batched_inference(data: AudioData, model: ASR):
     """
     This assumes the dataset is pre-segmented into short chunks, and will process the chunks in batches.
@@ -38,7 +38,7 @@ def batched_inference(data: AudioData, model: ASR):
                     outputs, _ = model.pipeline.transcribe(
                         audio=audio,
                         language='da',
-                        batch_size=4
+                        batch_size=1
                     )
                     for out in outputs:
                         clean_ref = clean_transcription(sample['text'])
@@ -99,7 +99,7 @@ def streamed_inference(data: AudioData, model: ASR):
     results = []
 
     try:
-        for batch in tqdm(loader):
+        for batch in tqdm(loader, total=data.len_estimate):
             if len(batch) == 0:
                 continue
 
@@ -107,14 +107,14 @@ def streamed_inference(data: AudioData, model: ASR):
                 stream = stream_audio(
                     audio=sample['audio']
                 )
-
-                for y in stream:
+                audio_duratio = sample['end']
+                for y in tqdm(stream, total=int(audio_duratio / 30.0)):
                     
                     if isinstance(model, Whisper):
                         outputs, _ = model.pipeline.transcribe(
                         audio=y,
                         language='da',
-                        batch_size=4
+                        batch_size=1
                         )
                         for out in outputs:
                             clean_ref = clean_transcription(sample['text'])
