@@ -111,19 +111,11 @@ def streamed_inference(data: AudioData, model: ASR):
                 )
                 audio_duratio = sample['end']
                 inner_tqdm = tqdm(stream, total=int(audio_duratio / 30.0))
-<<<<<<< HEAD
-                for y in inner_tqdm:
-                    #print('Iterating streamed block...')
-
-                    inner_tqdm.refresh()    # To ensure the terminal gets refreshed at every inner-loop iteration...
-                    
-=======
 
                 running_duration = 0.0  # To keep a count of the duration of the amount of audio streams processed so far...
                 for index, y in enumerate(inner_tqdm):
 
                     inner_tqdm.refresh() # To enure the progressbar is visible for the individual audio recordings...
->>>>>>> d36b066bf05dd9c0183b9395ff96960f7f4edf6c
                     if isinstance(model, Whisper):
                         outputs, info = model.pipeline.transcribe(
                         audio=y,
@@ -192,14 +184,16 @@ def inference_streaming_diarize(data: AudioData, model: Diarize):
                 inner_tqdm = tqdm(stream, total=int(audio_duratio / 30.0))
 
                 for index, y in enumerate(inner_tqdm):
-                    wav = torch.tensor(y)   # To get the correct format of (channel, time) Tensor.
+                    wav = torch.tensor(y).unsqueeze(0)   # To get the correct format of (channel, time) Tensor.
                     print(f'Shape of tensor: {wav.shape}')
 
 
                     with ProgressHook() as hook:
                         output = model.model(
                             {'waveform': wav, 'sample_rate': data.target_sr}, 
-                            hook=hook
+                            hook=hook,
+                            min_speakers=1,
+                            max_speakers=2
                         )
                     
                     results.append({

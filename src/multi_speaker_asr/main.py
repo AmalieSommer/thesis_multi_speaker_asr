@@ -1,16 +1,17 @@
 import os
 import json
-from multi_speaker_asr.evaluate import streamed_inference, batched_inference
+from multi_speaker_asr.evaluate import streamed_inference, batched_inference, inference_streaming_diarize
 import torch
 from tqdm import tqdm
 from dotenv import load_dotenv
 import yaml
 from multi_speaker_asr.data import AudioData
 from multi_speaker_asr.models.asr import Whisper
-import argparse  
+import argparse
+from multi_speaker_asr.models.diarization import Diarize
 
 
-os.environ['OMP_NUM_THREADS'] = '4'
+os.environ['OMP_NUM_THREADS'] = '6'
 
 load_dotenv()
 HF_TOKEN = os.getenv('HF_TOKEN')
@@ -104,14 +105,27 @@ def run_whisper_baseline_streaming_audio(config):
         model=model
     )
     save_data(asr_results, f'whisper_baseline_{computetype}')
+    return asr_results
 
+def run_diarization_streaming(config):
+    data = load_data(path=config['data'])
+    model = Diarize()   # Default values are fine for now
+    model.load(token=HF_TOKEN)
+    rttm = inference_streaming_diarize(
+        data=data,
+        model=model
+    )
+    with open("audio.rttm", "w") as rttm:
+        model.model.write_rttm(rttm)
+        
+    return rttm
 
 
 
 def main(config):
     #run_whisper_baseline_short_audio(config=config)
-    run_whisper_baseline_streaming_audio(config=config)
-
+    #asr_results = run_whisper_baseline_streaming_audio(config=config)
+    diarize_results = run_diarization_streaming(config=config)
     # NOTE FOR LATER:
     # WhisperX library is not compatible with current environment.
     # To run a separate phoneme wav2vec2 alignment model it would require running ASR and Wav2Vec2 on two separate subprocessess with their own uv environment.

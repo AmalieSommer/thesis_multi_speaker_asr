@@ -27,8 +27,9 @@ class AudioData(IterableDataset):
         }
     }
 
-    def __init__(self, path, target_sr=16000, max_segment_duration=30):
+    def __init__(self, path, hpc=True, target_sr=16000, max_segment_duration=30):
         super().__init__()
+        self.hpc = hpc
         self.target_sr = target_sr
         self.max_segment_duration = max_segment_duration
         try:
@@ -58,7 +59,8 @@ class AudioData(IterableDataset):
         else:
             # Assumes it is a local data folder:
             self.ds = Dataset.from_csv(path_or_paths=data_path, split='test').to_iterable_dataset()
-            self.len_estimate = len(os.listdir(path='/zhome/28/9/151118/thesis/thesis_multi_speaker_asr/data/coral-v3-long-form-conversations'))
+            path = '/root/master_thesis/' if not self.hpc else '/zhome/28/9/151118/thesis/'
+            self.len_estimate = len(os.listdir(path=path + 'thesis_multi_speaker_asr/data/coral-v3-long-form-conversations'))
         
     
     def __iter__(self):
@@ -66,8 +68,8 @@ class AudioData(IterableDataset):
 
             # Return the bytes instead of the whole loaded audio array:
             if 'audio' not in item.keys():
-                
-                audio = '/zhome/28/9/151118/thesis/' + item['path']
+                base = '/root/master_thesis' if not self.hpc else '/zhome/28/9/151118/thesis/'
+                audio = base + item['path']
                 yield {
                     'id': item['id'],
                     'audio': audio,
