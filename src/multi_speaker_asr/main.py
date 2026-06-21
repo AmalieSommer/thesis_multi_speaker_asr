@@ -92,7 +92,7 @@ def run_whisper_baseline_short_audio(config):
 
 
 def run_whisper_baseline_streaming_audio(config):
-    data = load_data(path=config['data'])
+    data = AudioData(path=config['data'], hpc=False)
     computetype = config['computetype']
     model = Whisper(
                 compute_type=computetype,
@@ -108,7 +108,7 @@ def run_whisper_baseline_streaming_audio(config):
     return asr_results
 
 def run_diarization_streaming(config):
-    data = load_data(path=config['data'])
+    data = AudioData(path=config['data'], hpc=False)
     model = Diarize()   # Default values are fine for now
     model.load(token=HF_TOKEN)
     rttm = inference_streaming_diarize(
@@ -117,14 +117,14 @@ def run_diarization_streaming(config):
     )
     with open("audio.rttm", "w") as rttm:
         model.model.write_rttm(rttm)
-        
+
     return rttm
 
 
 
 def main(config):
     #run_whisper_baseline_short_audio(config=config)
-    #asr_results = run_whisper_baseline_streaming_audio(config=config)
+    asr_results = run_whisper_baseline_streaming_audio(config=config)
     diarize_results = run_diarization_streaming(config=config)
     # NOTE FOR LATER:
     # WhisperX library is not compatible with current environment.

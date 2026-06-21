@@ -120,21 +120,24 @@ def streamed_inference(data: AudioData, model: ASR):
                         outputs, info = model.pipeline.transcribe(
                         audio=y,
                         language='da',
-                        batch_size=1
+                        batch_size=1,
+                        word_timestamps=True
                         )
                         for out in outputs:
                             start = out.start
                             end = out.end
+                        
                             if index > 0:
                                 # Add the duration of the current running duration to start, and the duration of the current stream to the end as well as the running duration:
                                 start = out.start + running_duration
                                 end = out.end + running_duration
 
                             results.append({
+                                'id': sample['id'],
                                 'start': start,
                                 'end': end,
                                 'hyp': out.text,
-                                'id': sample['id']
+                                'words': out.words
                             })
                             running_duration += info.duration
                             print(f'Duration so far is... {running_duration}sec.')

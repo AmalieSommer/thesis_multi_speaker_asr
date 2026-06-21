@@ -36,7 +36,8 @@ class AudioData(IterableDataset):
             self.path = self.DATA[path] # path to an online dataset e.g. from Huggingface
         except:
             self.path = path    # path to a local folder
-
+            
+        self.load() # Initialize the dataset...
     
     def load(self):
         """
