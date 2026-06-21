@@ -99,6 +99,7 @@ def streamed_inference(data: AudioData, model: ASR):
     results = []
 
     try:
+        print('Starting inference evaluation...')
         for batch in tqdm(loader, total=data.len_estimate):
             if len(batch) == 0:
                 continue
@@ -108,7 +109,11 @@ def streamed_inference(data: AudioData, model: ASR):
                     audio=sample['audio']
                 )
                 audio_duratio = sample['end']
-                for y in tqdm(stream, total=int(audio_duratio / 30.0)):
+                inner_tqdm = tqdm(stream, total=int(audio_duratio / 30.0))
+                for y in inner_tqdm:
+                    #print('Iterating streamed block...')
+
+                    inner_tqdm.refresh()    # To ensure the terminal gets refreshed at every inner-loop iteration...
                     
                     if isinstance(model, Whisper):
                         outputs, _ = model.pipeline.transcribe(
