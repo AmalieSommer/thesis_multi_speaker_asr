@@ -21,6 +21,7 @@ class Diarize:
             self.model_path, 
             use_auth_token=token
             )
+        self.model.embedding_batch_size = 1
 
     # TODO: Implement speaker assignment given the asr and diarization output...
     def assign_wordlevel_speakers(self):

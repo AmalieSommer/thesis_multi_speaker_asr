@@ -124,7 +124,7 @@ def run_diarization_streaming(config):
 
 def main(config):
     #run_whisper_baseline_short_audio(config=config)
-    asr_results = run_whisper_baseline_streaming_audio(config=config)
+    #asr_results = run_whisper_baseline_streaming_audio(config=config)
     diarize_results = run_diarization_streaming(config=config)
     # NOTE FOR LATER:
     # WhisperX library is not compatible with current environment.

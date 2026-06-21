@@ -165,7 +165,6 @@ def streamed_inference(data: AudioData, model: ASR):
     finally:
         return results
 
-
 def inference_streaming_diarize(data: AudioData, model: Diarize):
     loader = DataLoader(
         dataset=data,
@@ -180,28 +179,40 @@ def inference_streaming_diarize(data: AudioData, model: Diarize):
         for batch in tqdm(loader):
 
             for sample in batch:
+                """
                 stream = stream_audio(
                     audio=sample['audio']
                 )
                 audio_duratio = sample['end']
                 inner_tqdm = tqdm(stream, total=int(audio_duratio / 30.0))
-
+                
                 for index, y in enumerate(inner_tqdm):
-                    wav = torch.tensor(y).unsqueeze(0)   # To get the correct format of (channel, time) Tensor.
-                    print(f'Shape of tensor: {wav.shape}')
+                """
+                audio, _ = librosa.load(sample['audio'], sr=data.target_sr)
+                wav = torch.tensor(audio).unsqueeze(0)   # To get the correct format of (channel, time) Tensor.
+                print(f'Shape of tensor: {wav.shape}')
 
-
-                    with ProgressHook() as hook:
-                        output = model.model(
-                            {'waveform': wav, 'sample_rate': data.target_sr}, 
-                            hook=hook,
-                            min_speakers=1,
-                            max_speakers=2
-                        )
+                speaker_segments = []
+                with ProgressHook() as hook:
+                    output = model.model(
+                        {'waveform': wav, 'sample_rate': data.target_sr}, 
+                        hook=hook,
+                        min_speakers=1,
+                        max_speakers=2
+                    )
+                    for segment, _, speaker in output.itertracks(yield_label=True):
+                        speaker_segments.append({
+                            'speaker': speaker,
+                            'start': segment.start,
+                            'end': segment.end,
+                            'duration': segment.duration
+                        })
+                        print(f"{segment.start:.2f} --> {segment.end:.2f} ({segment.duration:.2f}s) Speaker: {speaker}")
+                    
                     
                     results.append({
                     'id': sample['id'],
-                    'speaker_segments': output
+                    'speaker_segments': speaker_segments
                 })
     except Exception as e:
         print(f'Failed with error...: {e}')
