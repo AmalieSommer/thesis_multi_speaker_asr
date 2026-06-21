@@ -36,7 +36,7 @@ class AudioData(IterableDataset):
         except:
             self.path = path    # path to a local folder
 
-    @profile
+    
     def load(self):
         """
         Loads a dataset either from local or online resource.
@@ -58,19 +58,22 @@ class AudioData(IterableDataset):
         else:
             # Assumes it is a local data folder:
             self.ds = Dataset.from_csv(path_or_paths=data_path, split='test').to_iterable_dataset()
-            self.len_estimate = len(os.listdir(path='/root/master_thesis/thesis_multi_speaker_asr/data/coral-v3-long-form-conversations/'))
+            self.len_estimate = len(os.listdir(path='/zhome/28/9/151118/thesis/thesis_multi_speaker_asr/data/coral-v3-long-form-conversations'))
         
-    @profile
+    
     def __iter__(self):
         for item in self.ds:
 
             # Return the bytes instead of the whole loaded audio array:
             if 'audio' not in item.keys():
+                
+                audio = '/zhome/28/9/151118/thesis/' + item['path']
                 yield {
                     'id': item['id'],
-                    'audio': item['path'],
+                    'audio': audio,
                     'start': item['start'] if 'start' in item.keys() else None,
-                    'end': item['end'] if 'end' in item.keys() else None
+                    'end': item['end'] if 'end' in item.keys() else None,
+                    'text': ' '
                 }
             
             else:
@@ -86,8 +89,10 @@ class AudioData(IterableDataset):
         """Preprocess the raw data and save it to the output folder."""
         self.df = self.df.dropna(subset=['path']) # Removing any rows missing wav files or transcriptions
         
-@profile
+
 def stream_audio(audio, sr: int = 16000, block_length_sec=30):
+        
+        print(f'Streaming audio at location: {audio}')
         
         frame_size = (2048 * sr) // 16000
         hop_length = (1024 * sr) // 16000

@@ -5,7 +5,9 @@ from torch.utils.data import DataLoader
 from jiwer import wer, cer
 from multi_speaker_asr.models.asr import ASR, Whisper, Wav2Vec2
 from .data import clean_transcription
-
+from pyannote.audio.pipelines.utils.hook import ProgressHook
+from multi_speaker_asr.models.diarization import Diarize
+import torch
 
 def collator_fn(batch):
     # TODO!!!
@@ -84,7 +86,6 @@ def batched_inference(data: AudioData, model: ASR):
         return results
 
 
-@profile
 def streamed_inference(data: AudioData, model: ASR):
     """
     This assumes the dataset contains raw long-form audio recordings, and will therefore include streaming (using librosa) and process each audio stream sequentially.
@@ -110,32 +111,41 @@ def streamed_inference(data: AudioData, model: ASR):
                 )
                 audio_duratio = sample['end']
                 inner_tqdm = tqdm(stream, total=int(audio_duratio / 30.0))
+<<<<<<< HEAD
                 for y in inner_tqdm:
                     #print('Iterating streamed block...')
 
                     inner_tqdm.refresh()    # To ensure the terminal gets refreshed at every inner-loop iteration...
                     
+=======
+
+                running_duration = 0.0  # To keep a count of the duration of the amount of audio streams processed so far...
+                for index, y in enumerate(inner_tqdm):
+
+                    inner_tqdm.refresh() # To enure the progressbar is visible for the individual audio recordings...
+>>>>>>> d36b066bf05dd9c0183b9395ff96960f7f4edf6c
                     if isinstance(model, Whisper):
-                        outputs, _ = model.pipeline.transcribe(
+                        outputs, info = model.pipeline.transcribe(
                         audio=y,
                         language='da',
                         batch_size=1
                         )
                         for out in outputs:
-                            clean_ref = clean_transcription(sample['text'])
-                            clean_hyp = clean_transcription(out.text)
-                            word_err_rate = wer(reference=clean_ref, hypothesis=clean_hyp)
-                            char_err_rate = cer(reference=clean_ref, hypothesis=clean_hyp)
+                            start = out.start
+                            end = out.end
+                            if index > 0:
+                                # Add the duration of the current running duration to start, and the duration of the current stream to the end as well as the running duration:
+                                start = out.start + running_duration
+                                end = out.end + running_duration
 
                             results.append({
-                                'cer': char_err_rate,
-                                'wer': word_err_rate,
-                                'start': out.start,
-                                'end': out.end,
-                                'ref': sample['text'],
+                                'start': start,
+                                'end': end,
                                 'hyp': out.text,
                                 'id': sample['id']
                             })
+                            running_duration += info.duration
+                            print(f'Duration so far is... {running_duration}sec.')
 
                     elif isinstance(model, Wav2Vec2):
                         output = model.run_pipeline(
@@ -158,15 +168,51 @@ def streamed_inference(data: AudioData, model: ASR):
         print(f'An error occurred...{e}')
     
     finally:
-        model.unload()
-        model = None
-        loader = None
-        
+        return results
+
+
+def inference_streaming_diarize(data: AudioData, model: Diarize):
+    loader = DataLoader(
+        dataset=data,
+        batch_size=2,
+        shuffle=False,
+        collate_fn=collator_fn,
+        num_workers=1
+    )
+    results = []
+
+    try:
+        for batch in tqdm(loader):
+
+            for sample in batch:
+                stream = stream_audio(
+                    audio=sample['audio']
+                )
+                audio_duratio = sample['end']
+                inner_tqdm = tqdm(stream, total=int(audio_duratio / 30.0))
+
+                for index, y in enumerate(inner_tqdm):
+                    wav = torch.tensor(y)   # To get the correct format of (channel, time) Tensor.
+                    print(f'Shape of tensor: {wav.shape}')
+
+
+                    with ProgressHook() as hook:
+                        output = model.model(
+                            {'waveform': wav, 'sample_rate': data.target_sr}, 
+                            hook=hook
+                        )
+                    
+                    results.append({
+                    'id': sample['id'],
+                    'speaker_segments': output
+                })
+    except Exception as e:
+        print(f'Failed with error...: {e}')
+    finally:
         return results
 
 
 """
-#@profile
 def inference_diarize(loader, model, batch_size):
 
     try:

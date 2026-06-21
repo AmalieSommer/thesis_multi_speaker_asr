@@ -29,7 +29,7 @@ class Whisper(ASR):
         )
 
 
-    @profile
+   
     def load(self, compute_type, cpu_threads):
 
         print(f'Loading model...')
