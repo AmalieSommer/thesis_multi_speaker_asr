@@ -165,6 +165,7 @@ def streamed_inference(data: AudioData, model: ASR):
     finally:
         return results
 
+@profile
 def inference_streaming_diarize(data: AudioData, model: Diarize):
     loader = DataLoader(
         dataset=data,

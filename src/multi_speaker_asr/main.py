@@ -111,27 +111,19 @@ def run_diarization_streaming(config):
     data = AudioData(path=config['data'], hpc=False)
     model = Diarize()   # Default values are fine for now
     model.load(token=HF_TOKEN)
-    rttm = inference_streaming_diarize(
+    res_diarize = inference_streaming_diarize(
         data=data,
         model=model
     )
-    with open("audio.rttm", "w") as rttm:
-        model.model.write_rttm(rttm)
-
-    return rttm
+    return res_diarize
 
 
 
 def main(config):
     #run_whisper_baseline_short_audio(config=config)
-    #asr_results = run_whisper_baseline_streaming_audio(config=config)
+    asr_results = run_whisper_baseline_streaming_audio(config=config)
     diarize_results = run_diarization_streaming(config=config)
-    # NOTE FOR LATER:
-    # WhisperX library is not compatible with current environment.
-    # To run a separate phoneme wav2vec2 alignment model it would require running ASR and Wav2Vec2 on two separate subprocessess with their own uv environment.
-    # Alternatively start with just running faster-whisper .transcribe() with word_timestamps=True and see how that works.
-
-    # Call diarization model using Pyannote.audio modules:
+  
 
 
 if __name__=='__main__':
