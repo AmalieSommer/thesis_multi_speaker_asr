@@ -11,6 +11,7 @@ import argparse
 from multi_speaker_asr.models.diarization import Diarize, assign_word_speakers
 from multi_speaker_asr.models.alignment import Wav2Vec2
 import librosa
+import itertools
 
 os.environ['OMP_NUM_THREADS'] = '6'
 
@@ -18,7 +19,7 @@ load_dotenv()
 HF_TOKEN = os.getenv('HF_TOKEN')
 
 
-RESULT_PATH = '/zhome/28/9/151118/thesis/thesis_multi_speaker_asr/src/results'
+RESULT_PATH = '/root/master_thesis/thesis_multi_speaker_asr/src/results'
 
 
 
@@ -85,11 +86,10 @@ def run_whisper_baseline_short_audio(config):
                 device=config['device'],
                 model=config['model']
             )
-    asr_results, before_alignment = batched_inference(
+    _, before_alignment = batched_inference(
         data=data,
         model=model
     )
-    #save_data(asr_results, f'whisper_baseline')
     return before_alignment
 
 
@@ -102,12 +102,11 @@ def run_whisper_baseline_streaming_audio(config):
                 device=config['device'],
                 model=config['model']
             )
-    asr_results, before_alignment = streamed_inference(
+    _, before_alignment = streamed_inference(
         data=data,
         model=model
     )
-    #save_data(asr_results, f'whisper_baseline_{computetype}')
-    return asr_results, before_alignment
+    return before_alignment
 
 def run_diarization_streaming(config):
     data = AudioData(path=config['data'], hpc=False)
@@ -126,6 +125,7 @@ def align_transcripts(asr_output: list[tuple], config):
 
     after_alignment = []
     for (id, audio, segments) in asr_output:
+        print(f'Running alignment for audio...: {id}')
 
         if isinstance(audio, bytes):
             wav = read_bytes(audio)
@@ -140,38 +140,41 @@ def align_transcripts(asr_output: list[tuple], config):
             'id': id,
             'transcript': transcription_result
         })
-
+    print('Finished aligning the transcripts...!')
     return after_alignment
 
 
 
 
-def main(config):
-    segments = run_whisper_baseline_short_audio(config=config)
-    #asr_results, segments = run_whisper_baseline_streaming_audio(config=config)
+def main(config, long_form=False):
+    filename = 'coral_baseline'
+
+    if long_form:
+        segments = run_whisper_baseline_streaming_audio(config=config)
+    else:
+        segments = run_whisper_baseline_short_audio(config=config)
+
     aligned_transcripts = align_transcripts(segments, config)
     diarize_results = run_diarization_streaming(config=config)
-
-    print(f'Size of aligned transcripts: {len(aligned_transcripts)}')
-    print(f'Size of diarization results: {len(diarize_results)}')
-
+    final_transcripts = []
     for (aligned_tuple, diarize_tuple) in zip(aligned_transcripts, diarize_results):
         if aligned_tuple['id'] == diarize_tuple['id']:
             segments = aligned_tuple['transcript']['segments']
             speaker_info = diarize_tuple['speaker_segments']
         
-            final_transcripts = assign_word_speakers(
+            final_transcripts.append(assign_word_speakers(
                 aligned_tuple['id'],
                 segments_list=segments,
                 speaker_times=speaker_info
-            )
+            ))
+    
+    final_transcripts = list(itertools.chain(*final_transcripts))
+    save_data(final_transcripts, filename)
 
 
 
 
 if __name__=='__main__':
     print('Starting...')
-
-
     config = load_config()
-    main(config=config)
+    main(config=config, long_form=True)

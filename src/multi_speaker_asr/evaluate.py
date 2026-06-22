@@ -3,15 +3,11 @@ from .data import AudioData, stream_audio, cast
 import librosa
 from torch.utils.data import DataLoader
 from jiwer import wer, cer
-from multi_speaker_asr.models.asr import ASR, Whisper, Wav2Vec2
+from multi_speaker_asr.models.asr import ASR, Whisper
 from .data import clean_transcription, read_bytes
 from pyannote.audio.pipelines.utils.hook import ProgressHook
 from multi_speaker_asr.models.diarization import Diarize
 import torch
-import soundfile as sf
-import io
-from collections.abc import Iterable
-from whisperx.schema import SingleSegment
 
 def collator_fn(batch):
     # TODO!!!
@@ -27,7 +23,7 @@ def batched_inference(data: AudioData, model: ASR):
     loader = DataLoader(
         dataset=data,
         batch_size=batch_size,
-        num_workers=0,
+        num_workers=1,
         shuffle=False,
         collate_fn=collator_fn
     )
@@ -62,23 +58,6 @@ def batched_inference(data: AudioData, model: ASR):
                             'hyp': out.text
                         })
                         iterable_segments.append(cast(out))
-
-                elif isinstance(model, Wav2Vec2):
-                    audio, _ = librosa.load(path=audio, sr=data.target_sr)
-                    output = model.run_pipeline(
-                        input=audio
-                    )
-                    clean_ref = clean_transcription(sample['text'])
-                    clean_hyp = clean_transcription(out.text)
-                    word_err_rate = wer(reference=clean_ref, hypothesis=clean_hyp)
-                    char_err_rate = cer(reference=clean_ref, hypothesis=clean_hyp)
-                    results.append({
-                        'cer': char_err_rate,
-                        'wer': word_err_rate,
-                        'ref': sample['text'],
-                        'hyp': output.text,
-                        'id': sample['id']
-                    })
                 before_alignment.append(
                             (sample['id'], sample['audio'], iterable_segments)
                         )
@@ -93,13 +72,13 @@ def streamed_inference(data: AudioData, model: ASR):
     """
     This assumes the dataset contains raw long-form audio recordings, and will therefore include streaming (using librosa) and process each audio stream sequentially.
     """
-    batch_size = 2
+    batch_size = 1
     loader = DataLoader(
         dataset=data,
         batch_size=batch_size,
         shuffle=False,
         collate_fn=collator_fn,
-        num_workers=0
+        num_workers=1
     )
     results = []
     iterable_segments = []
@@ -132,22 +111,20 @@ def streamed_inference(data: AudioData, model: ASR):
                         word_timestamps=True
                         )
                         for out in outputs:
-                            start = out.start
-                            end = out.end
                         
                             if index > 0:
                                 # Add the duration of the current running duration to start, and the duration of the current stream to the end as well as the running duration:
-                                start = out.start + running_duration
-                                end = out.end + running_duration
+                                out.start += running_duration
+                                out.end += running_duration
 
                             results.append({
                                 'id': sample['id'],
-                                'start': start,
-                                'end': end,
+                                'start': out.start,
+                                'end': out.end,
                                 'hyp': out.text,
                                 'words': out.words
                             })
-                            iterable_segments.append(outputs)
+                            iterable_segments.append(cast(out))
                             running_duration += info.duration
 
                 before_alignment.append(
@@ -167,7 +144,7 @@ def inference_streaming_diarize(data: AudioData, model: Diarize):
         batch_size=2,
         shuffle=False,
         collate_fn=collator_fn,
-        num_workers=0
+        num_workers=1
     )
     results = []
 
@@ -223,48 +200,6 @@ def inference_streaming_diarize(data: AudioData, model: Diarize):
 
 
 """
-def inference_diarize(loader, model, batch_size):
-
-    try:
-        results = []
-        for batch in tqdm(loader):
-
-            for sample in batch:
-                start_time = time.time()
-                print(f'Start time...: {start_time}')
-                
-                id = sample['id']
-                # TODO: Could add config params for setting min and max speakers if known...
-                print(type(model.model))
-
-                wav = torch.tensor(sample['audio']).unsqueeze(0)   # To get the correct format of (channel, time) Tensor.
-                print(f'Shape of tensor: {wav.shape}')
-
-
-                with ProgressHook() as hook:
-                    output = model.model(
-                        {'waveform': wav, 'sample_rate': sample['sr']}, 
-                        hook=hook
-                    )
-                
-                processing_time = time.time() - start_time
-                rtf = processing_time # currently just passes total processing time for full batch
-
-                results.append({
-                    'id': id,
-                    'path': sample['path'],
-                    'speaker_segments': output,
-                    'rtf': rtf
-                })
-
-    finally:
-        model.unload()
-        model = None
-
-        return results
-
-
-
 def eval_bert(bert, info):
     for item in info.values():
         encoded_pred_transcripts = bert.tokenizer(item['pred'], padding=True, truncation=True, return_tensors='pt')

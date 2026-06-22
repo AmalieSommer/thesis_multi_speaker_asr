@@ -21,14 +21,6 @@ class Wav2Vec2:
             model_name=config['alignment_model']
         )
 
-        """
-        self.pipeline = pipeline(
-            task='automatic-speech-recognition',
-            model=config['model'],
-            device=self.device
-        )
-        """
-
 
     def run_alignment(self, transcript, audio):
         return align(

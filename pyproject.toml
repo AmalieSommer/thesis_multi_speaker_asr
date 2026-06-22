@@ -18,26 +18,25 @@ classifiers = [
 readme = "README.md"
 requires-python = ">=3.11, <3.12"
 dependencies = [
-    "carbontracker>=2.4.5",
-    "ctranslate2>=4.5.0",
-    "datacollective>=0.5.1",
+    "carbontracker",
+    "ctranslate2",
+    "datacollective",
     "huggingface-hub<1",
-    "librosa>=0.11.0",
+    "librosa",
     "sentence-transformers",
-    "soundfile>=0.13.1",
-    "torch>=2.4.0,<3.0.0",
-    "torchaudio>=2.4.0,<3.0.0",
+    "soundfile",
+    "torch>=2.8.0,<2.9.0",
+    "torchaudio>=2.7.0,<2.9.0",
+    "torchvision>=0.23.0,<0.25.0",
     "transformers",
     "faster-whisper",
-    "torchmetrics>=1.9.0",
-    "ipykernel>=7.2.0",
-    "num2words>=0.5.14",
-    "pydub>=0.25.1",
-    "jiwer>=4.0.0",
-    "memory-profiler>=0.61.0",
-    "pyannote-audio>=3.4.0",
-    "datasets<4.0.0",
-    "scalene>=2.3.0",
+    "torchmetrics",
+    "num2words",
+    "pydub",
+    "jiwer",
+    "pyannote-audio",
+    "datasets",
+    "whisperx"
 ]
 
 [dependency-groups]
@@ -59,10 +58,11 @@ omit = ["tests/*"]
 line-length = 120
 
 [[tool.uv.index]]
-name = "pytorch-cu124"
-url = "https://download.pytorch.org/whl/cu124"
+name = "pytorch-cpu"
+url = "https://download.pytorch.org/whl/cpu/"
 explicit = true
 
 [tool.uv.sources]
-torch = { index = "pytorch-cu124" }
-torchaudio = { index = "pytorch-cu124" }
+torch = { index = "pytorch-cpu" }
+torchaudio = { index = "pytorch-cpu" }
+torchvision = { index = "pytorch-cpu" }

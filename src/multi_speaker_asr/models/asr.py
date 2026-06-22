@@ -2,7 +2,6 @@ from faster_whisper import WhisperModel
 from faster_whisper import BatchedInferencePipeline
 from transformers import pipeline
 
-
 class ASR:
     """
     Wrapper class for ASR models.
@@ -50,7 +49,6 @@ class Whisper(ASR):
 class Wav2Vec2(ASR):
     def __init__(self, model='CoRal-project/roest-v3-wav2vec2-315m', device='cpu'):
         super().__init__(model, device)
-        self.load()
 
     def load(self):
         self.pipeline = pipeline(
@@ -58,18 +56,6 @@ class Wav2Vec2(ASR):
             model=self.model,
             device=self.device
         )
-
-
-
-    def run_pipeline(self, input, chunk_length: int = 10, stride: int = 2):
-        """When running inference, the model needs context in order to produce good results. Using chunking with strides on both sides to improve performance"""
-        output = self.pipeline(
-            inputs=input,
-            chunk_length_s=chunk_length,
-            stride_length_s=stride
-        )
-        return output
-
 
 
 
