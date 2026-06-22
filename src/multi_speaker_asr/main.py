@@ -8,11 +8,9 @@ import yaml
 from multi_speaker_asr.data import AudioData, read_bytes
 from multi_speaker_asr.models.asr import Whisper
 import argparse
-from multi_speaker_asr.models.diarization import Diarize
+from multi_speaker_asr.models.diarization import Diarize, assign_word_speakers
 from multi_speaker_asr.models.alignment import Wav2Vec2
 import librosa
-import soundfile as sf
-import io
 
 os.environ['OMP_NUM_THREADS'] = '6'
 
@@ -153,7 +151,22 @@ def main(config):
     #asr_results, segments = run_whisper_baseline_streaming_audio(config=config)
     aligned_transcripts = align_transcripts(segments, config)
     diarize_results = run_diarization_streaming(config=config)
-    
+
+    print(f'Size of aligned transcripts: {len(aligned_transcripts)}')
+    print(f'Size of diarization results: {len(diarize_results)}')
+
+    for (aligned_tuple, diarize_tuple) in zip(aligned_transcripts, diarize_results):
+        if aligned_tuple['id'] == diarize_tuple['id']:
+            segments = aligned_tuple['transcript']['segments']
+            speaker_info = diarize_tuple['speaker_segments']
+        
+            final_transcripts = assign_word_speakers(
+                aligned_tuple['id'],
+                segments_list=segments,
+                speaker_times=speaker_info
+            )
+
+
 
 
 if __name__=='__main__':
