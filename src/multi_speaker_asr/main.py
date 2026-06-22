@@ -5,11 +5,14 @@ import torch
 from tqdm import tqdm
 from dotenv import load_dotenv
 import yaml
-from multi_speaker_asr.data import AudioData
+from multi_speaker_asr.data import AudioData, read_bytes
 from multi_speaker_asr.models.asr import Whisper
 import argparse
 from multi_speaker_asr.models.diarization import Diarize
-
+from multi_speaker_asr.models.alignment import Wav2Vec2
+import librosa
+import soundfile as sf
+import io
 
 os.environ['OMP_NUM_THREADS'] = '6'
 
@@ -84,11 +87,12 @@ def run_whisper_baseline_short_audio(config):
                 device=config['device'],
                 model=config['model']
             )
-    asr_results = batched_inference(
+    asr_results, before_alignment = batched_inference(
         data=data,
         model=model
     )
-    save_data(asr_results, f'whisper_baseline')
+    #save_data(asr_results, f'whisper_baseline')
+    return before_alignment
 
 
 def run_whisper_baseline_streaming_audio(config):
@@ -100,12 +104,12 @@ def run_whisper_baseline_streaming_audio(config):
                 device=config['device'],
                 model=config['model']
             )
-    asr_results = streamed_inference(
+    asr_results, before_alignment = streamed_inference(
         data=data,
         model=model
     )
-    save_data(asr_results, f'whisper_baseline_{computetype}')
-    return asr_results
+    #save_data(asr_results, f'whisper_baseline_{computetype}')
+    return asr_results, before_alignment
 
 def run_diarization_streaming(config):
     data = AudioData(path=config['data'], hpc=False)
@@ -118,12 +122,38 @@ def run_diarization_streaming(config):
     return res_diarize
 
 
+def align_transcripts(asr_output: list[tuple], config):
+    alignment_pipeline = Wav2Vec2(device='cpu')
+    alignment_pipeline.load(config=config)
+
+    after_alignment = []
+    for (id, audio, segments) in asr_output:
+
+        if isinstance(audio, bytes):
+            wav = read_bytes(audio)
+        else:
+            wav, _ = librosa.load(path=audio, sr=16000)
+        transcription_result = alignment_pipeline.run_alignment(
+            transcript=segments,
+            audio=wav
+        )
+
+        after_alignment.append({
+            'id': id,
+            'transcript': transcription_result
+        })
+
+    return after_alignment
+
+
+
 
 def main(config):
-    #run_whisper_baseline_short_audio(config=config)
-    asr_results = run_whisper_baseline_streaming_audio(config=config)
+    segments = run_whisper_baseline_short_audio(config=config)
+    #asr_results, segments = run_whisper_baseline_streaming_audio(config=config)
+    aligned_transcripts = align_transcripts(segments, config)
     diarize_results = run_diarization_streaming(config=config)
-  
+    
 
 
 if __name__=='__main__':

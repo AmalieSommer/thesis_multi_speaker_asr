@@ -16,11 +16,11 @@ class Diarize:
         self.model = None
         self.model_path = MODEL[pipeline]
 
-    @profile
+
     def load(self, token):
         self.model = Pipeline.from_pretrained(
             self.model_path, 
-            use_auth_token=token
+            token=token
             )
         self.model.embedding_batch_size = 1
         

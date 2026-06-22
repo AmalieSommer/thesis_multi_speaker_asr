@@ -8,6 +8,9 @@ from datasets import load_dataset, Audio, Dataset
 from torch.utils.data import IterableDataset, DataLoader
 from faster_whisper.vad import collect_chunks, VadOptions, get_speech_timestamps
 import numpy as np
+import soundfile as sf
+from whisperx.schema import SingleSegment
+from faster_whisper.transcribe import Segment
 
 
 
@@ -64,38 +67,74 @@ class AudioData(IterableDataset):
             self.len_estimate = len(os.listdir(path=path + 'thesis_multi_speaker_asr/data/coral-v3-long-form-conversations'))
         
     
+    def set_timestamps(self, audio):
+        wav, sr = sf.read(audio, dtype='float32')
+        duration = librosa.get_duration(y=wav, sr=sr)
+        return (0.0, duration)
+        
+    
     def __iter__(self):
         for item in self.ds:
 
             # Return the bytes instead of the whole loaded audio array:
             if 'audio' not in item.keys():
+                # Check if the sample contains timestamps:
+                if ('start' not in item.keys()) | ('end' not in item.keys()):
+                    start_time, end_time = self.set_timestamps(audio=item['audio'])
+
                 base = '/root/master_thesis' if not self.hpc else '/zhome/28/9/151118/thesis/'
                 audio = base + item['path']
                 yield {
                     'id': item['id'],
                     'audio': audio,
-                    'start': item['start'] if 'start' in item.keys() else None,
-                    'end': item['end'] if 'end' in item.keys() else None,
+                    'start': item['start'] if 'start' in item.keys() else start_time,
+                    'end': item['end'] if 'end' in item.keys() else end_time,
                     'text': ' '
                 }
             
             else:
+                # Check if the sample contains timestamps:
+                if ('start' not in item.keys()) | ('end' not in item.keys()):
+                    start_time, end_time = self.set_timestamps(audio=io.BytesIO(item['audio']['bytes']))
+
                 yield {
                     'id': item['id'],
-                    'audio': io.BytesIO(item['audio']['bytes']),
-                    'start': item['start'] if 'start' in item.keys() else None,
-                    'end': item['end'] if 'end' in item.keys() else None,
+                    'audio':item['audio']['bytes'],
+                    'start': item['start'] if 'start' in item.keys() else start_time,
+                    'end': item['end'] if 'end' in item.keys() else end_time,
                     'text': item['text']
                 }
 
     def preprocess(self) -> None:
         """Preprocess the raw data and save it to the output folder."""
         self.df = self.df.dropna(subset=['path']) # Removing any rows missing wav files or transcriptions
-        
+    
+
+def read_bytes(bytes, target_sr=16000):
+    audio = io.BytesIO(bytes)
+    wav, sr = sf.read(audio, dtype='float32')
+
+    if sr != target_sr:
+        wav = librosa.resample(
+            wav,
+            orig_sr=sr,
+            target_sr=target_sr,
+        )
+        wav = wav.astype("float32")
+    return wav
+
+
+
+def cast(object: Segment):
+    return SingleSegment(
+        start=object.start,
+        end=object.end,
+        text=object.text,
+        avg_logprob=object.avg_logprob
+    )
+
 
 def stream_audio(audio, sr: int = 16000, block_length_sec=30):
-        
-        print(f'Streaming audio at location: {audio}')
         
         frame_size = (2048 * sr) // 16000
         hop_length = (1024 * sr) // 16000
@@ -103,11 +142,11 @@ def stream_audio(audio, sr: int = 16000, block_length_sec=30):
         block_length = int(block_length_sec * sr) // hop_length
 
         stream = librosa.stream(
-                path=audio,
-                block_length=block_length,
-                frame_length=frame_size,
-                hop_length=hop_length
-            )
+                    path=audio,
+                    block_length=block_length,
+                    frame_length=frame_size,
+                    hop_length=hop_length
+                )
         # Returns a Generator object that when called in a loop will yield one item at a time
         return stream
 
