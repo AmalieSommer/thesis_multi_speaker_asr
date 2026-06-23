@@ -199,6 +199,8 @@ def inference_streaming_diarize(data: AudioData, model: Diarize):
                     audio = read_bytes(sample['audio'])
                 else:
                     audio, _ = librosa.load(sample['audio'], sr=data.target_sr)
+
+                audio_time = librosa.get_duration(y=audio, sr=data.target_sr)
                 wav = torch.tensor(audio).unsqueeze(0)   # To get the correct format of (channel, time) Tensor.
                 print(f'Shape of tensor: {wav.shape}')
 
@@ -221,7 +223,7 @@ def inference_streaming_diarize(data: AudioData, model: Diarize):
                     
                 end_process_time = time.process_time()
                 cpu_time = end_process_time - start_process_time
-                rtf_sample = cpu_time / (sample['end'] - sample['start']) # processing time divided by the actual audio duration
+                rtf_sample = cpu_time / audio_time # processing time divided by the actual audio duration
             
                 logger.info('Diarization Inference CPU Time: %f', cpu_time)
                 logger.info('Diarization Inference Real-Time Factor (RTF): %f', rtf_sample)
