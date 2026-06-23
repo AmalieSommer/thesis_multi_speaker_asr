@@ -189,4 +189,4 @@ def main(config, long_form=False):
 if __name__=='__main__':
     print('Starting...')
     config = load_config()
-    main(config=config, long_form=True)
+    main(config=config, long_form=False)

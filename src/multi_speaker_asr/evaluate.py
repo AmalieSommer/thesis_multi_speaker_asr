@@ -85,7 +85,9 @@ def batched_inference(data: AudioData, model: ASR):
     
     finally:
         model.unload()
+        del model
         gc.collect()
+
         return results, before_alignment
 
 
@@ -167,13 +169,15 @@ def streamed_inference(data: AudioData, model: ASR):
     
     finally:
         model.unload()
+        del model
         gc.collect()
+
         return results, before_alignment
 
 
 @profile
 def inference_streaming_diarize(data: AudioData, model: Diarize):
-    batch_size = 1
+    batch_size = 2
     loader = DataLoader(
         dataset=data,
         batch_size=batch_size,
@@ -230,7 +234,9 @@ def inference_streaming_diarize(data: AudioData, model: Diarize):
         print(f'Failed with error...: {e}')
     finally:
         model.unload()
+        del model
         gc.collect()
+
         return results
 
 
@@ -272,6 +278,7 @@ def align_transcripts(asr_output: list[tuple], config):
         print(f'Failed with error: {e}')
     finally:
         alignment_pipeline.unload()
+        del alignment_pipeline
         gc.collect()
 
         print('Finished aligning the transcripts...!')
