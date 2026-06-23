@@ -1,27 +1,33 @@
 import os
 import json
-from multi_speaker_asr.evaluate import streamed_inference, batched_inference, inference_streaming_diarize
+from multi_speaker_asr.evaluate import (
+    streamed_inference, 
+    batched_inference, 
+    inference_streaming_diarize,
+    align_transcripts
+    )
 import torch
 from tqdm import tqdm
 from dotenv import load_dotenv
 import yaml
-from multi_speaker_asr.data import AudioData, read_bytes
+from multi_speaker_asr.data import AudioData
 from multi_speaker_asr.models.asr import Whisper
 import argparse
 from multi_speaker_asr.models.diarization import Diarize, assign_word_speakers
-from multi_speaker_asr.models.alignment import Wav2Vec2
-import librosa
 import itertools
+import logging
+import logging.config
+from multi_speaker_asr.utils.utils import LOGGING_CONFIG
+
+logging.config.dictConfig(LOGGING_CONFIG)
+logger = logging.getLogger(name='PipelineLogger')
+
 
 os.environ['OMP_NUM_THREADS'] = '6'
 
 load_dotenv()
 HF_TOKEN = os.getenv('HF_TOKEN')
-
-
 RESULT_PATH = '/root/master_thesis/thesis_multi_speaker_asr/src/results'
-
-
 
 tqdm.monitor_interval = 0 # Stops the tqdm from creating monitoring threads causing shutdown-race conditions...
 # BECAUSE OF PYTORCH LOAD() CHANGE FOR PYTORCH>=2.6
@@ -32,6 +38,7 @@ def trusted_torch_load(*args, **kwargs):
     kwargs['weights_only'] = False
     return original_torch_load(*args, **kwargs)
 torch.load = trusted_torch_load
+
 
 
 def fetch_data(filename):
@@ -70,94 +77,80 @@ def load_config():
 
 
 
-def load_data(path):
+def load_data(path, hpc):
     print('Loading data...')
-    data = AudioData(path=path)
-    data.load()
+    data = AudioData(path=path, hpc=hpc)
     return data
 
 
 
 def run_whisper_baseline_short_audio(config):
-    data = load_data(path=config['data'])
+    data = load_data(path=config['data'], hpc=config['hpc'])
+    
     model = Whisper(
                 compute_type=config['computetype'],
                 cpu_threads=config['cputhreads'],
                 device=config['device'],
                 model=config['model']
             )
+    model_memory = model.model_memory
+    logger.info('Whisper Model Memory Stats...: Before load: %f, After load: %f, Delta: %f', model_memory['before'], model_memory['after'], model_memory['delta'])
+    
+
     _, before_alignment = batched_inference(
         data=data,
         model=model
     )
+
+    memory = batched_inference.memory_stats[0]
+    logger.info('Batched Inference Memory Stats... Before start: %f, After end: %f, Delta: %f', memory['before'], memory['after'], memory['delta'])
     return before_alignment
 
 
 def run_whisper_baseline_streaming_audio(config):
-    data = AudioData(path=config['data'], hpc=False)
+    data = load_data(path=config['data'], hpc=config['hpc'])
     computetype = config['computetype']
+    
     model = Whisper(
                 compute_type=computetype,
                 cpu_threads=config['cputhreads'],
                 device=config['device'],
                 model=config['model']
             )
+    model_memory = model.model_memory
+    logger.info('Whisper Model Memory Stats...: Before load: %f, After load: %f, Delta: %f', model_memory['before'], model_memory['after'], model_memory['delta'])
+    
     _, before_alignment = streamed_inference(
         data=data,
         model=model
     )
+    memory = streamed_inference.memory_stats[0]
+    logger.info('Streamed Inference Memory Stats... Before start: %f, After end: %f, Delta: %f', memory['before'], memory['after'], memory['delta'])
+    
     return before_alignment
+
 
 def run_diarization_streaming(config):
     data = AudioData(path=config['data'], hpc=False)
-    model = Diarize()   # Default values are fine for now
-    model.load(token=HF_TOKEN)
+    
+    model = Diarize(token=HF_TOKEN)   # Default values are fine for now
+    model_memory = model.model_memory
+    logger.info('Diarization Model Memory Stats...: Before load: %f, After load: %f, Delta: %f', model_memory['before'], model_memory['after'], model_memory['delta'])
+    
     res_diarize = inference_streaming_diarize(
         data=data,
         model=model
     )
+    
+    memory = inference_streaming_diarize.memory_stats[0]
+    logger.info('Diarization Inference Memory Stats... Before start: %f, After end: %f, Delta: %f', memory['before'], memory['after'], memory['delta'])
+
     return res_diarize
 
 
-def align_transcripts(asr_output: list[tuple], config):
-    alignment_pipeline = Wav2Vec2(device='cpu')
-    alignment_pipeline.load(config=config)
-
-    after_alignment = []
-    for (id, audio, segments) in asr_output:
-        print(f'Running alignment for audio...: {id}')
-
-        if isinstance(audio, bytes):
-            wav = read_bytes(audio)
-        else:
-            wav, _ = librosa.load(path=audio, sr=16000)
-        transcription_result = alignment_pipeline.run_alignment(
-            transcript=segments,
-            audio=wav
-        )
-
-        after_alignment.append({
-            'id': id,
-            'transcript': transcription_result
-        })
-    print('Finished aligning the transcripts...!')
-    return after_alignment
-
-
-
-
-def main(config, long_form=False):
-    filename = 'coral_baseline'
-
-    if long_form:
-        segments = run_whisper_baseline_streaming_audio(config=config)
-    else:
-        segments = run_whisper_baseline_short_audio(config=config)
-
-    aligned_transcripts = align_transcripts(segments, config)
-    diarize_results = run_diarization_streaming(config=config)
+def generate_final_transcript(aligned_results: list, rttm_results: list):
     final_transcripts = []
-    for (aligned_tuple, diarize_tuple) in zip(aligned_transcripts, diarize_results):
+    for (aligned_tuple, diarize_tuple) in zip(aligned_results, rttm_results):
         if aligned_tuple['id'] == diarize_tuple['id']:
             segments = aligned_tuple['transcript']['segments']
             speaker_info = diarize_tuple['speaker_segments']
@@ -168,7 +161,26 @@ def main(config, long_form=False):
                 speaker_times=speaker_info
             ))
     
-    final_transcripts = list(itertools.chain(*final_transcripts))
+    return list(itertools.chain(*final_transcripts))
+
+
+def main(config, long_form=False):
+    filename = 'coral_baseline'
+
+    if long_form:
+        segments = run_whisper_baseline_streaming_audio(config=config)
+    else:
+        segments = run_whisper_baseline_short_audio(config=config)
+
+    aligned_results = align_transcripts(segments, config)
+    aligned_inference_mem = align_transcripts.memory_stats[0]
+    logger.info('Diarization Inference Memory Stats... Before start: %f, After end: %f, Delta: %f', aligned_inference_mem['before'], aligned_inference_mem['after'], aligned_inference_mem['delta'])
+    diarize_results = run_diarization_streaming(config=config)
+    
+    final_transcripts = generate_final_transcript(
+        aligned_results=aligned_results,
+        rttm_results=diarize_results
+    )
     save_data(final_transcripts, filename)
 
 

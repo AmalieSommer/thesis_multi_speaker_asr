@@ -1,6 +1,7 @@
 import pandas as pd
 from pyannote.audio import Pipeline
 from whisperx.diarize import IntervalTree
+from ..utils.utils import profile
 
 
 MODEL = {
@@ -11,12 +12,15 @@ MODEL = {
 
 
 class Diarize:
-    def __init__(self, device='cpu', pipeline='py3'):
+    def __init__(self, token, device='cpu', pipeline='py3'):
         self.device = device
-        self.model = None
         self.model_path = MODEL[pipeline]
+        
+        self.load(token=token)
+        self.model_memory = self.load.memory_stats[0]
 
-
+    
+    @profile
     def load(self, token):
         self.model = Pipeline.from_pretrained(
             self.model_path, 

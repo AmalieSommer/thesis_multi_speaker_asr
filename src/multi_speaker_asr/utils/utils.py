@@ -2,11 +2,66 @@ from torchmetrics.text import WordErrorRate, CharErrorRate
 from torch.nn.functional import cosine_similarity
 from difflib import SequenceMatcher
 import re
+import psutil
+import os
+
+LOGGING_CONFIG = {
+    'version': 1,
+    'disable_existing_loggers': False,
+    'formatters': {
+        'default': {
+            'format': '%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+        },
+    },
+    'handlers': {
+        'file': {
+            'level': 'DEBUG',
+            'class': 'logging.FileHandler',
+            'filename': 'pipeline_performance.log',
+            'formatter': 'default',
+        },
+        'stdout': {
+            'level': 'DEBUG',
+            'class': 'logging.StreamHandler',
+            'formatter': 'default',
+        },
+    },
+    'loggers': {
+        'PipelineLogger': {
+            'handlers': ['file', 'stdout'],
+            'level': 'DEBUG',
+            'propagate': True,
+        },
+    },
+}
 
 
-import logging
-logger = logging.getLogger(__name__)
-logger.setLevel(logging.INFO)
+# USING PSUTIL FOR MEMORY PROFILING OF INDIVIDUAL FUNCTIONS
+def process_memory():
+    process = psutil.Process(os.getpid())
+    mem_info = process.memory_info()
+    return mem_info.rss
+
+# decorator function
+def profile(func):
+    def wrapper(*args, **kwargs):
+
+        mem_before = process_memory()
+        result = func(*args, **kwargs)
+        mem_after = process_memory()
+        record = {
+            "function": func.__name__,
+            "before": mem_before / (1e+6),                  # Converting bytes to MB
+            "after": mem_after / (1e+6),                    # Converting bytes to MB
+            "delta": (mem_after - mem_before)  / (1e+6),    # Converting bytes to MB
+        }
+
+        wrapper.memory_stats.append(record)
+        return result
+
+    wrapper.memory_stats = []
+    return wrapper
+
 
 
 def compute_wer(pred, target):
