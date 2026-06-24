@@ -127,12 +127,12 @@ def read_bytes(bytes, target_sr=16000):
 
 
 
-def cast(object: Segment):
+def cast(object: dict):
     return SingleSegment(
-        start=object.start,
-        end=object.end,
-        text=object.text,
-        avg_logprob=object.avg_logprob
+        start=object['start'],
+        end=object['end'],
+        text=object['text'],
+        avg_logprob=object['avg_logprob']
     )
 
 

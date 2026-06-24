@@ -59,10 +59,10 @@ def assign_word_speakers(id: str, segments_list: list[dict], speaker_times: list
         overlapping_intervals = interval_tree.query(start=start_segment, end=end_segment)
 
         if overlapping_intervals:
-
             speaker_intersections: dict[str, float] = {}
             for speaker, intersection in overlapping_intervals:
                 speaker_intersections[speaker] = speaker_intersections.get(speaker, 0.0) + intersection
+
             segment['speaker'] = max(speaker_intersections.items(), key=lambda x: x[1])[0]
         else:
             root = (start_segment + end_segment) / 2

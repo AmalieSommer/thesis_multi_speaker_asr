@@ -5,7 +5,8 @@ from multi_speaker_asr.evaluate import (
     streamed_inference, 
     batched_inference, 
     inference_streaming_diarize,
-    align_transcripts
+    align_transcripts,
+    reader
     )
 import torch
 from tqdm import tqdm
@@ -18,11 +19,15 @@ from multi_speaker_asr.models.diarization import Diarize, assign_word_speakers
 import itertools
 import logging
 import logging.config
+from multiprocessing import Process, Queue
+
 
 
 logging.config.dictConfig(LOGGING_CONFIG)
 logger = logging.getLogger(name='Main')
 
+
+os.environ['OMP_NUM_THREADS'] = '5' # Should test 4, 5, and 6 because I also use 1 worker for data reading and 1 worker for writing results to a file.
 
 load_dotenv()
 HF_TOKEN = os.getenv('HF_TOKEN')
@@ -94,12 +99,13 @@ def run_whisper_baseline_short_audio(config):
                 device=config['device'],
                 model=config['model']
             )
-
+    filename = 'asr_output.jsonl'
     before_alignment = batched_inference(
         data=data,
-        model=model
+        model=model,
+        asr_result_filename=filename
     )
-    return before_alignment
+    return filename
 
 
 def run_whisper_baseline_streaming_audio(config):
@@ -120,52 +126,69 @@ def run_whisper_baseline_streaming_audio(config):
     return before_alignment
 
 
-def run_diarization_streaming(config):
+def run_diarization_streaming(config, output_filename):
     data = AudioData(path=config['data'], hpc=False)
     
     model = Diarize(token=HF_TOKEN)   # Default values are fine for now
     res_diarize = inference_streaming_diarize(
         data=data,
-        model=model
+        model=model,
+        output_filename=output_filename
     )
     
     return res_diarize
 
 
-def generate_final_transcript(aligned_results: list, rttm_results: list):
-    final_transcripts = []
-    for (aligned_tuple, diarize_tuple) in zip(aligned_results, rttm_results):
-        if aligned_tuple['id'] == diarize_tuple['id']:
-            segments = aligned_tuple['transcript']['segments']
-            speaker_info = diarize_tuple['speaker_segments']
-        
-            final_transcripts.append(assign_word_speakers(
-                aligned_tuple['id'],
-                segments_list=segments,
-                speaker_times=speaker_info
-            ))
+def generate_final_transcript(output_filename: str, final_transcript_filename: str):
     
-    return list(itertools.chain(*final_transcripts))
+    try:
+        if not output_filename:
+            logger.error('Failed to read empty filename.')
+            return None
+        
+        queue = Queue()
+        reader_process = Process(target=reader, args=(queue, output_filename))
+        reader_process.start()
+
+        with open(final_transcript_filename, 'w') as f:
+            while True:
+                segments_list = []
+                segments, speaker_segments = queue.get()
+                segments_list.append(segments)
+                transcript = assign_word_speakers(
+                    id=segments['id'],
+                    segments_list=segments_list,
+                    speaker_times=speaker_segments['speaker_segments']
+                )
+                json_line = json.dumps(transcript)
+                f.write(json_line + '\n')
+            
+            # TODO: Once verified that the final file is correct, add functionality to remove the other intermediate files.
+    except Exception as e:
+        logger.error('Failed with error: %s', e)
+    finally:
+        reader_process.join()
+        if reader_process.is_alive():
+            reader_process.close()
+        
 
 
 def main(config, long_form=False):
-    filename = 'coral_baseline'
-
+    filename = 'coral_baseline.jsonl'
 
     if long_form:
         segments = run_whisper_baseline_streaming_audio(config=config)
     else:
-        segments = run_whisper_baseline_short_audio(config=config)
+        saved_results = run_whisper_baseline_short_audio(config=config)
 
 
-    aligned_results = align_transcripts(segments, config)
-    diarize_results = run_diarization_streaming(config=config)
-    
-    final_transcripts = generate_final_transcript(
-        aligned_results=aligned_results,
-        rttm_results=diarize_results
-    )
-    save_data(final_transcripts, filename)
+    aligned_results = align_transcripts(saved_results, config, alignment_result_filename='aligned_output.jsonl')
+    diarize_results = run_diarization_streaming(config=config, output_filename='aligned_output.jsonl')
+
+    if (aligned_results is not None) & (diarize_results is not None):
+        generate_final_transcript('aligned_output.jsonl', filename)
+    else:
+        logger.error('Failed to generate transcript, because alignment or diarization returned None... Aligned result: %s, Diarization result: %s', aligned_results, diarize_results)
 
 
 

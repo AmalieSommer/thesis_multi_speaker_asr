@@ -13,7 +13,9 @@ import gc
 import time
 import logging
 import logging.config
-import sys
+from multiprocessing import Process, Queue
+import json
+from base64 import b64decode, b64encode
 
 
 logging.config.dictConfig(LOGGING_CONFIG)
@@ -25,10 +27,67 @@ def collator_fn(batch):
     return batch
 
 
-def batched_inference(data: AudioData, model: ASR):
+def writer(queue: Queue, output_file: str):
+    with open(output_file, "w") as f:
+        while True:
+            item = queue.get()
+
+            if item is None:
+                break
+            f.write(json.dumps(item) + "\n")
+            f.flush()
+
+
+def updater(queue: Queue, output_file: str):
+    try:
+        # First read the file into memory:
+        with open(output_file, 'r') as f:
+            records = [json.loads(line) for line in f]
+
+        while True:
+            item = queue.get()
+
+            if item is None:
+                break
+            for record in records:
+                if record[0]['id'] == item['id']:
+                    record.append(item)
+
+        with open(output_file, 'w') as f:
+            for record in records:
+                f.write(json.dumps(record) + '\n')
+    except Exception as e:
+        logger.error('Failed with error: %s', e)
+
+
+
+def reader(queue: Queue, input_file: str):
+    try:
+        with open(input_file, 'r') as f:
+            for line in f:
+                line = line.strip()
+
+                if not line:
+                    continue
+
+                record = json.loads(line)
+                queue.put(record)
+    except Exception as e:
+        logger.error('Process failed with error: %s', e)
+    finally:
+        print('Finished reading the entire file...')
+        queue.put(None) # For terminating the process
+
+
+
+def batched_inference(data: AudioData, model: ASR, asr_result_filename: str):
     """
     This assumes the dataset is pre-segmented into short chunks, and will process the chunks in batches.
     """
+    results_queue = Queue()
+    write_results_process = Process(target=writer, args=(results_queue, asr_result_filename))
+    write_results_process.start()
+
     batch_size = 2
     loader = DataLoader(
         dataset=data,
@@ -37,7 +96,6 @@ def batched_inference(data: AudioData, model: ASR):
         shuffle=False,
         collate_fn=collator_fn
     )
-    before_alignment = []
     try: 
         
         for counter, batch in enumerate(tqdm(loader, total=(8440 // batch_size))):
@@ -61,7 +119,13 @@ def batched_inference(data: AudioData, model: ASR):
                     )
                     
                     for out in outputs:
-                        iterable_segments.append(cast(out))
+                        iterable_segments.append({
+                            'start': out.start,
+                            'end': out.end,
+                            'text': out.text,
+                            'avg_logprob': out.avg_logprob
+                        })
+                        #iterable_segments.append(cast(out))
 
                     end_process_time = time.process_time()
                     cpu_time = end_process_time - start_process_time
@@ -69,22 +133,37 @@ def batched_inference(data: AudioData, model: ASR):
                 
                 logger.info('Batched Inference CPU Time: %f', cpu_time)
                 logger.info('Batched Inference Real-Time Factor (RTF): %f', rtf_sample)
-
+                """
                 before_alignment.append(
                     (sample['id'], sample['audio'], iterable_segments)
                 )
-            logger.info('Before Alignment List Memory...: %f', sys.getsizeof(before_alignment))
+                """
+                item = {
+                        'id': sample['id'],
+                        'duration': info.duration,
+                        'audio': {
+                            'bytes': b64encode(sample['audio']).decode('ascii') 
+                        },
+                        'segments': iterable_segments
+                    }
+                results_queue.put(item)
     except Exception as e:
         print(f'An error occurred...{e}')
+        return None
     
     finally:
+        results_queue.put(None) # To signal the process to terminate upon exit.
+        write_results_process.join()
+        if not write_results_process.is_alive():
+            write_results_process.close()
+
         model.unload()
         del model
         del loader
         del data
         gc.collect()
 
-    return before_alignment
+    return 'Success'
 
 
 
@@ -162,7 +241,7 @@ def streamed_inference(data: AudioData, model: ASR):
         return before_alignment
 
 
-def inference_streaming_diarize(data: AudioData, model: Diarize):
+def inference_streaming_diarize(data: AudioData, model: Diarize, output_filename: str):
     batch_size = 2
     loader = DataLoader(
         dataset=data,
@@ -171,12 +250,15 @@ def inference_streaming_diarize(data: AudioData, model: Diarize):
         collate_fn=collator_fn,
         num_workers=1
     )
-    results = []
+
+    queue = Queue()
+    write_process = Process(target=updater, args=(queue, output_filename))
+    write_process.start()
 
     try:
         for iter, batch in enumerate(tqdm(loader)):
 
-            if iter == 1:
+            if iter == 4:
                 break
 
             for sample in batch:
@@ -188,7 +270,6 @@ def inference_streaming_diarize(data: AudioData, model: Diarize):
 
                 audio_time = librosa.get_duration(y=audio, sr=data.target_sr)
                 wav = torch.tensor(audio).unsqueeze(0)   # To get the correct format of (channel, time) Tensor.
-                print(f'Shape of tensor: {wav.shape}')
 
                 speaker_segments = []
                 with ProgressHook() as hook:
@@ -205,70 +286,102 @@ def inference_streaming_diarize(data: AudioData, model: Diarize):
                             'end': segment.end,
                             'duration': segment.duration
                         })
-                        #print(f"{segment.start:.2f} --> {segment.end:.2f} ({segment.duration:.2f}s) Speaker: {speaker}")
                     
                 end_process_time = time.process_time()
                 cpu_time = end_process_time - start_process_time
                 rtf_sample = cpu_time / audio_time # processing time divided by the actual audio duration
             
+                item = {
+                    'id': sample['id'],
+                    'speaker_segments': speaker_segments
+                    }
+                queue.put(item)
+
                 logger.info('Diarization Inference CPU Time: %f', cpu_time)
                 logger.info('Diarization Inference Real-Time Factor (RTF): %f', rtf_sample)
-                
-                results.append({
-                'id': sample['id'],
-                'speaker_segments': speaker_segments
-                })
     except Exception as e:
         print(f'Failed with error...: {e}')
+        return None
     finally:
+        queue.put(None) # To signal the process to terminate upon exit.
+        write_process.join()
+        if not write_process.is_alive():
+            write_process.close()
+
         model.unload()
         del model
         del loader
         gc.collect()
 
-    return results
+    return 'Success'
 
 
-def align_transcripts(asr_output: list[tuple], config):
+def align_transcripts(asr_output_file: str, config, alignment_result_filename: str):
     try:
+        print(f'Running alignment...')
+        start_process_time = time.process_time()
         alignment_pipeline = Wav2Vec2(config=config, device='cpu')
-        after_alignment = []
-        for (id, audio, segments) in asr_output:
-            start_process_time = time.process_time()
 
-            print(f'Running alignment for audio...: {id}')
-            if isinstance(audio, bytes):
-                wav = read_bytes(audio)
-            else:
-                wav, _ = librosa.load(path=audio, sr=16000)
+        reader_queue = Queue()
+        reader_process = Process(target=reader, args=(reader_queue, asr_output_file))
+        reader_process.start()
 
-            audio_time = librosa.get_duration(y=wav, sr=16000)
-            transcription_result = alignment_pipeline.run_alignment(
-                transcript=segments,
-                audio=wav
-            )
+        with open(alignment_result_filename, "w") as f:
+            while True:
+                asr_sample = reader_queue.get()
 
-            end_process_time = time.process_time()
-            cpu_time = end_process_time - start_process_time
-            rtf_sample = cpu_time / audio_time # processing time divided by the actual audio duration
+                if asr_sample is None:
+                    break
+                
+                audio = b64decode(asr_sample['audio']['bytes']) if 'bytes' in asr_sample['audio'].keys() else asr_sample['audio']['path']
+                
+                if isinstance(audio, bytes):
+                    wav = read_bytes(audio)
+                else:
+                    wav, _ = librosa.load(path=audio, sr=16000)
 
-            logger.info('Aligning Transcripts CPU Time: %f', cpu_time)
-            logger.info('Aligning Transcripts Real-Time Factor (RTF): %f', rtf_sample)
+                segments = [cast(item) for item in asr_sample['segments']]
+                transcription_result = alignment_pipeline.run_alignment(
+                    transcript=segments,
+                    audio=wav
+                )
+                
+                end_process_time = time.process_time()
+                cpu_time = end_process_time - start_process_time
+                rtf_sample = cpu_time / asr_sample['duration'] # processing time divided by the actual audio duration
 
-            after_alignment.append({
-                'id': id,
-                'transcript': transcription_result
-            })
+                logger.info('Aligning Transcripts CPU Time: %f', cpu_time)
+                logger.info('Aligning Transcripts Real-Time Factor (RTF): %f', rtf_sample)
+
+                transformed_result = [{'id': asr_sample['id'], 
+                                    'start': item['start'], 
+                                    'end': item['end'],
+                                    'text': item['text'],
+                                    'avg_logprob': item['avg_logprob'],
+                                    'words': [{'word': obj['word'],
+                                                'start': obj['start'],
+                                                'end': obj['end'],
+                                                'score': obj['score']} for obj in item['words']]} for item in transcription_result['segments']]
+                
+                
+                f.write(json.dumps(transformed_result) + "\n")
+
     except Exception as e:
         print(f'Failed with error: {e}')
+        return None
     finally:
         alignment_pipeline.unload()
         del alignment_pipeline
-        gc.collect()
 
+        reader_process.join()
+        if reader_process.is_alive():
+            reader_process.close()
+        
+        
+        gc.collect()
         print('Finished aligning the transcripts...!')
     
-    return after_alignment
+    return 'Success'
 
 """
 def eval_bert(bert, info):

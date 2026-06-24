@@ -49,7 +49,6 @@ class Wav2Vec2:
             chunk_length_s=chunk_length,
             stride_length_s=stride
         )
-        print(output)
         return output
 
     def unload(self):
