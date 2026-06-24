@@ -1,7 +1,12 @@
 from faster_whisper import WhisperModel
 from faster_whisper import BatchedInferencePipeline
 from transformers import pipeline
-from ..utils.utils import profile
+from ..utils.utils import profile, LOGGING_CONFIG
+import logging
+import logging.config
+
+logging.config.dictConfig(LOGGING_CONFIG)
+
 
 class ASR:
     """
@@ -9,6 +14,9 @@ class ASR:
 
     It will contain the Whisper and Wav2Vec2 models, which will inherit basic functions such as unload()
     """
+
+    pass
+
     def __init__(self, model, device='cpu'):
         self.model = model
         self.device = device
@@ -21,13 +29,16 @@ class ASR:
 
 
 class Whisper(ASR):
+    logger = logging.getLogger(name='Whisper')
+
     def __init__(self, compute_type, cpu_threads, device='cpu', model='CoRal-project/roest-v3-whisper-1.5b'):
         super().__init__(model, device)
         self.load(
             compute_type=compute_type,
             cpu_threads=cpu_threads
         )
-        self.model_memory = self.load.memory_stats[0]
+        model_memory = self.load.memory_stats[0]
+        self.logger.info('Whisper Model Memory Stats...: Before load: %f, After load: %f, Delta: %f', model_memory['before'], model_memory['after'], model_memory['delta'])
 
 
     @profile

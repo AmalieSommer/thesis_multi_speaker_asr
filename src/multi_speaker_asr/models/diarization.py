@@ -1,7 +1,12 @@
 import pandas as pd
 from pyannote.audio import Pipeline
 from whisperx.diarize import IntervalTree
-from ..utils.utils import profile
+from ..utils.utils import profile, LOGGING_CONFIG
+import logging
+import logging.config
+import tracemalloc
+
+logging.config.dictConfig(LOGGING_CONFIG)
 
 
 MODEL = {
@@ -12,14 +17,17 @@ MODEL = {
 
 
 class Diarize:
+
+    logger = logging.getLogger(name='Diarization')
+
     def __init__(self, token, device='cpu', pipeline='py3'):
         self.device = device
         self.model_path = MODEL[pipeline]
         
         self.load(token=token)
-        self.model_memory = self.load.memory_stats[0]
+        model_memory = self.load.memory_stats[0]
+        self.logger.info('Diarization Model Memory Stats...: Before load: %f, After load: %f, Delta: %f', model_memory['before'], model_memory['after'], model_memory['delta'])
 
-    
     @profile
     def load(self, token):
         self.model = Pipeline.from_pretrained(

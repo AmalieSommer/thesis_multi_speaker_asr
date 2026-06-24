@@ -27,7 +27,32 @@ LOGGING_CONFIG = {
         },
     },
     'loggers': {
-        'PipelineLogger': {
+        'Evaluate': {
+            'handlers': ['file', 'stdout'],
+            'level': 'DEBUG',
+            'propagate': True,
+        },
+        'Wav2Vec2': {
+            'handlers': ['file', 'stdout'],
+            'level': 'DEBUG',
+            'propagate': True,
+        },
+        'Diarization': {
+            'handlers': ['file', 'stdout'],
+            'level': 'DEBUG',
+            'propagate': True,
+        },
+        'AudioData': {
+            'handlers': ['file', 'stdout'],
+            'level': 'DEBUG',
+            'propagate': True,
+        },
+        'Whisper': {
+            'handlers': ['file', 'stdout'],
+            'level': 'DEBUG',
+            'propagate': True,
+        },
+        'Main': {
             'handlers': ['file', 'stdout'],
             'level': 'DEBUG',
             'propagate': True,

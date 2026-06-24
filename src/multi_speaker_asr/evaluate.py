@@ -8,14 +8,16 @@ from pyannote.audio.pipelines.utils.hook import ProgressHook
 from multi_speaker_asr.models.diarization import Diarize
 from multi_speaker_asr.models.alignment import Wav2Vec2
 import torch
-from multi_speaker_asr.utils.utils import profile, LOGGING_CONFIG
+from multi_speaker_asr.utils.utils import LOGGING_CONFIG, profile
 import gc
 import time
 import logging
 import logging.config
+import sys
+
 
 logging.config.dictConfig(LOGGING_CONFIG)
-logger = logging.getLogger(name='PipelineLogger')
+logger = logging.getLogger(name='Evaluate')
 
 def collator_fn(batch):
     # TODO!!!
@@ -23,7 +25,6 @@ def collator_fn(batch):
     return batch
 
 
-@profile
 def batched_inference(data: AudioData, model: ASR):
     """
     This assumes the dataset is pre-segmented into short chunks, and will process the chunks in batches.
@@ -36,42 +37,35 @@ def batched_inference(data: AudioData, model: ASR):
         shuffle=False,
         collate_fn=collator_fn
     )
-    results = []
     before_alignment = []
     try: 
+        
         for counter, batch in enumerate(tqdm(loader, total=(8440 // batch_size))):
             if len(batch) == 0:
                 continue
 
-            if counter == 1:
+            if counter == 4:
                 break
             
             for sample in batch:
                 # Processing time for RTF calculation per audio recording
                 start_process_time = time.process_time()
                 iterable_segments = []
-                print(type(sample['audio']))
                 
                 if isinstance(sample['audio'], bytes):
                     wav = read_bytes(sample['audio'])
-
                 if isinstance(model, Whisper):
                     outputs, info = model.pipeline.transcribe(
                         audio=wav,
                         language='da'
                     )
+                    
                     for out in outputs:
-                        results.append({
-                            'id': sample['id'],
-                            'start': out.start,
-                            'end': out.end,
-                            'ref': sample['text'],
-                            'hyp': out.text
-                        })
                         iterable_segments.append(cast(out))
+
                     end_process_time = time.process_time()
                     cpu_time = end_process_time - start_process_time
-                    rtf_sample = cpu_time / (sample['end'] - sample['start']) # processing time divided by the actual audio duration
+                    rtf_sample = cpu_time / info.duration # processing time divided by the actual audio duration
                 
                 logger.info('Batched Inference CPU Time: %f', cpu_time)
                 logger.info('Batched Inference Real-Time Factor (RTF): %f', rtf_sample)
@@ -79,19 +73,21 @@ def batched_inference(data: AudioData, model: ASR):
                 before_alignment.append(
                     (sample['id'], sample['audio'], iterable_segments)
                 )
-
+            logger.info('Before Alignment List Memory...: %f', sys.getsizeof(before_alignment))
     except Exception as e:
         print(f'An error occurred...{e}')
     
     finally:
         model.unload()
         del model
+        del loader
+        del data
         gc.collect()
 
-        return results, before_alignment
+    return before_alignment
 
 
-@profile
+
 def streamed_inference(data: AudioData, model: ASR):
     """
     This assumes the dataset contains raw long-form audio recordings, and will therefore include streaming (using librosa) and process each audio stream sequentially.
@@ -102,14 +98,13 @@ def streamed_inference(data: AudioData, model: ASR):
         batch_size=batch_size,
         shuffle=False,
         collate_fn=collator_fn,
-        num_workers=1
+        num_workers=0
     )
-    results = []
     iterable_segments = []
     before_alignment = []
     try:
         print('Starting inference evaluation...')
-        for iter, batch in enumerate(tqdm(loader, total=8440 // batch_size)):
+        for iter, batch in enumerate(tqdm(loader)):
             if len(batch) == 0:
                 continue
             
@@ -142,20 +137,12 @@ def streamed_inference(data: AudioData, model: ASR):
                                 out.start += running_duration
                                 out.end += running_duration
 
-                            results.append({
-                                'id': sample['id'],
-                                'start': out.start,
-                                'end': out.end,
-                                'hyp': out.text,
-                                'words': out.words
-                            })
                             iterable_segments.append(cast(out))
                             running_duration += info.duration
 
                 end_process_time = time.process_time()
                 cpu_time = end_process_time - start_process_time
-                audio_actual_time = sample['end'] - sample['start']
-                rtf_sample = cpu_time / (audio_actual_time) # processing time divided by the actual audio duration
+                rtf_sample = cpu_time / info.duration # processing time divided by the actual audio duration
                 
                 logger.info('Streamed Inference CPU Time: %f', cpu_time)
                 logger.info('Streamed Inference Real-Time Factor (RTF): %f', rtf_sample)
@@ -172,10 +159,9 @@ def streamed_inference(data: AudioData, model: ASR):
         del model
         gc.collect()
 
-        return results, before_alignment
+        return before_alignment
 
 
-@profile
 def inference_streaming_diarize(data: AudioData, model: Diarize):
     batch_size = 2
     loader = DataLoader(
@@ -237,18 +223,15 @@ def inference_streaming_diarize(data: AudioData, model: Diarize):
     finally:
         model.unload()
         del model
+        del loader
         gc.collect()
 
-        return results
+    return results
 
 
-@profile
 def align_transcripts(asr_output: list[tuple], config):
     try:
         alignment_pipeline = Wav2Vec2(config=config, device='cpu')
-        model_memory = alignment_pipeline.model_memory
-        logger.info('Alignment Model Memory Stats...: Before load: %f, After load: %f, Delta: %f', model_memory['before'], model_memory['after'], model_memory['delta'])
-
         after_alignment = []
         for (id, audio, segments) in asr_output:
             start_process_time = time.process_time()
@@ -284,7 +267,8 @@ def align_transcripts(asr_output: list[tuple], config):
         gc.collect()
 
         print('Finished aligning the transcripts...!')
-        return after_alignment
+    
+    return after_alignment
 
 """
 def eval_bert(bert, info):

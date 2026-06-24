@@ -1,5 +1,4 @@
 import os
-import pandas as pd
 import librosa
 import re
 import io
@@ -7,11 +6,16 @@ from num2words import num2words
 from datasets import load_dataset, Audio, Dataset
 from torch.utils.data import IterableDataset, DataLoader
 from faster_whisper.vad import collect_chunks, VadOptions, get_speech_timestamps
+import tracemalloc
 import numpy as np
 import soundfile as sf
 from whisperx.schema import SingleSegment
 from faster_whisper.transcribe import Segment
+from .utils.utils import profile, LOGGING_CONFIG, process_memory
+import logging
+import logging.config
 
+logging.config.dictConfig(LOGGING_CONFIG)
 
 
 CWD = os.getcwd()
@@ -29,6 +33,7 @@ class AudioData(IterableDataset):
             'path': 'root/.cache/huggingface/datasets/CoRal-project___coral-v3/conversation/0.0.0/01f7c93c21fc9dec87fe9f7149c79569cc433f08'
         }
     }
+    logger = logging.getLogger(name='AudioData')
 
     def __init__(self, path, hpc=True, target_sr=16000, max_segment_duration=30):
         super().__init__()
@@ -41,8 +46,10 @@ class AudioData(IterableDataset):
             self.path = path    # path to a local folder
             
         self.load() # Initialize the dataset...
+        data_memory = self.load.memory_stats[0]
+        self.logger.info('Dataset Memory Stats...: Before load: %f, After load: %f, Delta: %f', data_memory['before'], data_memory['after'], data_memory['delta'])
     
-
+    @profile
     def load(self):
         """
         Loads a dataset either from local or online resource.
@@ -67,21 +74,15 @@ class AudioData(IterableDataset):
             path = '/root/master_thesis/' if not self.hpc else '/zhome/28/9/151118/thesis/'
             self.len_estimate = len(os.listdir(path=path + 'thesis_multi_speaker_asr/data/coral-v3-long-form-conversations'))
         
-    
-    def set_timestamps(self, audio):
-        wav, sr = sf.read(audio, dtype='float32')
-        duration = librosa.get_duration(y=wav, sr=sr)
-        return (0.0, duration)
         
-    
+
     def __iter__(self):
         for item in self.ds:
-
             # Return the bytes instead of the whole loaded audio array:
             if 'audio' not in item.keys():
                 # Check if the sample contains timestamps:
                 if ('start' not in item.keys()) | ('end' not in item.keys()):
-                    start_time, end_time = self.set_timestamps(audio=item['audio'])
+                    start_time, end_time = 0.0, 0.0
 
                 base = '/root/master_thesis' if not self.hpc else '/zhome/28/9/151118/thesis/'
                 audio = base + item['path']
@@ -96,7 +97,7 @@ class AudioData(IterableDataset):
             else:
                 # Check if the sample contains timestamps:
                 if ('start' not in item.keys()) | ('end' not in item.keys()):
-                    start_time, end_time = self.set_timestamps(audio=io.BytesIO(item['audio']['bytes']))
+                    start_time, end_time = 0.0, 0.0
 
                 yield {
                     'id': item['id'],
@@ -114,7 +115,7 @@ class AudioData(IterableDataset):
 def read_bytes(bytes, target_sr=16000):
     audio = io.BytesIO(bytes)
     wav, sr = sf.read(audio, dtype='float32')
-
+    
     if sr != target_sr:
         wav = librosa.resample(
             wav,

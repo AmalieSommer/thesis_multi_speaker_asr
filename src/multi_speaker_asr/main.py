@@ -1,3 +1,4 @@
+from multi_speaker_asr.utils.utils import profile, LOGGING_CONFIG, process_memory
 import os
 import json
 from multi_speaker_asr.evaluate import (
@@ -17,13 +18,11 @@ from multi_speaker_asr.models.diarization import Diarize, assign_word_speakers
 import itertools
 import logging
 import logging.config
-from multi_speaker_asr.utils.utils import LOGGING_CONFIG
+
 
 logging.config.dictConfig(LOGGING_CONFIG)
-logger = logging.getLogger(name='PipelineLogger')
+logger = logging.getLogger(name='Main')
 
-
-os.environ['OMP_NUM_THREADS'] = '6'
 
 load_dotenv()
 HF_TOKEN = os.getenv('HF_TOKEN')
@@ -67,6 +66,7 @@ def save_data(result: list[dict], filename: str):
         print(f"Error updating the file: {e}")
 
 
+@profile
 def load_config():
     print('Loading config file...')
     parser = argparse.ArgumentParser(description='ASR Inference Runs')
@@ -84,6 +84,7 @@ def load_data(path, hpc):
 
 
 
+
 def run_whisper_baseline_short_audio(config):
     data = load_data(path=config['data'], hpc=config['hpc'])
     
@@ -93,17 +94,11 @@ def run_whisper_baseline_short_audio(config):
                 device=config['device'],
                 model=config['model']
             )
-    model_memory = model.model_memory
-    logger.info('Whisper Model Memory Stats...: Before load: %f, After load: %f, Delta: %f', model_memory['before'], model_memory['after'], model_memory['delta'])
-    
 
-    _, before_alignment = batched_inference(
+    before_alignment = batched_inference(
         data=data,
         model=model
     )
-
-    memory = batched_inference.memory_stats[0]
-    logger.info('Batched Inference Memory Stats... Before start: %f, After end: %f, Delta: %f', memory['before'], memory['after'], memory['delta'])
     return before_alignment
 
 
@@ -117,15 +112,10 @@ def run_whisper_baseline_streaming_audio(config):
                 device=config['device'],
                 model=config['model']
             )
-    model_memory = model.model_memory
-    logger.info('Whisper Model Memory Stats...: Before load: %f, After load: %f, Delta: %f', model_memory['before'], model_memory['after'], model_memory['delta'])
-    
-    _, before_alignment = streamed_inference(
+    before_alignment = streamed_inference(
         data=data,
         model=model
     )
-    memory = streamed_inference.memory_stats[0]
-    logger.info('Streamed Inference Memory Stats... Before start: %f, After end: %f, Delta: %f', memory['before'], memory['after'], memory['delta'])
     
     return before_alignment
 
@@ -134,17 +124,11 @@ def run_diarization_streaming(config):
     data = AudioData(path=config['data'], hpc=False)
     
     model = Diarize(token=HF_TOKEN)   # Default values are fine for now
-    model_memory = model.model_memory
-    logger.info('Diarization Model Memory Stats...: Before load: %f, After load: %f, Delta: %f', model_memory['before'], model_memory['after'], model_memory['delta'])
-    
     res_diarize = inference_streaming_diarize(
         data=data,
         model=model
     )
     
-    memory = inference_streaming_diarize.memory_stats[0]
-    logger.info('Diarization Inference Memory Stats... Before start: %f, After end: %f, Delta: %f', memory['before'], memory['after'], memory['delta'])
-
     return res_diarize
 
 
@@ -167,14 +151,14 @@ def generate_final_transcript(aligned_results: list, rttm_results: list):
 def main(config, long_form=False):
     filename = 'coral_baseline'
 
+
     if long_form:
         segments = run_whisper_baseline_streaming_audio(config=config)
     else:
         segments = run_whisper_baseline_short_audio(config=config)
 
+
     aligned_results = align_transcripts(segments, config)
-    aligned_inference_mem = align_transcripts.memory_stats[0]
-    logger.info('Diarization Inference Memory Stats... Before start: %f, After end: %f, Delta: %f', aligned_inference_mem['before'], aligned_inference_mem['after'], aligned_inference_mem['delta'])
     diarize_results = run_diarization_streaming(config=config)
     
     final_transcripts = generate_final_transcript(
@@ -188,5 +172,11 @@ def main(config, long_form=False):
 
 if __name__=='__main__':
     print('Starting...')
+    
     config = load_config()
+    config_mem = load_config.memory_stats[0]
+    logger.info('Config Memory Stats...: Before load: %f, After load: %f, Delta: %f', config_mem['before'], config_mem['after'], config_mem['delta'])
+    
     main(config=config, long_form=False)
+
+    

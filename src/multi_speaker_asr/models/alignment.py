@@ -1,6 +1,10 @@
 from transformers import pipeline
 from whisperx.alignment import load_align_model, align
-from ..utils.utils import profile
+from ..utils.utils import profile, LOGGING_CONFIG
+import logging
+import logging.config
+
+logging.config.dictConfig(LOGGING_CONFIG)
 
 class Wav2Vec2:
     """
@@ -9,12 +13,15 @@ class Wav2Vec2:
     Allows for saving and loading the model from local.
     If not saved local, it will load from Huggingface using WhisperX.
     """
+    logger = logging.getLogger(name='Wav2Vec2')
+
     def __init__(self, config, device='cpu'):
         self.metadata = None
         self.device = device
 
         self.load(config=config)
-        self.model_memory = self.load.memory_stats[0]
+        model_memory = self.load.memory_stats[0]
+        self.logger.info('Alignment Model Memory Stats...: Before load: %f, After load: %f, Delta: %f', model_memory['before'], model_memory['after'], model_memory['delta'])
 
     @profile
     def load(self, config):
@@ -24,7 +31,6 @@ class Wav2Vec2:
             model_name=config['alignment_model']
         )
 
-    @profile
     def run_alignment(self, transcript, audio):
         return align(
             transcript=transcript,
