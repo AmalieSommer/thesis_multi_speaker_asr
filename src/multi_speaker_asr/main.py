@@ -2,8 +2,7 @@ from multi_speaker_asr.utils.utils import profile, LOGGING_CONFIG, process_memor
 import os
 import json
 from multi_speaker_asr.evaluate import (
-    streamed_inference, 
-    batched_inference, 
+    inference,
     inference_streaming_diarize,
     align_transcripts,
     reader
@@ -20,6 +19,9 @@ import itertools
 import logging
 import logging.config
 from multiprocessing import Process, Queue
+from torch.utils.data import DataLoader
+ 
+
 
 
 
@@ -27,7 +29,7 @@ logging.config.dictConfig(LOGGING_CONFIG)
 logger = logging.getLogger(name='Main')
 
 
-os.environ['OMP_NUM_THREADS'] = '5' # Should test 4, 5, and 6 because I also use 1 worker for data reading and 1 worker for writing results to a file.
+os.environ['OMP_NUM_THREADS'] = '4' # Should test 4, 5, and 6 because I also use 1 worker for data reading and 1 worker for writing results to a file.
 
 load_dotenv()
 HF_TOKEN = os.getenv('HF_TOKEN')
@@ -45,6 +47,55 @@ torch.load = trusted_torch_load
 
 
 
+def load_config():
+    """
+    Loads a .yaml configuration file with argument params.
+    """
+    print('Loading config file...')
+    parser = argparse.ArgumentParser(description='ASR Inference Runs')
+    parser.add_argument('--config', type=str, required=True)
+    args = parser.parse_args()
+    with open(args.config, 'r') as file:
+        return yaml.safe_load(file)
+
+
+def main(config: yaml):
+
+    if config['segmented']:
+        #set batch size bigger than if not pre-segmented
+        batch_size = 16
+    else:
+        batch_size = 2  # assuming the audio is non-processed longer form...
+
+    data = AudioData(path=config['data'], hpc=config['hpc'], segmented=config['segmented'])
+    loader = DataLoader(
+        dataset=data,
+        shuffle=False,
+        batch_size=batch_size,
+        num_workers=0,
+        collate_fn=data.collator_fn
+    )
+
+    inference(loader, config)
+
+
+
+if __name__=='__main__':
+    config_file = load_config()
+    main(config=config_file)
+
+
+
+
+
+
+
+
+
+
+
+
+"""
 def fetch_data(filename):
     # Fetch transcripts from file:
     try:
@@ -192,9 +243,6 @@ def main(config, long_form=False):
     else:
         logger.error('Failed to generate transcript, because alignment or diarization returned None... Aligned result: %s, Diarization result: %s', aligned_results, diarize_results)
 
-
-
-
 if __name__=='__main__':
     print('Starting...')
     
@@ -203,5 +251,5 @@ if __name__=='__main__':
     logger.info('Config Memory Stats...: Before load: %f, After load: %f, Delta: %f', config_mem['before'], config_mem['after'], config_mem['delta'])
     
     main(config=config, long_form=True)
-
+"""
     

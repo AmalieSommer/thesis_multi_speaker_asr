@@ -3,7 +3,7 @@ from .data import AudioData, stream_audio, cast
 import librosa
 from torch.utils.data import DataLoader
 from multi_speaker_asr.models.asr import ASR, Whisper
-from .data import clean_transcription, read_bytes
+from faster_whisper.transcribe import restore_speech_timestamps
 from pyannote.audio.pipelines.utils.hook import ProgressHook
 from multi_speaker_asr.models.diarization import Diarize
 from multi_speaker_asr.models.alignment import Wav2Vec2
@@ -16,8 +16,7 @@ import logging.config
 from multiprocessing import Process, Queue
 import json
 from base64 import b64decode, b64encode
-import os
-import psutil
+
 
 
 logging.config.dictConfig(LOGGING_CONFIG)
@@ -25,10 +24,6 @@ logging.getLogger("faster_whisper").setLevel(logging.DEBUG)
 
 logger = logging.getLogger(name='Evaluate')
 
-def collator_fn(batch):
-    # TODO!!!
-    """Should ensure that it returns batch object of the same format, i.e. same parameter names and types"""
-    return batch
 
 
 def writer(queue: Queue, output_file: str):
@@ -83,11 +78,58 @@ def reader(queue: Queue, input_file: str):
         queue.put(None) # For terminating the process
 
 
+def inference(loader, config):
 
+    with torch.inference_mode():
+        pipeline = Whisper(
+            compute_type=config['computetype'],
+            cpu_threads=config['cputhreads'],
+            device=config['device'],
+            model=config['model']
+        )
+
+        try:
+            queue = Queue()
+            write_results_process = Process(target=writer, args=(queue, config['filename']))
+            write_results_process.start()
+
+            for batch in tqdm(loader):
+                audio_chunks, chunks_metadata, clip_timestamps = batch
+                segments = pipeline.transcribe(
+                    audio_chunks=audio_chunks,
+                    chunks_metadata=chunks_metadata,
+                    clip_timestamps=clip_timestamps
+                )
+
+                if not config['segmented']:
+                    segments = restore_speech_timestamps(
+                        segments=segments, 
+                        speech_chunks=clip_timestamps,
+                        sampling_rate=16000
+                        )
+
+                for segment in segments:
+                    print(f'Start: {segment.start}, End: {segment.end}, Text: {segment.text}')
+                
+
+
+        except Exception as e:
+            logger.error('Failed with error: ', e)
+
+
+
+
+
+
+
+
+
+
+
+
+
+"""
 def batched_inference(data: AudioData, model: ASR, asr_result_filename: str):
-    """
-    This assumes the dataset is pre-segmented into short chunks, and will process the chunks in batches.
-    """
     results_queue = Queue()
     write_results_process = Process(target=writer, args=(results_queue, asr_result_filename))
     write_results_process.start()
@@ -164,13 +206,10 @@ def batched_inference(data: AudioData, model: ASR, asr_result_filename: str):
         gc.collect()
 
     return 'Success'
+    """
 
-
-
+"""
 def streamed_inference(data: AudioData, model: ASR, asr_result_filename: str):
-    """
-    This assumes the dataset contains raw long-form audio recordings, and will therefore include streaming (using librosa) and process each audio stream sequentially.
-    """
     results_queue = Queue()
     write_results_process = Process(target=writer, args=(results_queue, asr_result_filename))
     write_results_process.start()
@@ -193,18 +232,7 @@ def streamed_inference(data: AudioData, model: ASR, asr_result_filename: str):
 
             for sample in batch:
                 start_process_time = time.process_time()
-                """
-                stream = stream_audio(
-                    audio=sample['audio']
-                )
-                audio_duratio = sample['end']
-                inner_tqdm = tqdm(stream, total=int(audio_duratio / 30.0))
 
-                running_duration = 0.0  # To keep a count of the duration of the amount of audio streams processed so far...
-                for index, y in enumerate(stream):
-
-                    inner_tqdm.refresh() # To enure the progressbar is visible for the individual audio recordings...
-                    """
                 if isinstance(model, Whisper):
                     before_mem = psutil.Process().memory_info().rss / (1e+6)
                     print('Before loading the full audio array: ', before_mem)
@@ -250,11 +278,6 @@ def streamed_inference(data: AudioData, model: ASR, asr_result_filename: str):
                         'segments': iterable_segments
                     }
                 results_queue.put(item)
-                """
-                before_alignment.append(
-                    (sample['id'], sample['audio'], iterable_segments)
-                )
-                """
 
     except Exception as e:
         print(f'An error occurred...{e}')
@@ -271,7 +294,7 @@ def streamed_inference(data: AudioData, model: ASR, asr_result_filename: str):
         gc.collect()
 
         return 'Success'
-
+        """
 
 def inference_streaming_diarize(data: AudioData, model: Diarize, output_filename: str):
     batch_size = 2

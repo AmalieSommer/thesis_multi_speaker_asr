@@ -2,6 +2,7 @@ import os
 import librosa
 import re
 import io
+from pathlib import Path
 from num2words import num2words
 from datasets import load_dataset, Audio, Dataset
 from torch.utils.data import IterableDataset, DataLoader
@@ -35,8 +36,9 @@ class AudioData(IterableDataset):
     }
     logger = logging.getLogger(name='AudioData')
 
-    def __init__(self, path, hpc=True, target_sr=16000, max_segment_duration=30):
+    def __init__(self, path, segmented=True, hpc=True, target_sr=16000, max_segment_duration=30):
         super().__init__()
+        self.segmented = segmented
         self.hpc = hpc
         self.target_sr = target_sr
         self.max_segment_duration = max_segment_duration
@@ -71,63 +73,108 @@ class AudioData(IterableDataset):
         else:
             # Assumes it is a local data folder:
             self.ds = Dataset.from_csv(path_or_paths=data_path, split='test').to_iterable_dataset()
-            path = '/root/master_thesis/' if not self.hpc else '/zhome/28/9/151118/thesis/'
-            self.len_estimate = len(os.listdir(path=path + 'thesis_multi_speaker_asr/data/coral-v3-long-form-conversations'))
+            self.root_path = '/root/master_thesis/' if not self.hpc else '/zhome/28/9/151118/thesis/'
+            self.len_estimate = len(os.listdir(path=self.root_path + 'thesis_multi_speaker_asr/data/coral-v3-long-form-conversations'))
         
         
 
     def __iter__(self):
         for item in self.ds:
-            # Return the bytes instead of the whole loaded audio array:
-            if 'audio' not in item.keys():
-                # Check if the sample contains timestamps:
-                if ('start' not in item.keys()) | ('end' not in item.keys()):
-                    start_time, end_time = 0.0, 0.0
-
-                base = '/root/master_thesis' if not self.hpc else '/zhome/28/9/151118/thesis/'
-                audio = base + item['path']
-                yield {
-                    'id': item['id'],
-                    'audio': audio,
-                    'start': item['start'] if 'start' in item.keys() else start_time,
-                    'end': item['end'] if 'end' in item.keys() else end_time,
-                    'text': ' '
+            if ('start' not in item.keys()) | ('end' not in item.keys()):
+                timestamps = None
+            else:
+                timestamps = {
+                    'start': item['start'],
+                    'end': item['end']
                 }
             
+            if 'path' in item.keys():
+                audio = item['path']
             else:
-                # Check if the sample contains timestamps:
-                if ('start' not in item.keys()) | ('end' not in item.keys()):
-                    start_time, end_time = 0.0, 0.0
+                audio = item['audio']['bytes']
 
-                yield {
-                    'id': item['id'],
-                    'audio':item['audio']['bytes'],
-                    'start': item['start'] if 'start' in item.keys() else start_time,
-                    'end': item['end'] if 'end' in item.keys() else end_time,
-                    'text': item['text']
+            yield {
+                'id': item['id'],
+                'timestamp': timestamps,
+                'text': item['text'] if 'text' in item.keys() else None,
+                'audio': audio
+            }
+
+
+    def read_audio(self, audio, target_sr=16000):
+        if isinstance(audio, bytes):
+            audio_ = io.BytesIO(audio)
+        else:
+            audio_ = self.root_path + audio
+        wav, sr = sf.read(audio_, dtype='float32')
+        
+        # Check for multiple channels and convert to mono
+        if wav.ndim > 1:
+            wav = wav.mean(axis=1)
+
+        if sr != target_sr:
+            wav = librosa.resample(
+                wav,
+                orig_sr=sr,
+                target_sr=target_sr,
+            )
+            wav = wav.astype("float32")
+        return wav
+
+
+    def chunk_batch(self, batch: list[dict], max_duration=(30 * 16000), sr=16000):
+        """
+        Takes a list of data samples (dict objects) and if the samples are less than 30 seconds, it will combine them
+        until it reaches a chunk of size 30 seconds, and create a new chunk to fill until all are chunked.
+        If the samples are greater than 30 seconds it will split them using Silero VAD and combine them to chunks 
+        of size 30 seconds.
+
+        It will run VAD on all audio segments longer than 5 seconds, but not less in order to avoid the risk of removing
+        the entire audio segment.
+        """
+        clip_timestamps = []
+        audio_chunks, chunks_metadata = [], []
+        for sample in batch:
+            audio = sample['audio']
+            if audio.shape[0] > max_duration:
+                vad_parameters = VadOptions(
+                            max_speech_duration_s=30,
+                            min_silence_duration_ms=160,
+                        )
+                clip_timestamps = get_speech_timestamps(audio, vad_parameters)
+                audio_chunks, chunks_metadata = collect_chunks(
+                    audio=audio, 
+                    chunks=clip_timestamps,
+                    max_duration=30
+                    )
+            else:
+                clip_timestamps = clip_timestamps + [{'start': 0, 'end': audio.shape[0]}]
+                audio_chunk, chunk_metadata = collect_chunks(audio=audio, chunks=clip_timestamps)
+                audio_chunks = audio_chunks + audio_chunk
+                chunks_metadata = chunks_metadata + chunk_metadata
+
+        return audio_chunks, chunks_metadata, clip_timestamps
+    
+
+
+    def collator_fn(self, batch):
+        """Should ensure that it returns batch object of the same format, i.e. same parameter names and types"""
+
+        for sample in batch:
+            wav = self.read_audio(sample['audio'])
+            sample['audio'] = wav
+
+            start, end = None, None
+            if sample['timestamp']  == None:
+                start, end = 0, wav.shape[0]
+                sample['timestamp'] = {
+                    'start': start,
+                    'end': end
                 }
+        
+        return self.chunk_batch(batch=batch)
 
-    def preprocess(self) -> None:
-        """Preprocess the raw data and save it to the output folder."""
-        self.df = self.df.dropna(subset=['path']) # Removing any rows missing wav files or transcriptions
-    
 
-def read_bytes(bytes, target_sr=16000):
-    audio = io.BytesIO(bytes)
-    wav, sr = sf.read(audio, dtype='float32')
-    
-    # Check for multiple channels and convert to mono
-    if wav.ndim > 1:
-        wav = wav.mean(axis=1)
-
-    if sr != target_sr:
-        wav = librosa.resample(
-            wav,
-            orig_sr=sr,
-            target_sr=target_sr,
-        )
-        wav = wav.astype("float32")
-    return wav
 
 
 
