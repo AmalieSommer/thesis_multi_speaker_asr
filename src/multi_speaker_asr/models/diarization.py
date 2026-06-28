@@ -1,13 +1,19 @@
 import pandas as pd
 from pyannote.audio import Pipeline
+from pyannote.audio.pipelines.utils.hook import ProgressHook
 from whisperx.diarize import IntervalTree
 from ..utils.utils import profile, LOGGING_CONFIG
 import logging
 import logging.config
-import tracemalloc
+from ..data import AudioData
+import librosa
+import torch
+import os
+
 
 logging.config.dictConfig(LOGGING_CONFIG)
 
+HF_TOKEN = os.getenv('HF_TOKEN')
 
 MODEL = {
     'py3': 'pyannote/speaker-diarization-3.0',
@@ -20,26 +26,61 @@ class Diarize:
 
     logger = logging.getLogger(name='Diarization')
 
-    def __init__(self, token, device='cpu', pipeline='py3'):
+    def __init__(self, token=HF_TOKEN, device='cpu', pipeline='py3'):
         self.device = device
         self.model_path = MODEL[pipeline]
         
-        self.load(token=token)
+        self.load()
         model_memory = self.load.memory_stats[0]
         self.logger.info('Diarization Model Memory Stats...: Before load: %f, After load: %f, Delta: %f', model_memory['before'], model_memory['after'], model_memory['delta'])
 
     @profile
-    def load(self, token):
+    def load(self):
         self.model = Pipeline.from_pretrained(
             self.model_path, 
-            token=token
+            token=HF_TOKEN
             )
         self.model.embedding_batch_size = 1
         
 
     def unload(self):
         self.model = None
+
+
+    def diarize(self, sample: AudioData, hook: ProgressHook, num_processes=1):
+        """
+        Runs speaker diarization of audio samples sequentially.
+        To support concurrency, one can set the num_processes to a value > 1, such that if RAM allows it, multiple individual
+        CPU processes can be run in parallel.
+        """
+        audio = sample['audio']
+        if isinstance(audio, bytes):
+            audio = sample.read_audio(audio)
+        else:
+            audio, _ = librosa.load(audio, sr=sample.target_sr)
+
+        audio_time = librosa.get_duration(y=audio, sr=sample.target_sr)
+        wav = torch.tensor(audio).unsqueeze(0)   # To get the correct format of (channel, time) Tensor.
+
+        speaker_segments = []
+        output = self.model({
+            'waveform': wav,
+            'sample_rate': sample.target_sr
+        },
+        hook,
+        min_speakers=1,
+        max_speakers=2
+        )
+
+        for segment, _, speaker in output.speaker_diarization.itertracks(yield_label=True):
+            speaker_segments.append({
+                'speaker': speaker,
+                'start': segment.start,
+                'end': segment.end,
+                'duration': segment.duration
+            })
         
+        return speaker_segments, audio_time
 
 ############################################################################
 ########### Modified version of the original from WhisperX #################

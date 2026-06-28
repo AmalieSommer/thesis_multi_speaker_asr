@@ -1,5 +1,0 @@
-data:
-  path: CoRal-project/coral-v3
-  name: conversation
-  split: test
-  local_path: data/en/clips

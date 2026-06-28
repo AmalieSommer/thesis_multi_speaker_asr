@@ -2,8 +2,8 @@ from multi_speaker_asr.utils.utils import profile, LOGGING_CONFIG, process_memor
 import os
 import json
 from multi_speaker_asr.evaluate import (
-    inference,
-    inference_streaming_diarize,
+    inference_asr,
+    inference_diarize,
     align_transcripts,
     reader
     )
@@ -47,6 +47,40 @@ torch.load = trusted_torch_load
 
 
 
+def generate_final_transcript(config):
+    
+    try:
+        if not config['final_output_filename']:
+            logger.error('Failed to read empty filename.')
+            return None
+        
+        queue = Queue()
+        reader_process = Process(target=reader, args=(queue, config['align_output_filename'] + '.jsonl'))
+        reader_process.start()
+
+        with open(config['final_output_filename'] + '.jsonl', 'w') as f:
+            while True:
+                segments_list = []
+                segments, speaker_segments = queue.get()
+                segments_list.append(segments)
+                transcript = assign_word_speakers(
+                    id=segments['id'],
+                    segments_list=segments_list,
+                    speaker_times=speaker_segments['speaker_segments']
+                )
+                json_line = json.dumps(transcript)
+                f.write(json_line + '\n')
+            
+            # TODO: Once verified that the final file is correct, add functionality to remove the other intermediate files.
+    except Exception as e:
+        logger.error('Failed with error: %s', e)
+    finally:
+        reader_process.join()
+        if reader_process.is_alive():
+            reader_process.close()
+
+
+
 def load_config():
     """
     Loads a .yaml configuration file with argument params.
@@ -65,7 +99,7 @@ def main(config: yaml):
         #set batch size bigger than if not pre-segmented
         batch_size = 16
     else:
-        batch_size = 2  # assuming the audio is non-processed longer form...
+        batch_size = 1  # assuming the audio is non-processed longer form...
 
     data = AudioData(path=config['data'], hpc=config['hpc'], segmented=config['segmented'])
     loader = DataLoader(
@@ -75,8 +109,15 @@ def main(config: yaml):
         num_workers=0,
         collate_fn=data.collator_fn
     )
+    asr_status, id_offset_map = inference_asr(loader, config)
+    align_status = align_transcripts(data=data, id_offset_map=id_offset_map, config=config) 
+    diarize_status = inference_diarize(data, config)
+    if (asr_status == 'Success') & (align_status == 'Success') & (diarize_status == 'Success'):
+        generate_final_transcript(config=config)
+    else:
+        logger.error('Failed with error: Inference returned a status of None')
+        
 
-    inference(loader, config)
 
 
 

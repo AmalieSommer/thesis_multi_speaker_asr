@@ -121,42 +121,7 @@ class AudioData(IterableDataset):
             wav = wav.astype("float32")
         return wav
 
-
-    def chunk_batch(self, batch: list[dict], max_duration=(30 * 16000), sr=16000):
-        """
-        Takes a list of data samples (dict objects) and if the samples are less than 30 seconds, it will combine them
-        until it reaches a chunk of size 30 seconds, and create a new chunk to fill until all are chunked.
-        If the samples are greater than 30 seconds it will split them using Silero VAD and combine them to chunks 
-        of size 30 seconds.
-
-        It will run VAD on all audio segments longer than 5 seconds, but not less in order to avoid the risk of removing
-        the entire audio segment.
-        """
-        clip_timestamps = []
-        audio_chunks, chunks_metadata = [], []
-        for sample in batch:
-            audio = sample['audio']
-            if audio.shape[0] > max_duration:
-                vad_parameters = VadOptions(
-                            max_speech_duration_s=30,
-                            min_silence_duration_ms=160,
-                        )
-                clip_timestamps = get_speech_timestamps(audio, vad_parameters)
-                audio_chunks, chunks_metadata = collect_chunks(
-                    audio=audio, 
-                    chunks=clip_timestamps,
-                    max_duration=30
-                    )
-            else:
-                clip_timestamps = clip_timestamps + [{'start': 0, 'end': audio.shape[0]}]
-                audio_chunk, chunk_metadata = collect_chunks(audio=audio, chunks=clip_timestamps)
-                audio_chunks = audio_chunks + audio_chunk
-                chunks_metadata = chunks_metadata + chunk_metadata
-
-        return audio_chunks, chunks_metadata, clip_timestamps
     
-
-
     def collator_fn(self, batch):
         """Should ensure that it returns batch object of the same format, i.e. same parameter names and types"""
 
@@ -172,10 +137,43 @@ class AudioData(IterableDataset):
                     'end': end
                 }
         
-        return self.chunk_batch(batch=batch)
+        return batch
 
 
 
+def chunk_batch(batch: list[dict], max_duration=(30 * 16000), sr=16000):
+    """
+    Takes a list of data samples (dict objects) and if the samples are less than 30 seconds, it will combine them
+    until it reaches a chunk of size 30 seconds, and create a new chunk to fill until all are chunked.
+    If the samples are greater than 30 seconds it will split them using Silero VAD and combine them to chunks 
+    of size 30 seconds.
+
+    It will run VAD on all audio segments longer than 5 seconds, but not less in order to avoid the risk of removing
+    the entire audio segment.
+    """
+    clip_timestamps = []
+    audio_chunks, chunks_metadata = [], []
+    for sample in batch:
+        audio = sample['audio']
+        if audio.shape[0] > max_duration:
+            vad_parameters = VadOptions(
+                        max_speech_duration_s=30,
+                        min_silence_duration_ms=160,
+                    )
+            clip_timestamps = get_speech_timestamps(audio, vad_parameters)
+            audio_chunks, chunks_metadata = collect_chunks(
+                audio=audio, 
+                chunks=clip_timestamps,
+                max_duration=30
+                )
+            
+        else:
+            clip_timestamps = clip_timestamps + [{'start': 0, 'end': audio.shape[0]}]
+            audio_chunk, chunk_metadata = collect_chunks(audio=audio, chunks=clip_timestamps)
+            audio_chunks = audio_chunks + audio_chunk
+            chunks_metadata = chunks_metadata + chunk_metadata
+
+    return audio_chunks, chunks_metadata, clip_timestamps
 
 
 def cast(object: dict):

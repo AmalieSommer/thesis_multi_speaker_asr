@@ -172,12 +172,12 @@ class Whisper(ASR):
 
         info = TranscriptionInfo(
             language=language,
-            language_probability=1.0,
+            language_probability=1,
             duration=sum([chunk.shape[0] for chunk in audio_chunks]),
             duration_after_vad=None,
             transcription_options=options,
             vad_options=vad_parameters,
-            all_language_probs=1.0,
+            all_language_probs=None,
         )
 
         segments = self.pipeline._batched_segments_generator(
@@ -188,7 +188,7 @@ class Whisper(ASR):
             options,
             log_progress
         )
-        return segments
+        return segments, info
 
 
 class Wav2Vec2(ASR):

@@ -1,5 +1,5 @@
 from tqdm import tqdm
-from .data import AudioData, stream_audio, cast
+from .data import cast, AudioData, chunk_batch
 import librosa
 from torch.utils.data import DataLoader
 from multi_speaker_asr.models.asr import ASR, Whisper
@@ -16,6 +16,7 @@ import logging.config
 from multiprocessing import Process, Queue
 import json
 from base64 import b64decode, b64encode
+import numpy as np
 
 
 
@@ -23,6 +24,32 @@ logging.config.dictConfig(LOGGING_CONFIG)
 logging.getLogger("faster_whisper").setLevel(logging.DEBUG)
 
 logger = logging.getLogger(name='Evaluate')
+
+
+
+def result_to_offset(resultQueue: Queue, offsetQueue: Queue, output_file: str):
+    with open(output_file, "w") as f:
+        while True:
+            item = resultQueue.get()
+
+            if item is None:
+                break
+            f.write(json.dumps(item) + "\n")
+            pos = f.tell()
+            offsetQueue.put((item['id'], pos))
+
+
+def offset_to_result(resultQueue: Queue, offsetQueue: Queue, output_file: str):
+    with open(output_file, "w") as f:
+        while True:
+            offset = offsetQueue.get()
+
+            if offset is None:
+                break
+            f.seek(offset)
+            line = f.readline()
+            result = json.loads(line)
+            resultQueue.put(result)
 
 
 
@@ -78,7 +105,7 @@ def reader(queue: Queue, input_file: str):
         queue.put(None) # For terminating the process
 
 
-def inference(loader, config):
+def inference_asr(loader, config):
 
     with torch.inference_mode():
         pipeline = Whisper(
@@ -88,44 +115,90 @@ def inference(loader, config):
             model=config['model']
         )
 
-        try:
-            queue = Queue()
-            write_results_process = Process(target=writer, args=(queue, config['filename']))
-            write_results_process.start()
+        resultsQueue = Queue()
+        offsetQueue = Queue()
+        write_results_process = Process(target=result_to_offset, args=(resultsQueue, offsetQueue, config['asr_output_filename']))
+        write_results_process.start()
 
-            for batch in tqdm(loader):
-                audio_chunks, chunks_metadata, clip_timestamps = batch
-                segments = pipeline.transcribe(
+        id_offset_map ={}
+
+        try:
+                
+            start_process_time = time.process_time()
+            for batch in tqdm(loader):              
+                (audio_chunks, 
+                chunks_metadata, 
+                clip_timestamps) = chunk_batch(batch=batch)
+
+                segments, info = pipeline.transcribe(
                     audio_chunks=audio_chunks,
                     chunks_metadata=chunks_metadata,
                     clip_timestamps=clip_timestamps
                 )
 
-                if not config['segmented']:
-                    segments = restore_speech_timestamps(
-                        segments=segments, 
-                        speech_chunks=clip_timestamps,
-                        sampling_rate=16000
-                        )
-
+                segments = restore_speech_timestamps(
+                    segments=segments, 
+                    speech_chunks=clip_timestamps,
+                    sampling_rate=16000
+                    )
+                iter_segments = []
                 for segment in segments:
                     print(f'Start: {segment.start}, End: {segment.end}, Text: {segment.text}')
-                
+                    obj = {
+                        'start': segment.start,
+                        'end': segment.end,
+                        'text': segment.text,
+                        'avg_logprob': segment.avg_logprob
+                    }
+                    iter_segments.append(obj)
+                    if config['segmented']:
+                        id = batch[segment.id]['id']
+                        item = {
+                            'id': id,
+                            'segments': iter_segments
+                        }
+                        resultsQueue.put(item)
+                        (curr_id, curr_pos) = offsetQueue.get()
+                        id_offset_map[curr_id] = curr_pos
 
+                        iter_segments = []
+
+                    if not config['segmented']:
+                        id = batch[segment.id]
+                        item = {
+                            'id': id,
+                            'segments': iter_segments
+                        }
+                        resultsQueue.put(item)
+                        (curr_id, curr_pos) = offsetQueue.get()
+                        id_offset_map[curr_id] = curr_pos
+
+                    print(id_offset_map)
+
+                end_process_time = time.process_time()
+                cpu_time = end_process_time - start_process_time
+
+                logger.info('CPU Time is %f', cpu_time)
 
         except Exception as e:
             logger.error('Failed with error: ', e)
+            return None
 
+        finally:
+            resultsQueue.put(None) # To signal the process to terminate upon exit.
+            write_results_process.join()
+            if not write_results_process.is_alive():
+                write_results_process.close()
 
+            model.unload()
+            del model
+            del loader
+            del data
+            gc.collect()
 
+            print(id_offset_map.keys())
 
-
-
-
-
-
-
-
+    return 'Success', id_offset_map
 
 
 """
@@ -296,51 +369,21 @@ def streamed_inference(data: AudioData, model: ASR, asr_result_filename: str):
         return 'Success'
         """
 
-def inference_streaming_diarize(data: AudioData, model: Diarize, output_filename: str):
-    batch_size = 2
-    loader = DataLoader(
-        dataset=data,
-        batch_size=batch_size,
-        shuffle=False,
-        collate_fn=collator_fn,
-        num_workers=1
-    )
+def inference_diarize(data: AudioData, config):
+ 
+    pipeline = Diarize()   # Default values are fine for now
 
     queue = Queue()
-    write_process = Process(target=updater, args=(queue, output_filename))
+    write_process = Process(target=updater, args=(queue, config['align_output_filename']))
     write_process.start()
 
     try:
-        for iter, batch in enumerate(tqdm(loader)):
-
-            if iter == 4:
-                break
-
-            for sample in batch:
+        for _, sample in enumerate(tqdm(data)):
                 start_process_time = time.process_time()
-                if isinstance(sample['audio'], bytes):
-                    audio = read_bytes(sample['audio'])
-                else:
-                    audio, _ = librosa.load(sample['audio'], sr=data.target_sr)
 
-                audio_time = librosa.get_duration(y=audio, sr=data.target_sr)
-                wav = torch.tensor(audio).unsqueeze(0)   # To get the correct format of (channel, time) Tensor.
-
-                speaker_segments = []
+                
                 with ProgressHook() as hook:
-                    output = model.model(
-                        {'waveform': wav, 'sample_rate': data.target_sr}, 
-                        hook=hook,
-                        min_speakers=1,
-                        max_speakers=2
-                    )
-                    for segment, _, speaker in output.speaker_diarization.itertracks(yield_label=True):
-                        speaker_segments.append({
-                            'speaker': speaker,
-                            'start': segment.start,
-                            'end': segment.end,
-                            'duration': segment.duration
-                        })
+                    speaker_segments, audio_time = pipeline.diarize(sample=sample, hook=hook)
                     
                 end_process_time = time.process_time()
                 cpu_time = end_process_time - start_process_time
@@ -348,12 +391,12 @@ def inference_streaming_diarize(data: AudioData, model: Diarize, output_filename
             
                 item = {
                     'id': sample['id'],
+                    'cpu_time': cpu_time,
+                    'rtf': rtf_sample,
                     'speaker_segments': speaker_segments
                     }
                 queue.put(item)
-
-                logger.info('Diarization Inference CPU Time: %f', cpu_time)
-                logger.info('Diarization Inference Real-Time Factor (RTF): %f', rtf_sample)
+                
     except Exception as e:
         print(f'Failed with error...: {e}')
         return None
@@ -371,55 +414,62 @@ def inference_streaming_diarize(data: AudioData, model: Diarize, output_filename
     return 'Success'
 
 
-def align_transcripts(asr_output_file: str, config, alignment_result_filename: str):
+def align_transcripts(data: AudioData, config, id_offset_map: dict):
+    writer_queue = Queue()
+    writer_process = Process(target=reader, args=(writer_queue, config['align_output_filename']))
+    writer_process.start()
+
+    segments_queue = Queue()
+    offset_queue = Queue()
+    reader_process = Process(target=offset_to_result, args=(segments_queue, offset_queue, config['asr_output_filename']))
+    reader_process.start()
+    
     try:
         print(f'Running alignment...')
         start_process_time = time.process_time()
-        alignment_pipeline = Wav2Vec2(config=config, device='cpu')
 
-        reader_queue = Queue()
-        reader_process = Process(target=reader, args=(reader_queue, asr_output_file))
-        reader_process.start()
+        pipeline = Wav2Vec2(config=config, device='cpu')
+        for sample in data:
+            audio = sample['audio']
+            id = sample['id']
+            
+            if isinstance(audio, bytes):
+                wav = AudioData.read_audio(audio)
+            else:
+                wav, _ = librosa.load(path=audio, sr=16000)
 
-        with open(alignment_result_filename, "w") as f:
-            while True:
-                asr_sample = reader_queue.get()
+            offset = id_offset_map.get(id)
+            if offset == None:
+                continue
 
-                if asr_sample is None:
-                    break
-                
-                audio = b64decode(asr_sample['audio']['bytes']) if 'bytes' in asr_sample['audio'].keys() else asr_sample['audio']['path']
-                
-                if isinstance(audio, bytes):
-                    wav = read_bytes(audio)
-                else:
-                    wav, _ = librosa.load(path=audio, sr=16000)
+            offset_queue.put(offset)
+            asr_sample = segments_queue.get()
 
-                segments = [cast(item) for item in asr_sample['segments']]
-                transcription_result = alignment_pipeline.run_alignment(
-                    transcript=segments,
-                    audio=wav
-                )
-                
-                end_process_time = time.process_time()
-                cpu_time = end_process_time - start_process_time
-                rtf_sample = cpu_time / asr_sample['duration'] # processing time divided by the actual audio duration
+            segments = [cast(item) for item in asr_sample['segments']]
+            transcription_result = pipeline.run_alignment(
+                transcript=segments,
+                audio=wav
+            )
+            
+            end_process_time = time.process_time()
+            cpu_time = end_process_time - start_process_time
+            rtf_sample = cpu_time / asr_sample['duration'] # processing time divided by the actual audio duration
 
-                logger.info('Aligning Transcripts CPU Time: %f', cpu_time)
-                logger.info('Aligning Transcripts Real-Time Factor (RTF): %f', rtf_sample)
 
-                transformed_result = [{'id': asr_sample['id'], 
-                                    'start': item['start'], 
-                                    'end': item['end'],
-                                    'text': item['text'],
-                                    'avg_logprob': item['avg_logprob'],
-                                    'words': [{'word': obj['word'],
-                                                'start': obj['start'],
-                                                'end': obj['end'],
-                                                'score': obj['score']} for obj in item['words']]} for item in transcription_result['segments']]
-                
-                
-                f.write(json.dumps(transformed_result) + "\n")
+            transformed_result = [{
+                                'id': id, 
+                                'cpu_time': cpu_time,
+                                'rtf': rtf_sample,   
+                                'start': item['start'], 
+                                'end': item['end'],
+                                'text': item['text'],
+                                'avg_logprob': item['avg_logprob'],
+                                'words': [{'word': obj['word'],
+                                            'start': obj['start'],
+                                            'end': obj['end'],
+                                            'score': obj['score']} for obj in item['words']]} for item in transcription_result['segments']]
+            
+            writer_queue.put(transformed_result)
 
     except Exception as e:
         print(f'Failed with error: {e}')
@@ -428,10 +478,8 @@ def align_transcripts(asr_output_file: str, config, alignment_result_filename: s
         alignment_pipeline.unload()
         del alignment_pipeline
 
-        reader_process.join()
-        if reader_process.is_alive():
-            reader_process.close()
-        
+        writer_queue.put(None)
+        offset_queue.put(None)
         
         gc.collect()
         print('Finished aligning the transcripts...!')
