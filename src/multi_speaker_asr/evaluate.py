@@ -1,22 +1,19 @@
 from tqdm import tqdm
-from .data import cast, AudioData, chunk_batch
+from .data import cast, AudioData, get_chunks
 import librosa
-from torch.utils.data import DataLoader
-from multi_speaker_asr.models.asr import ASR, Whisper
+from multi_speaker_asr.models.asr import Whisper
 from faster_whisper.transcribe import restore_speech_timestamps
 from pyannote.audio.pipelines.utils.hook import ProgressHook
-from multi_speaker_asr.models.diarization import Diarize
+from multi_speaker_asr.models.diarization import Diarize, assign_word_speakers
 from multi_speaker_asr.models.alignment import Wav2Vec2
 import torch
-from multi_speaker_asr.utils.utils import LOGGING_CONFIG, profile
+from multi_speaker_asr.utils.utils import LOGGING_CONFIG
 import gc
 import time
 import logging
 import logging.config
 from multiprocessing import Process, Queue
 import json
-from base64 import b64decode, b64encode
-import numpy as np
 
 
 
@@ -36,7 +33,8 @@ def result_to_offset(resultQueue: Queue, offsetQueue: Queue, output_file: str):
                 break
             f.write(json.dumps(item) + "\n")
             pos = f.tell()
-            offsetQueue.put((item['id'], pos))
+            offsetQueue.put((item['segment_id'], pos))
+            f.flush()
 
 
 def offset_to_result(resultQueue: Queue, offsetQueue: Queue, output_file: str):
@@ -105,19 +103,26 @@ def reader(queue: Queue, input_file: str):
         queue.put(None) # For terminating the process
 
 
-def inference_asr(loader, config):
+def inference_asr(loader, 
+                  computetype='int8', 
+                  cputhreads=4, 
+                  device='cpu', 
+                  model='pluttodk/roest-v3-whisper-1.5b-ct2', 
+                  batch_size=4, 
+                  filename='asr_output_int8.jsonl'
+                  ):
 
     with torch.inference_mode():
         pipeline = Whisper(
-            compute_type=config['computetype'],
-            cpu_threads=config['cputhreads'],
-            device=config['device'],
-            model=config['model']
+            compute_type=computetype,
+            cpu_threads=cputhreads,
+            device=device,
+            model=model
         )
 
         resultsQueue = Queue()
         offsetQueue = Queue()
-        write_results_process = Process(target=result_to_offset, args=(resultsQueue, offsetQueue, config['asr_output_filename']))
+        write_results_process = Process(target=result_to_offset, args=(resultsQueue, offsetQueue, filename))
         write_results_process.start()
 
         id_offset_map ={}
@@ -125,55 +130,42 @@ def inference_asr(loader, config):
         try:
                 
             start_process_time = time.process_time()
-            for batch in tqdm(loader):              
-                (audio_chunks, 
-                chunks_metadata, 
-                clip_timestamps) = chunk_batch(batch=batch)
+            for counter, batch in enumerate(loader):
+                
+                #if counter >= 1: break
 
-                segments, info = pipeline.transcribe(
+                (audio_chunks, chunks_metadata) = get_chunks(batch=batch)
+
+                segments, _ = pipeline.transcribe(
                     audio_chunks=audio_chunks,
                     chunks_metadata=chunks_metadata,
-                    clip_timestamps=clip_timestamps
-                )
+                    batch_size=batch_size,
+                    log_progress=True
+                    )
 
+                clip_timestamps = [{'start': sample['start'], 'end': sample['end']} for sample in batch]
                 segments = restore_speech_timestamps(
                     segments=segments, 
                     speech_chunks=clip_timestamps,
                     sampling_rate=16000
                     )
-                iter_segments = []
                 for segment in segments:
+                    print('Batch size: ', len(batch))
+                    print('Segment id: ', segment.id)
+                    print('Duration of segment: ', (segment.end - segment.start))
                     print(f'Start: {segment.start}, End: {segment.end}, Text: {segment.text}')
                     obj = {
+                        'audio_id': batch[segment.id - 1]['audio_id'], # Note, segment.id is not zero-indexed
+                        'segment_id': batch[segment.id - 1]['segment_id'],
                         'start': segment.start,
                         'end': segment.end,
                         'text': segment.text,
                         'avg_logprob': segment.avg_logprob
                     }
-                    iter_segments.append(obj)
-                    if config['segmented']:
-                        id = batch[segment.id]['id']
-                        item = {
-                            'id': id,
-                            'segments': iter_segments
-                        }
-                        resultsQueue.put(item)
-                        (curr_id, curr_pos) = offsetQueue.get()
-                        id_offset_map[curr_id] = curr_pos
+                    resultsQueue.put(obj)
+                    (curr_id, curr_pos) = offsetQueue.get()
+                    id_offset_map[curr_id] = curr_pos
 
-                        iter_segments = []
-
-                    if not config['segmented']:
-                        id = batch[segment.id]
-                        item = {
-                            'id': id,
-                            'segments': iter_segments
-                        }
-                        resultsQueue.put(item)
-                        (curr_id, curr_pos) = offsetQueue.get()
-                        id_offset_map[curr_id] = curr_pos
-
-                    print(id_offset_map)
 
                 end_process_time = time.process_time()
                 cpu_time = end_process_time - start_process_time
@@ -187,18 +179,12 @@ def inference_asr(loader, config):
         finally:
             resultsQueue.put(None) # To signal the process to terminate upon exit.
             write_results_process.join()
-            if not write_results_process.is_alive():
-                write_results_process.close()
-
-            model.unload()
-            del model
-            del loader
-            del data
+            pipeline.unload()
+            del pipeline
             gc.collect()
 
-            print(id_offset_map.keys())
-
-    return 'Success', id_offset_map
+    print('Before exiting... id_offset_map: ', id_offset_map.items())
+    return id_offset_map
 
 
 """
@@ -369,12 +355,12 @@ def streamed_inference(data: AudioData, model: ASR, asr_result_filename: str):
         return 'Success'
         """
 
-def inference_diarize(data: AudioData, config):
+def inference_diarize(data: AudioData, filename: str):
  
     pipeline = Diarize()   # Default values are fine for now
 
     queue = Queue()
-    write_process = Process(target=updater, args=(queue, config['align_output_filename']))
+    write_process = Process(target=updater, args=(queue, filename))
     write_process.start()
 
     try:
@@ -406,39 +392,45 @@ def inference_diarize(data: AudioData, config):
         if not write_process.is_alive():
             write_process.close()
 
-        model.unload()
-        del model
-        del loader
+        pipeline.unload()
+        del pipeline
+        del data
         gc.collect()
 
     return 'Success'
 
 
-def align_transcripts(data: AudioData, config, id_offset_map: dict):
+def align_transcripts(
+        data: AudioData,
+        align_filename: str,
+        asr_filename: str,
+        model_name: str,
+        id_offset_map: dict):
     writer_queue = Queue()
-    writer_process = Process(target=reader, args=(writer_queue, config['align_output_filename']))
+    writer_process = Process(target=writer, args=(writer_queue, align_filename))
     writer_process.start()
 
     segments_queue = Queue()
     offset_queue = Queue()
-    reader_process = Process(target=offset_to_result, args=(segments_queue, offset_queue, config['asr_output_filename']))
+    reader_process = Process(target=offset_to_result, args=(segments_queue, offset_queue, asr_filename))
     reader_process.start()
     
+    pipeline = Wav2Vec2(model_name=model_name, device='cpu')
+    print(f'Running alignment...')
+    start_process_time = time.process_time()
+    
     try:
-        print(f'Running alignment...')
-        start_process_time = time.process_time()
-
-        pipeline = Wav2Vec2(config=config, device='cpu')
         for sample in data:
             audio = sample['audio']
-            id = sample['id']
+            audio_id = sample['audio_id']
+            segment_id = sample['segment_id']
             
             if isinstance(audio, bytes):
                 wav = AudioData.read_audio(audio)
             else:
                 wav, _ = librosa.load(path=audio, sr=16000)
 
-            offset = id_offset_map.get(id)
+            offset = id_offset_map.get(segment_id)
             if offset == None:
                 continue
 
@@ -451,15 +443,14 @@ def align_transcripts(data: AudioData, config, id_offset_map: dict):
                 audio=wav
             )
             
-            end_process_time = time.process_time()
-            cpu_time = end_process_time - start_process_time
-            rtf_sample = cpu_time / asr_sample['duration'] # processing time divided by the actual audio duration
+            #end_process_time = time.process_time()
+            #cpu_time = end_process_time - start_process_time
+            #rtf_sample = cpu_time / asr_sample['duration'] # processing time divided by the actual audio duration
 
 
             transformed_result = [{
-                                'id': id, 
-                                'cpu_time': cpu_time,
-                                'rtf': rtf_sample,   
+                                'audio_id': audio_id, 
+                                'segment_id': segment_id,   
                                 'start': item['start'], 
                                 'end': item['end'],
                                 'text': item['text'],
@@ -471,20 +462,62 @@ def align_transcripts(data: AudioData, config, id_offset_map: dict):
             
             writer_queue.put(transformed_result)
 
+        end_process_time = time.process_time()
+        cpu_time = end_process_time - start_process_time
+        logger.info('CPU Time is %f', cpu_time)
+
     except Exception as e:
         print(f'Failed with error: {e}')
         return None
     finally:
-        alignment_pipeline.unload()
-        del alignment_pipeline
+        pipeline.unload()
+        del pipeline
 
         writer_queue.put(None)
         offset_queue.put(None)
-        
+
         gc.collect()
         print('Finished aligning the transcripts...!')
     
     return 'Success'
+
+
+def generate_final_transcript(
+        results_filename: str,
+        align_filename: str):
+    
+    try:
+        if not results_filename:
+            logger.error('Failed to read empty filename.')
+            return None
+        
+        queue = Queue()
+        reader_process = Process(target=reader, args=(queue, align_filename))
+        reader_process.start()
+
+        with open(results_filename, 'w') as f:
+            while True:
+                segments_list = []
+                segments, speaker_segments = queue.get()
+                segments_list.append(segments)
+                transcript = assign_word_speakers(
+                    id=segments['id'],
+                    segments_list=segments_list,
+                    speaker_times=speaker_segments['speaker_segments']
+                )
+                json_line = json.dumps(transcript)
+                f.write(json_line + '\n')
+            
+            # TODO: Once verified that the final file is correct, add functionality to remove the other intermediate files.
+    except Exception as e:
+        logger.error('Failed with error: %s', e)
+    finally:
+        reader_process.join()
+        if reader_process.is_alive():
+            reader_process.close()
+
+
+
 
 """
 def eval_bert(bert, info):

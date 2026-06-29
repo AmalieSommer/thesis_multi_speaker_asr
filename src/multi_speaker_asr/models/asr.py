@@ -1,6 +1,4 @@
-from transformers import pipeline
 import numpy as np
-
 from faster_whisper import WhisperModel
 from faster_whisper import BatchedInferencePipeline
 from faster_whisper.audio import pad_or_trim
@@ -8,7 +6,7 @@ from faster_whisper.vad import VadOptions
 from faster_whisper.tokenizer import Tokenizer
 from faster_whisper.transcribe import TranscriptionInfo, TranscriptionOptions, get_suppressed_tokens
 
-from typing import BinaryIO, Iterable, List, Optional, Tuple, Union
+from typing import Iterable, List, Optional, Tuple, Union
 from ..utils.utils import profile, LOGGING_CONFIG
 import logging
 import logging.config
@@ -25,37 +23,37 @@ class ASR:
 
     pass
 
-    def __init__(self, model, device='cpu'):
-        self.model = model
+    def __init__(self, device='cpu'):
         self.device = device
         self.pipeline = None
 
 
     def unload(self):
-        self.model = None
+        self.pipeline = None
 
 
 
 class Whisper(ASR):
     logger = logging.getLogger(name='Whisper')
 
-    def __init__(self, compute_type, cpu_threads, device='cpu', model='CoRal-project/roest-v3-whisper-1.5b'):
-        super().__init__(model, device)
+    def __init__(self, compute_type, cpu_threads, model, device='cpu'):
+        super().__init__(device)
         self.load(
             compute_type=compute_type,
-            cpu_threads=cpu_threads
+            cpu_threads=cpu_threads,
+            model=model
         )
         model_memory = self.load.memory_stats[0]
         self.logger.info('Whisper Model Memory Stats...: Before load: %f, After load: %f, Delta: %f', model_memory['before'], model_memory['after'], model_memory['delta'])
 
 
     @profile
-    def load(self, compute_type, cpu_threads):
+    def load(self, compute_type, cpu_threads, model):
 
         print(f'Loading model...')
 
         whisper_model = WhisperModel(
-            model_size_or_path=self.model,
+            model_size_or_path=model,
             device=self.device,
             compute_type=compute_type,
             cpu_threads=int(cpu_threads),
@@ -101,7 +99,7 @@ class Whisper(ASR):
             word_timestamps: bool = False,
             prepend_punctuations: str = "\"'“¿([{-",
             append_punctuations: str = "\"'.。,，!！?？:：”)]}、",
-            multilingual: bool = False,
+            multilingual: bool = True,
             vad_filter: bool = False,
             vad_parameters: Optional[Union[dict, VadOptions]] = None,
             max_new_tokens: Optional[int] = None,
@@ -189,16 +187,4 @@ class Whisper(ASR):
             log_progress
         )
         return segments, info
-
-
-class Wav2Vec2(ASR):
-    def __init__(self, model='CoRal-project/roest-v3-wav2vec2-315m', device='cpu'):
-        super().__init__(model, device)
-
-    def load(self):
-        self.pipeline = pipeline(
-            task='automatic-speech-recognition',
-            model=self.model,
-            device=self.device
-        )
 

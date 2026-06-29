@@ -1,4 +1,3 @@
-import pandas as pd
 from pyannote.audio import Pipeline
 from pyannote.audio.pipelines.utils.hook import ProgressHook
 from whisperx.diarize import IntervalTree

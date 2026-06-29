@@ -1,4 +1,3 @@
-from transformers import pipeline
 from whisperx.alignment import load_align_model, align
 from ..utils.utils import profile, LOGGING_CONFIG
 import logging
@@ -15,20 +14,20 @@ class Wav2Vec2:
     """
     logger = logging.getLogger(name='Wav2Vec2')
 
-    def __init__(self, config, device='cpu'):
+    def __init__(self, model_name, device='cpu'):
         self.metadata = None
         self.device = device
 
-        self.load(config=config)
+        self.load(model=model_name)
         model_memory = self.load.memory_stats[0]
         self.logger.info('Alignment Model Memory Stats...: Before load: %f, After load: %f, Delta: %f', model_memory['before'], model_memory['after'], model_memory['delta'])
 
     @profile
-    def load(self, config):
+    def load(self, model):
         self.pipeline, self.metadata = load_align_model(
             language_code='da',
             device=self.device,
-            model_name=config['alignment_model']
+            model_name=model
         )
 
     def run_alignment(self, transcript, audio):
@@ -52,5 +51,5 @@ class Wav2Vec2:
         return output
 
     def unload(self):
-        self.model = None
+        self.pipeline = None
         self.metadata = None

@@ -2,17 +2,13 @@ import os
 import librosa
 import re
 import io
-from pathlib import Path
 from num2words import num2words
 from datasets import load_dataset, Audio, Dataset
-from torch.utils.data import IterableDataset, DataLoader
-from faster_whisper.vad import collect_chunks, VadOptions, get_speech_timestamps
-import tracemalloc
-import numpy as np
+from torch.utils.data import IterableDataset
+from faster_whisper.vad import VadOptions, get_speech_timestamps
 import soundfile as sf
 from whisperx.schema import SingleSegment
-from faster_whisper.transcribe import Segment
-from .utils.utils import profile, LOGGING_CONFIG, process_memory
+from .utils.utils import profile, LOGGING_CONFIG
 import logging
 import logging.config
 
@@ -36,9 +32,8 @@ class AudioData(IterableDataset):
     }
     logger = logging.getLogger(name='AudioData')
 
-    def __init__(self, path, segmented=True, hpc=True, target_sr=16000, max_segment_duration=30):
+    def __init__(self, path, hpc=True, target_sr=16000, max_segment_duration=30):
         super().__init__()
-        self.segmented = segmented
         self.hpc = hpc
         self.target_sr = target_sr
         self.max_segment_duration = max_segment_duration
@@ -51,6 +46,7 @@ class AudioData(IterableDataset):
         data_memory = self.load.memory_stats[0]
         self.logger.info('Dataset Memory Stats...: Before load: %f, After load: %f, Delta: %f', data_memory['before'], data_memory['after'], data_memory['delta'])
     
+
     @profile
     def load(self):
         """
@@ -80,25 +76,53 @@ class AudioData(IterableDataset):
 
     def __iter__(self):
         for item in self.ds:
-            if ('start' not in item.keys()) | ('end' not in item.keys()):
-                timestamps = None
-            else:
-                timestamps = {
-                    'start': item['start'],
-                    'end': item['end']
-                }
-            
-            if 'path' in item.keys():
-                audio = item['path']
-            else:
-                audio = item['audio']['bytes']
+            yield from self.preprocess(sample=item)
+      
 
-            yield {
-                'id': item['id'],
-                'timestamp': timestamps,
-                'text': item['text'] if 'text' in item.keys() else None,
-                'audio': audio
-            }
+    def preprocess(self, sample, max_duration=30, target_sr=16000):
+        try:
+            audio = sample['audio'] if 'audio' in sample.keys() else None
+
+            if audio == None:
+                raise Exception('Missong audio or text in dataset sample!')
+            
+
+            audio = sample['audio']['bytes'] if type(sample['audio']) == dict else sample['audio']
+            wav = self.read_audio(audio=audio)
+            max_duration = 30
+            target_sr = 16000
+
+            if wav.shape[0] > (max_duration * target_sr):
+                # Use VAD to get smaller audio segments
+                vad_params = VadOptions(
+                    max_speech_duration_s=30,
+                    min_silence_duration_ms=1000,
+                    min_speech_duration_ms=100
+                )
+                clip_timestamps = get_speech_timestamps(
+                    audio=wav,
+                    vad_options=vad_params
+                )
+
+                for counter, speech_segment in enumerate(clip_timestamps):
+                    new_id = sample['id'] + '_' + str(counter + 1)
+                    yield {
+                        'audio_id': sample['id'],
+                        'segment_id': new_id,
+                        'audio': wav[speech_segment['start'] : speech_segment['end']],
+                        'start': speech_segment['start'],
+                        'end': speech_segment['end']
+                    }
+            else:
+                yield {
+                    'audio_id': sample['id'],
+                    'segment_id': sample['id'] + '_' + str(1),
+                    'audio': wav,
+                    'start': sample['start'] if 'start' in sample.keys() else 0,
+                    'end': sample['end'] if 'end' in sample.keys() else wav.shape[0]
+                }
+        except Exception as e:
+            self.logger.error('Failed with error... ', e)
 
 
     def read_audio(self, audio, target_sr=16000):
@@ -124,56 +148,33 @@ class AudioData(IterableDataset):
     
     def collator_fn(self, batch):
         """Should ensure that it returns batch object of the same format, i.e. same parameter names and types"""
-
-        for sample in batch:
-            wav = self.read_audio(sample['audio'])
-            sample['audio'] = wav
-
-            start, end = None, None
-            if sample['timestamp']  == None:
-                start, end = 0, wav.shape[0]
-                sample['timestamp'] = {
-                    'start': start,
-                    'end': end
-                }
-        
+        print('Inside Collator_fn, Batch size: ', len(batch))
         return batch
+    
 
+def get_chunks(batch: list[dict], target_sr=16000):
+    audio_chunks = []
+    chunks_metadata = []
+    total_duation = 0
+    segments = []
 
-
-def chunk_batch(batch: list[dict], max_duration=(30 * 16000), sr=16000):
-    """
-    Takes a list of data samples (dict objects) and if the samples are less than 30 seconds, it will combine them
-    until it reaches a chunk of size 30 seconds, and create a new chunk to fill until all are chunked.
-    If the samples are greater than 30 seconds it will split them using Silero VAD and combine them to chunks 
-    of size 30 seconds.
-
-    It will run VAD on all audio segments longer than 5 seconds, but not less in order to avoid the risk of removing
-    the entire audio segment.
-    """
-    clip_timestamps = []
-    audio_chunks, chunks_metadata = [], []
     for sample in batch:
-        audio = sample['audio']
-        if audio.shape[0] > max_duration:
-            vad_parameters = VadOptions(
-                        max_speech_duration_s=30,
-                        min_silence_duration_ms=160,
-                    )
-            clip_timestamps = get_speech_timestamps(audio, vad_parameters)
-            audio_chunks, chunks_metadata = collect_chunks(
-                audio=audio, 
-                chunks=clip_timestamps,
-                max_duration=30
-                )
-            
-        else:
-            clip_timestamps = clip_timestamps + [{'start': 0, 'end': audio.shape[0]}]
-            audio_chunk, chunk_metadata = collect_chunks(audio=audio, chunks=clip_timestamps)
-            audio_chunks = audio_chunks + audio_chunk
-            chunks_metadata = chunks_metadata + chunk_metadata
+        curr_duration = sample['end'] - sample['start']
+        segments.append({
+            'start': sample['start'],
+            'end': sample['end']
+        })
+        chunks_metadata.append({
+            'offset': total_duation / target_sr,
+            'duration': curr_duration / target_sr,
+            'segments':  segments
+        })
+        audio_chunks.append(sample['audio'])
+        total_duation = total_duation + curr_duration
+        segments = []
 
-    return audio_chunks, chunks_metadata, clip_timestamps
+    return audio_chunks, chunks_metadata
+
 
 
 def cast(object: dict):

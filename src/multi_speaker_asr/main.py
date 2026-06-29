@@ -1,24 +1,19 @@
-from multi_speaker_asr.utils.utils import profile, LOGGING_CONFIG, process_memory
+from multi_speaker_asr.utils.utils import LOGGING_CONFIG
 import os
-import json
 from multi_speaker_asr.evaluate import (
     inference_asr,
     inference_diarize,
     align_transcripts,
-    reader
+    generate_final_transcript
     )
 import torch
 from tqdm import tqdm
 from dotenv import load_dotenv
 import yaml
 from multi_speaker_asr.data import AudioData
-from multi_speaker_asr.models.asr import Whisper
 import argparse
-from multi_speaker_asr.models.diarization import Diarize, assign_word_speakers
-import itertools
 import logging
 import logging.config
-from multiprocessing import Process, Queue
 from torch.utils.data import DataLoader
  
 
@@ -46,41 +41,6 @@ def trusted_torch_load(*args, **kwargs):
 torch.load = trusted_torch_load
 
 
-
-def generate_final_transcript(config):
-    
-    try:
-        if not config['final_output_filename']:
-            logger.error('Failed to read empty filename.')
-            return None
-        
-        queue = Queue()
-        reader_process = Process(target=reader, args=(queue, config['align_output_filename'] + '.jsonl'))
-        reader_process.start()
-
-        with open(config['final_output_filename'] + '.jsonl', 'w') as f:
-            while True:
-                segments_list = []
-                segments, speaker_segments = queue.get()
-                segments_list.append(segments)
-                transcript = assign_word_speakers(
-                    id=segments['id'],
-                    segments_list=segments_list,
-                    speaker_times=speaker_segments['speaker_segments']
-                )
-                json_line = json.dumps(transcript)
-                f.write(json_line + '\n')
-            
-            # TODO: Once verified that the final file is correct, add functionality to remove the other intermediate files.
-    except Exception as e:
-        logger.error('Failed with error: %s', e)
-    finally:
-        reader_process.join()
-        if reader_process.is_alive():
-            reader_process.close()
-
-
-
 def load_config():
     """
     Loads a .yaml configuration file with argument params.
@@ -95,25 +55,45 @@ def load_config():
 
 def main(config: yaml):
 
-    if config['segmented']:
-        #set batch size bigger than if not pre-segmented
-        batch_size = 16
-    else:
-        batch_size = 1  # assuming the audio is non-processed longer form...
-
-    data = AudioData(path=config['data'], hpc=config['hpc'], segmented=config['segmented'])
+    data = AudioData(path=config['data'], hpc=config['hpc'])
     loader = DataLoader(
         dataset=data,
         shuffle=False,
-        batch_size=batch_size,
+        batch_size=config['loader_batchsize'],
         num_workers=0,
         collate_fn=data.collator_fn
     )
-    asr_status, id_offset_map = inference_asr(loader, config)
-    align_status = align_transcripts(data=data, id_offset_map=id_offset_map, config=config) 
-    diarize_status = inference_diarize(data, config)
-    if (asr_status == 'Success') & (align_status == 'Success') & (diarize_status == 'Success'):
-        generate_final_transcript(config=config)
+
+    id_offset_map = inference_asr(
+        loader=loader,
+        computetype=config['computetype'],
+        cputhreads=config['cputhreads'],
+        device=config['device'],
+        model=config['model'],
+        batch_size=config['whisper_batchsize'],
+        filename=config['asr_output_filename']
+    )
+
+    if id_offset_map is None:
+        print('Failed with error... inference_asr() returned None')
+
+    align_status = align_transcripts(
+        data=data,
+        align_filename=config['align_output_filename'],
+        asr_filename=config['asr_output_filename'], 
+        model_name=config['alignment_model'],
+        id_offset_map=id_offset_map
+        )
+     
+    diarize_status = inference_diarize(
+        data=data,
+        filename=config['align_output_filename']
+    )
+    if (align_status == 'Success') & (diarize_status == 'Success'):
+        generate_final_transcript(
+            results_filename=config['final_output_filename'],
+            align_filename=config['align_output_filename']
+        )
     else:
         logger.error('Failed with error: Inference returned a status of None')
         
