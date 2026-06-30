@@ -1,0 +1,12 @@
+device: 'cpu'
+asr_output_filename: 'asr_output_longer_int8.jsonl'
+align_output_filename: 'align_output_longer_int8.jsonl'
+final_output_filename: 'output_longer_int8.jsonl'
+model: 'pluttodk/roest-v3-whisper-1.5b-ct2'
+data: '/root/master_thesis/thesis_multi_speaker_asr/data/coral-v3-long-form-conversations/test/coral_metadata.csv'
+computetype: int8
+cputhreads: 4
+alignment_model: 'CoRal-project/roest-v3-wav2vec2-315m'
+hpc: False
+loader_batchsize: 16
+whisper_batchsize: 4

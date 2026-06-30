@@ -7,7 +7,6 @@ mozdata/
 *.err
 *.ipynb
 *.prof
-src/configs/
 
 /pyproject.toml
 /uv.lock
