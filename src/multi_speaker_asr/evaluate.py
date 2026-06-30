@@ -16,9 +16,13 @@ import logging.config
 from multiprocessing import Process, Queue
 import json
 from base64 import b64decode, b64encode
+import os
+import psutil
 
 
 logging.config.dictConfig(LOGGING_CONFIG)
+logging.getLogger("faster_whisper").setLevel(logging.DEBUG)
+
 logger = logging.getLogger(name='Evaluate')
 
 def collator_fn(batch):
@@ -133,11 +137,7 @@ def batched_inference(data: AudioData, model: ASR, asr_result_filename: str):
                 
                 logger.info('Batched Inference CPU Time: %f', cpu_time)
                 logger.info('Batched Inference Real-Time Factor (RTF): %f', rtf_sample)
-                """
-                before_alignment.append(
-                    (sample['id'], sample['audio'], iterable_segments)
-                )
-                """
+        
                 item = {
                         'id': sample['id'],
                         'duration': info.duration,
@@ -167,31 +167,33 @@ def batched_inference(data: AudioData, model: ASR, asr_result_filename: str):
 
 
 
-def streamed_inference(data: AudioData, model: ASR):
+def streamed_inference(data: AudioData, model: ASR, asr_result_filename: str):
     """
     This assumes the dataset contains raw long-form audio recordings, and will therefore include streaming (using librosa) and process each audio stream sequentially.
     """
-    batch_size = 1
+    results_queue = Queue()
+    write_results_process = Process(target=writer, args=(results_queue, asr_result_filename))
+    write_results_process.start()
+
+    batch_size = 2
     loader = DataLoader(
         dataset=data,
         batch_size=batch_size,
         shuffle=False,
         collate_fn=collator_fn,
-        num_workers=0
+        num_workers=1
     )
     iterable_segments = []
     before_alignment = []
     try:
         print('Starting inference evaluation...')
-        for iter, batch in enumerate(tqdm(loader)):
+        for _, batch in enumerate(loader):
             if len(batch) == 0:
                 continue
-            
-            if iter == 1:
-                break
 
             for sample in batch:
                 start_process_time = time.process_time()
+                """
                 stream = stream_audio(
                     audio=sample['audio']
                 )
@@ -199,46 +201,76 @@ def streamed_inference(data: AudioData, model: ASR):
                 inner_tqdm = tqdm(stream, total=int(audio_duratio / 30.0))
 
                 running_duration = 0.0  # To keep a count of the duration of the amount of audio streams processed so far...
-                for index, y in enumerate(inner_tqdm):
+                for index, y in enumerate(stream):
 
                     inner_tqdm.refresh() # To enure the progressbar is visible for the individual audio recordings...
-                    if isinstance(model, Whisper):
-                        outputs, info = model.pipeline.transcribe(
-                        audio=y,
-                        language='da',
-                        batch_size=1,
-                        word_timestamps=True
-                        )
-                        for out in outputs:
-                        
-                            if index > 0:
-                                # Add the duration of the current running duration to start, and the duration of the current stream to the end as well as the running duration:
-                                out.start += running_duration
-                                out.end += running_duration
+                    """
+                if isinstance(model, Whisper):
+                    before_mem = psutil.Process().memory_info().rss / (1e+6)
+                    print('Before loading the full audio array: ', before_mem)
+                    
+                    wav, _ = librosa.load(sample['audio'], sr=16000)
 
-                            iterable_segments.append(cast(out))
-                            running_duration += info.duration
+                    after_mem = psutil.Process().memory_info().rss / (1e+6)
+                    print('After loading the full audio array: ', after_mem)
+
+                    delta_mem = after_mem - before_mem
+                    print('Delta memory: ', delta_mem)
+
+                    outputs, info = model.pipeline.transcribe(
+                    audio=wav,
+                    language='da',
+                    word_timestamps=True,
+                    log_progress=True,
+                    chunk_length=15,
+                    batch_size=4
+                    )
+                    for out in outputs:
+                        iterable_segments.append({
+                            'start': out.start,
+                            'end': out.end,
+                            'text': out.text,
+                            'avg_logprob': out.avg_logprob
+                        })
 
                 end_process_time = time.process_time()
                 cpu_time = end_process_time - start_process_time
                 rtf_sample = cpu_time / info.duration # processing time divided by the actual audio duration
                 
-                logger.info('Streamed Inference CPU Time: %f', cpu_time)
-                logger.info('Streamed Inference Real-Time Factor (RTF): %f', rtf_sample)
-
+                #logger.info('Streamed Inference CPU Time: %f', cpu_time)
+                #logger.info('Streamed Inference Real-Time Factor (RTF): %f', rtf_sample)
+                item = {
+                        'id': sample['id'],
+                        'duration': info.duration,
+                        'cpu_time': cpu_time,
+                        'rtf': rtf_sample,
+                        'audio': {
+                            'bytes': b64encode(sample['audio']).decode('ascii') 
+                        },
+                        'segments': iterable_segments
+                    }
+                results_queue.put(item)
+                """
                 before_alignment.append(
                     (sample['id'], sample['audio'], iterable_segments)
                 )
+                """
 
     except Exception as e:
         print(f'An error occurred...{e}')
+        return None
     
     finally:
+        results_queue.put(None) # To signal the process to terminate upon exit.
+        write_results_process.join()
+        if not write_results_process.is_alive():
+            write_results_process.close()
+
         model.unload()
         del model
         gc.collect()
 
-        return before_alignment
+        return 'Success'
 
 
 def inference_streaming_diarize(data: AudioData, model: Diarize, output_filename: str):

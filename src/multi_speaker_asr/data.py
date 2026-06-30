@@ -116,6 +116,10 @@ def read_bytes(bytes, target_sr=16000):
     audio = io.BytesIO(bytes)
     wav, sr = sf.read(audio, dtype='float32')
     
+    # Check for multiple channels and convert to mono
+    if wav.ndim > 1:
+        wav = wav.mean(axis=1)
+
     if sr != target_sr:
         wav = librosa.resample(
             wav,

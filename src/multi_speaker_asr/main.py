@@ -90,7 +90,7 @@ def load_data(path, hpc):
 
 
 
-def run_whisper_baseline_short_audio(config):
+def run_whisper_baseline_short_audio(config, filename = 'asr_output.jsonl'):
     data = load_data(path=config['data'], hpc=config['hpc'])
     
     model = Whisper(
@@ -99,16 +99,16 @@ def run_whisper_baseline_short_audio(config):
                 device=config['device'],
                 model=config['model']
             )
-    filename = 'asr_output.jsonl'
-    before_alignment = batched_inference(
+    
+    result = batched_inference(
         data=data,
         model=model,
         asr_result_filename=filename
     )
-    return filename
+    return result
 
 
-def run_whisper_baseline_streaming_audio(config):
+def run_whisper_baseline_streaming_audio(config, filename = 'asr_output.jsonl'):
     data = load_data(path=config['data'], hpc=config['hpc'])
     computetype = config['computetype']
     
@@ -118,12 +118,13 @@ def run_whisper_baseline_streaming_audio(config):
                 device=config['device'],
                 model=config['model']
             )
-    before_alignment = streamed_inference(
+    result = streamed_inference(
         data=data,
-        model=model
+        model=model,
+        asr_result_filename=filename
     )
     
-    return before_alignment
+    return result
 
 
 def run_diarization_streaming(config, output_filename):
@@ -175,14 +176,15 @@ def generate_final_transcript(output_filename: str, final_transcript_filename: s
 
 def main(config, long_form=False):
     filename = 'coral_baseline.jsonl'
+    asr_output_filename = 'asr_output.jsonl'
 
     if long_form:
-        segments = run_whisper_baseline_streaming_audio(config=config)
+        saved_results = run_whisper_baseline_streaming_audio(config=config, filename=asr_output_filename)
     else:
-        saved_results = run_whisper_baseline_short_audio(config=config)
+        saved_results = run_whisper_baseline_short_audio(config=config, filename=asr_output_filename)
 
 
-    aligned_results = align_transcripts(saved_results, config, alignment_result_filename='aligned_output.jsonl')
+    aligned_results = align_transcripts(asr_output_filename, config, alignment_result_filename='aligned_output.jsonl')
     diarize_results = run_diarization_streaming(config=config, output_filename='aligned_output.jsonl')
 
     if (aligned_results is not None) & (diarize_results is not None):
@@ -200,6 +202,6 @@ if __name__=='__main__':
     config_mem = load_config.memory_stats[0]
     logger.info('Config Memory Stats...: Before load: %f, After load: %f, Delta: %f', config_mem['before'], config_mem['after'], config_mem['delta'])
     
-    main(config=config, long_form=False)
+    main(config=config, long_form=True)
 
     
