@@ -32,8 +32,9 @@ class AudioData(IterableDataset):
     }
     logger = logging.getLogger(name='AudioData')
 
-    def __init__(self, path, hpc=True, target_sr=16000, max_segment_duration=30):
+    def __init__(self, path, hpc=True, target_sr=16000, max_segment_duration=30, vad_filter=True):
         super().__init__()
+        self.vad_filter = vad_filter
         self.hpc = hpc
         self.target_sr = target_sr
         self.max_segment_duration = max_segment_duration
@@ -93,25 +94,35 @@ class AudioData(IterableDataset):
             target_sr = 16000
 
             if wav.shape[0] > (max_duration * target_sr):
-                # Use VAD to get smaller audio segments
-                vad_params = VadOptions(
-                    max_speech_duration_s=30,
-                    min_silence_duration_ms=1000,
-                    min_speech_duration_ms=100
-                )
-                clip_timestamps = get_speech_timestamps(
-                    audio=wav,
-                    vad_options=vad_params
-                )
+                if self.vad_filter:
+                    # Use VAD to get smaller audio segments
+                    vad_params = VadOptions(
+                        max_speech_duration_s=30,
+                        min_silence_duration_ms=1000,
+                        min_speech_duration_ms=100
+                    )
+                    clip_timestamps = get_speech_timestamps(
+                        audio=wav,
+                        vad_options=vad_params
+                    )
 
-                for counter, speech_segment in enumerate(clip_timestamps):
-                    new_id = sample['id'] + '_' + str(counter + 1)
+                    for counter, speech_segment in enumerate(clip_timestamps):
+                        new_id = sample['id'] + '_' + str(counter + 1)
+                        yield {
+                            'audio_id': sample['id'],
+                            'segment_id': new_id,
+                            'audio': wav[speech_segment['start'] : speech_segment['end']],
+                            'start': speech_segment['start'],
+                            'end': speech_segment['end']
+                        }
+                else:
+                    self.logger.error('The audio file is greater than 30 seconds. You risk only getting 30 seconds of the audio processed.')
                     yield {
                         'audio_id': sample['id'],
-                        'segment_id': new_id,
-                        'audio': wav[speech_segment['start'] : speech_segment['end']],
-                        'start': speech_segment['start'],
-                        'end': speech_segment['end']
+                        'segment_id': sample['id'] + '_' + str(1),
+                        'audio': wav,
+                        'start': sample['start'] if 'start' in sample.keys() else 0,
+                        'end': sample['end'] if 'end' in sample.keys() else wav.shape[0]
                     }
             else:
                 yield {

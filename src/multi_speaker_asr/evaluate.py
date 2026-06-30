@@ -14,6 +14,7 @@ import logging
 import logging.config
 from multiprocessing import Process, Queue
 import json
+import pyannote
 
 
 
@@ -31,14 +32,16 @@ def result_to_offset(resultQueue: Queue, offsetQueue: Queue, output_file: str):
 
             if item is None:
                 break
-            f.write(json.dumps(item) + "\n")
+
             pos = f.tell()
+            f.write(json.dumps(item) + "\n")
+            
             offsetQueue.put((item['segment_id'], pos))
             f.flush()
 
 
 def offset_to_result(resultQueue: Queue, offsetQueue: Queue, output_file: str):
-    with open(output_file, "w") as f:
+    with open(output_file, "r") as f:
         while True:
             offset = offsetQueue.get()
 
@@ -73,10 +76,11 @@ def updater(queue: Queue, output_file: str):
 
             if item is None:
                 break
-            for record in records:
-                if record[0]['id'] == item['id']:
-                    record.append(item)
 
+            for record in records:
+                if record[0]['audio_id'] == item['audio_id']:
+                    record.append(item)
+            
         with open(output_file, 'w') as f:
             for record in records:
                 f.write(json.dumps(record) + '\n')
@@ -126,21 +130,24 @@ def inference_asr(loader,
         write_results_process.start()
 
         id_offset_map ={}
+        id_segments_map = {}
 
         try:
                 
             start_process_time = time.process_time()
             for counter, batch in enumerate(loader):
-                
-                #if counter >= 1: break
 
+                if counter == 2:
+                    break
+                
                 (audio_chunks, chunks_metadata) = get_chunks(batch=batch)
 
                 segments, _ = pipeline.transcribe(
                     audio_chunks=audio_chunks,
                     chunks_metadata=chunks_metadata,
                     batch_size=batch_size,
-                    log_progress=True
+                    log_progress=True,
+                    word_timestamps=True
                     )
 
                 clip_timestamps = [{'start': sample['start'], 'end': sample['end']} for sample in batch]
@@ -149,14 +156,13 @@ def inference_asr(loader,
                     speech_chunks=clip_timestamps,
                     sampling_rate=16000
                     )
+                 
                 for segment in segments:
-                    print('Batch size: ', len(batch))
-                    print('Segment id: ', segment.id)
-                    print('Duration of segment: ', (segment.end - segment.start))
                     print(f'Start: {segment.start}, End: {segment.end}, Text: {segment.text}')
+                    seg_id_idx = segment.id - 1
                     obj = {
-                        'audio_id': batch[segment.id - 1]['audio_id'], # Note, segment.id is not zero-indexed
-                        'segment_id': batch[segment.id - 1]['segment_id'],
+                        'audio_id': batch[seg_id_idx]['audio_id'], # Note, segment.id is not zero-indexed
+                        'segment_id': batch[seg_id_idx]['segment_id'],
                         'start': segment.start,
                         'end': segment.end,
                         'text': segment.text,
@@ -166,6 +172,10 @@ def inference_asr(loader,
                     (curr_id, curr_pos) = offsetQueue.get()
                     id_offset_map[curr_id] = curr_pos
 
+                    seg_id = batch[seg_id_idx]['segment_id']
+                    seg_ids = id_segments_map.get(batch[seg_id_idx]['audio_id'], [])
+                    seg_ids.append(seg_id)
+                    id_segments_map[batch[seg_id_idx]['audio_id']] = seg_ids
 
                 end_process_time = time.process_time()
                 cpu_time = end_process_time - start_process_time
@@ -184,7 +194,7 @@ def inference_asr(loader,
             gc.collect()
 
     print('Before exiting... id_offset_map: ', id_offset_map.items())
-    return id_offset_map
+    return id_offset_map, id_segments_map
 
 
 """
@@ -364,19 +374,48 @@ def inference_diarize(data: AudioData, filename: str):
     write_process.start()
 
     try:
-        for _, sample in enumerate(tqdm(data)):
+        for counter, sample in enumerate(tqdm(data)):
                 start_process_time = time.process_time()
 
+                if counter == 2:
+                    break
+
+                audio = sample['audio']
+                audio_time = audio.shape[0] / 16000
+                wav = torch.tensor(audio).unsqueeze(0)   # To get the correct format of (channel, time) Tensor.
+
+                speaker_segments = []
+                print('Diarization... Model type: ', type(pipeline.model))
+                print(pyannote.audio.__version__)
+                print(pyannote.pipeline.__version__)
+                print(torch.__version__)
                 
                 with ProgressHook() as hook:
-                    speaker_segments, audio_time = pipeline.diarize(sample=sample, hook=hook)
+                    output = pipeline.model({
+                        'waveform': wav,
+                        'sample_rate': 16000
+                    },
+                    hook=hook,
+                    min_speakers=1,
+                    max_speakers=2
+                    )
+
+                for segment, _, speaker in output.speaker_diarization.itertracks(yield_label=True):
+                    speaker_segments.append({
+                        'speaker': speaker,
+                        'start': segment.start,
+                        'end': segment.end,
+                        'duration': segment.duration
+                    })
+
+                #speaker_segments, audio_time = pipeline.diarize(sample=sample)
                     
                 end_process_time = time.process_time()
                 cpu_time = end_process_time - start_process_time
                 rtf_sample = cpu_time / audio_time # processing time divided by the actual audio duration
             
                 item = {
-                    'id': sample['id'],
+                    'audio_id': sample['audio_id'],
                     'cpu_time': cpu_time,
                     'rtf': rtf_sample,
                     'speaker_segments': speaker_segments
@@ -405,7 +444,9 @@ def align_transcripts(
         align_filename: str,
         asr_filename: str,
         model_name: str,
-        id_offset_map: dict):
+        id_offset_map: dict,
+        id_segment_map: dict
+        ):
     writer_queue = Queue()
     writer_process = Process(target=writer, args=(writer_queue, align_filename))
     writer_process.start()
@@ -420,28 +461,34 @@ def align_transcripts(
     start_process_time = time.process_time()
     
     try:
+        counter = 0
         for sample in data:
             audio = sample['audio']
             audio_id = sample['audio_id']
-            segment_id = sample['segment_id']
+
+            if counter == 2:
+                break
+
+            seg_ids = id_segment_map.get(audio_id, None)
+            if seg_ids is None:
+                raise Exception('Audio id %s had an empty list of segments', audio_id)
             
-            if isinstance(audio, bytes):
-                wav = AudioData.read_audio(audio)
-            else:
-                wav, _ = librosa.load(path=audio, sr=16000)
+            segments = []
+            for seg in seg_ids:
+                offset = id_offset_map.get(seg)
+                if offset == None:
+                    continue
 
-            offset = id_offset_map.get(segment_id)
-            if offset == None:
-                continue
+                offset_queue.put(offset)
+                asr_sample = segments_queue.get()
+                segments.append(cast(asr_sample))
 
-            offset_queue.put(offset)
-            asr_sample = segments_queue.get()
 
-            segments = [cast(item) for item in asr_sample['segments']]
             transcription_result = pipeline.run_alignment(
                 transcript=segments,
-                audio=wav
+                audio=audio
             )
+            print('Transcription Results... ', transcription_result['segments'])
             
             #end_process_time = time.process_time()
             #cpu_time = end_process_time - start_process_time
@@ -449,18 +496,15 @@ def align_transcripts(
 
 
             transformed_result = [{
-                                'audio_id': audio_id, 
-                                'segment_id': segment_id,   
-                                'start': item['start'], 
-                                'end': item['end'],
-                                'text': item['text'],
-                                'avg_logprob': item['avg_logprob'],
+                                'audio_id': audio_id,
                                 'words': [{'word': obj['word'],
                                             'start': obj['start'],
                                             'end': obj['end'],
-                                            'score': obj['score']} for obj in item['words']]} for item in transcription_result['segments']]
+                                            'score': obj['score']} for obj in transcription_result['word_segments']]}]
             
             writer_queue.put(transformed_result)
+
+            counter = counter + 1
 
         end_process_time = time.process_time()
         cpu_time = end_process_time - start_process_time
@@ -498,15 +542,16 @@ def generate_final_transcript(
         with open(results_filename, 'w') as f:
             while True:
                 segments_list = []
-                segments, speaker_segments = queue.get()
+                output = queue.get()
+                if output is None:
+                    break
+                segments, speaker_segments = output[0], output[1]
                 segments_list.append(segments)
                 transcript = assign_word_speakers(
-                    id=segments['id'],
-                    segments_list=segments_list,
+                    segments=segments_list,
                     speaker_times=speaker_segments['speaker_segments']
                 )
-                json_line = json.dumps(transcript)
-                f.write(json_line + '\n')
+                f.write(json.dumps(transcript) + "\n")
             
             # TODO: Once verified that the final file is correct, add functionality to remove the other intermediate files.
     except Exception as e:

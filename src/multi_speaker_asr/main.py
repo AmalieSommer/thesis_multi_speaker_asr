@@ -54,7 +54,7 @@ def load_config():
 
 
 def main(config: yaml):
-
+    """
     data = AudioData(path=config['data'], hpc=config['hpc'])
     loader = DataLoader(
         dataset=data,
@@ -63,8 +63,8 @@ def main(config: yaml):
         num_workers=0,
         collate_fn=data.collator_fn
     )
-
-    id_offset_map = inference_asr(
+    
+    id_offset_map, id_segments_map = inference_asr(
         loader=loader,
         computetype=config['computetype'],
         cputhreads=config['cputhreads'],
@@ -74,21 +74,25 @@ def main(config: yaml):
         filename=config['asr_output_filename']
     )
 
-    if id_offset_map is None:
+    if (id_offset_map is None) | (id_segments_map is None):
         print('Failed with error... inference_asr() returned None')
+    
+    data.vad_filter = False
 
     align_status = align_transcripts(
         data=data,
         align_filename=config['align_output_filename'],
         asr_filename=config['asr_output_filename'], 
         model_name=config['alignment_model'],
-        id_offset_map=id_offset_map
+        id_offset_map=id_offset_map,
+        id_segment_map=id_segments_map
         )
-     
+ 
     diarize_status = inference_diarize(
         data=data,
         filename=config['align_output_filename']
     )
+    
     if (align_status == 'Success') & (diarize_status == 'Success'):
         generate_final_transcript(
             results_filename=config['final_output_filename'],
@@ -96,10 +100,11 @@ def main(config: yaml):
         )
     else:
         logger.error('Failed with error: Inference returned a status of None')
-        
-
-
-
+    """
+    generate_final_transcript(
+            results_filename=config['final_output_filename'],
+            align_filename=config['align_output_filename']
+        )
 
 if __name__=='__main__':
     config_file = load_config()
