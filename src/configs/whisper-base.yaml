@@ -1,0 +1,4 @@
+asr:
+  name: tiny.en
+  device: cpu
+  compute_type: float32

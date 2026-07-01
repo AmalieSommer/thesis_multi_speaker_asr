@@ -18,15 +18,25 @@ classifiers = [
 readme = "README.md"
 requires-python = ">=3.11, <3.12"
 dependencies = [
-    "datasets>=4.8.4",
-    "fastapi==0.115.6",
-    "huggingface-hub>=1.7.2",
-    "torch==2.6.0",
-    "torchaudio>=2.6.0",
-    "transformers>=5.3.0",
-    "typer==0.15.1",
-    "uvicorn==0.34.0",
-    "whisperx>=3.4.4",
+    "carbontracker",
+    "ctranslate2",
+    "datacollective",
+    "huggingface-hub<1",
+    "librosa",
+    "sentence-transformers",
+    "soundfile",
+    "torch>=2.8.0,<2.9.0",
+    "torchaudio>=2.7.0,<2.9.0",
+    "torchvision>=0.23.0,<0.25.0",
+    "transformers",
+    "faster-whisper",
+    "torchmetrics",
+    "num2words",
+    "pydub",
+    "jiwer",
+    "pyannote-audio",
+    "datasets",
+    "whisperx"
 ]
 
 [dependency-groups]
@@ -48,10 +58,11 @@ omit = ["tests/*"]
 line-length = 120
 
 [[tool.uv.index]]
-name = "pytorch-cu118"
-url = "https://download.pytorch.org/whl/cu118"
+name = "pytorch-cpu"
+url = "https://download.pytorch.org/whl/cpu/"
 explicit = true
 
 [tool.uv.sources]
-torch = { index = "pytorch-cu118" }
-torchaudio = { index = "pytorch-cu118" }
+torch = { index = "pytorch-cpu" }
+torchaudio = { index = "pytorch-cpu" }
+torchvision = { index = "pytorch-cpu" }

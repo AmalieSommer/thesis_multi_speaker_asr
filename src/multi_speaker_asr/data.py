@@ -1,48 +1,183 @@
-from pathlib import Path
+import os
+import librosa
+import re
+import io
+from num2words import num2words
+from datasets import load_dataset, Audio, Dataset
+from torch.utils.data import IterableDataset, DataLoader
+from faster_whisper.vad import collect_chunks, VadOptions, get_speech_timestamps
+import tracemalloc
+import numpy as np
+import soundfile as sf
+from whisperx.schema import SingleSegment
+from faster_whisper.transcribe import Segment
+from .utils.utils import profile, LOGGING_CONFIG, process_memory
+import logging
+import logging.config
 
-import typer
-from torch.utils.data import Dataset
-from datasets import load_dataset
+logging.config.dictConfig(LOGGING_CONFIG)
 
-class Data(Dataset):
+
+CWD = os.getcwd()
+
+class AudioData(IterableDataset):
     """
     Data wrapper class to load either local or Huggingface datasets. Perform preprocessing, resampling and formatting as preparation for model training and inference.
     """
-    DATASET_DICT = {
-        "emotale": "data/emotale_wav"
+
+    DATA = {
+        'coral': {
+            'name': 'CoRal-project/coral-v3',
+            'type': 'conversation',
+            'split': 'test',
+            'path': 'root/.cache/huggingface/datasets/CoRal-project___coral-v3/conversation/0.0.0/01f7c93c21fc9dec87fe9f7149c79569cc433f08'
+        }
     }
+    logger = logging.getLogger(name='AudioData')
 
-    def __init__(self, dataset_id: str = "emotale") -> None:
+    def __init__(self, path, hpc=True, target_sr=16000, max_segment_duration=30):
+        super().__init__()
+        self.hpc = hpc
+        self.target_sr = target_sr
+        self.max_segment_duration = max_segment_duration
+        try:
+            self.path = self.DATA[path] # path to an online dataset e.g. from Huggingface
+        except:
+            self.path = path    # path to a local folder
+            
+        self.load() # Initialize the dataset...
+        data_memory = self.load.memory_stats[0]
+        self.logger.info('Dataset Memory Stats...: Before load: %f, After load: %f, Delta: %f', data_memory['before'], data_memory['after'], data_memory['delta'])
+    
+    @profile
+    def load(self):
+        """
+        Loads a dataset either from local or online resource.
+        If the path does not exist in the DATA dict, then it is assumed local, and will be loaded manually.
+        """
+        data_path = self.path
 
-        if isinstance(dataset_id, str):
-            self.dataset_id = dataset_id
+        if type(data_path) == dict:
+            # If the path is from an online resource, then load it using datasets built-in function:
+            self.ds = load_dataset(
+                path=data_path['name'],
+                name=data_path['type'],
+                split=data_path['split'],
+                streaming=True
+            )
+            # Ensure it does not decode audio using torchDecoder
+            self.ds = self.ds.cast_column('audio', Audio(decode=False))
+            self.ds = self.ds.rename_column('id_conversation', 'id')
         else:
-            raise ValueError(f"Incorrect data path type, {type(data_path)}, is passed.")
-
-        if dataset_id not in self.DATASET_DICT:
-            raise ValueError(f"Unknown data path is passed.")
-                
-        self.data_path = self.DATASET_DICT[dataset_id]
+            # Assumes it is a local data folder:
+            self.ds = Dataset.from_csv(path_or_paths=data_path, split='test').to_iterable_dataset()
+            path = '/root/master_thesis/' if not self.hpc else '/zhome/28/9/151118/thesis/'
+            self.len_estimate = len(os.listdir(path=path + 'thesis_multi_speaker_asr/data/coral-v3-long-form-conversations'))
+        
         
 
-    def load_data(self):
-        """
-        Loading data from either local path or Huggingface.
-        """
-        dataset = load_dataset(self.data_path)
-        return dataset
+    def __iter__(self):
+        for item in self.ds:
+            # Return the bytes instead of the whole loaded audio array:
+            if 'audio' not in item.keys():
+                # Check if the sample contains timestamps:
+                if ('start' not in item.keys()) | ('end' not in item.keys()):
+                    start_time, end_time = 0.0, 0.0
 
+                base = '/root/master_thesis' if not self.hpc else '/zhome/28/9/151118/thesis/'
+                audio = base + item['path']
+                yield {
+                    'id': item['id'],
+                    'audio': audio,
+                    'start': item['start'] if 'start' in item.keys() else start_time,
+                    'end': item['end'] if 'end' in item.keys() else end_time,
+                    'text': ' '
+                }
+            
+            else:
+                # Check if the sample contains timestamps:
+                if ('start' not in item.keys()) | ('end' not in item.keys()):
+                    start_time, end_time = 0.0, 0.0
 
-    def __len__(self) -> int:
-        """Return the length of the dataset."""
+                yield {
+                    'id': item['id'],
+                    'audio':item['audio']['bytes'],
+                    'start': item['start'] if 'start' in item.keys() else start_time,
+                    'end': item['end'] if 'end' in item.keys() else end_time,
+                    'text': item['text']
+                }
 
-    def __getitem__(self, index: int):
-        """Return a given sample from the dataset."""
-
-    def preprocess(self, output_folder: Path) -> None:
+    def preprocess(self) -> None:
         """Preprocess the raw data and save it to the output folder."""
-
-def preprocess(data_path: Path, output_folder: Path) -> None:
-    print("Preprocessing data...")
+        self.df = self.df.dropna(subset=['path']) # Removing any rows missing wav files or transcriptions
     
+
+def read_bytes(bytes, target_sr=16000):
+    audio = io.BytesIO(bytes)
+    wav, sr = sf.read(audio, dtype='float32')
+    
+    # Check for multiple channels and convert to mono
+    if wav.ndim > 1:
+        wav = wav.mean(axis=1)
+
+    if sr != target_sr:
+        wav = librosa.resample(
+            wav,
+            orig_sr=sr,
+            target_sr=target_sr,
+        )
+        wav = wav.astype("float32")
+    return wav
+
+
+
+def cast(object: dict):
+    return SingleSegment(
+        start=object['start'],
+        end=object['end'],
+        text=object['text'],
+        avg_logprob=object['avg_logprob']
+    )
+
+
+def stream_audio(audio, sr: int = 16000, block_length_sec=30):
+        
+        frame_size = (2048 * sr) // 16000
+        hop_length = (1024 * sr) // 16000
+
+        block_length = int(block_length_sec * sr) // hop_length
+
+        stream = librosa.stream(
+                    path=audio,
+                    block_length=block_length,
+                    frame_length=frame_size,
+                    hop_length=hop_length
+                )
+        # Returns a Generator object that when called in a loop will yield one item at a time
+        return stream
+
+
+def clean_transcription(sentence: str):
+    """
+    Function to preprocess the ground truth and predicted transcripts before computing the performance using WER, CER etc...
+    Should standardize the text to lowercase, no punctuations or special characters.
+    It should also map all occurrences of numbers to textual representations using library function.
+    """
+    sentence = str.lower(sentence)
+    sentence = re.sub(r'-(?!\d)', '', sentence)             # Remove - that are not followed by a number
+    sentence = re.sub(r'(?<!\d)\.|\.?(?!\d)', '', sentence) # Remove . that are not enclosed by two numbers
+    sentence = re.sub(r'[^\w\s.-]', '', sentence)           # Remove all punctuation except for the - and .
+    sentence = re.sub(' +', ' ', sentence)                  # Replacing all duplicate spaces with single space.
+    
+    sentence_copy = str(sentence)
+
+    for s in sentence.split():
+        try: 
+            num = float(s)
+            word_rep = str(num2words(number=num))
+            sentence_copy = sentence_copy.replace(s, word_rep)
+        except ValueError as e:
+            continue
+
+    return sentence_copy    
 

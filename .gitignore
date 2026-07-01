@@ -1,5 +1,17 @@
 docs/site/
 job_script.sh
+src/results/
+mozdata/
+*.txt
+*.sh
+*.out
+*.err
+*.ipynb
+*.prof
+src/configs/
+
+/pyproject.toml
+/uv.lock
 
 # test cache
 manual_test/
@@ -179,4 +191,5 @@ cython_debug/
 
 
 # Local data files
+rost-whisper-ct2/model.bin
 data/

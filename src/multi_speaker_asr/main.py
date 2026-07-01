@@ -1,0 +1,207 @@
+from multi_speaker_asr.utils.utils import profile, LOGGING_CONFIG, process_memory
+import os
+import json
+from multi_speaker_asr.evaluate import (
+    streamed_inference, 
+    batched_inference, 
+    inference_streaming_diarize,
+    align_transcripts,
+    reader
+    )
+import torch
+from tqdm import tqdm
+from dotenv import load_dotenv
+import yaml
+from multi_speaker_asr.data import AudioData
+from multi_speaker_asr.models.asr import Whisper
+import argparse
+from multi_speaker_asr.models.diarization import Diarize, assign_word_speakers
+import itertools
+import logging
+import logging.config
+from multiprocessing import Process, Queue
+
+
+
+logging.config.dictConfig(LOGGING_CONFIG)
+logger = logging.getLogger(name='Main')
+
+
+os.environ['OMP_NUM_THREADS'] = '5' # Should test 4, 5, and 6 because I also use 1 worker for data reading and 1 worker for writing results to a file.
+
+load_dotenv()
+HF_TOKEN = os.getenv('HF_TOKEN')
+RESULT_PATH = '/root/master_thesis/thesis_multi_speaker_asr/src/results'
+
+tqdm.monitor_interval = 0 # Stops the tqdm from creating monitoring threads causing shutdown-race conditions...
+# BECAUSE OF PYTORCH LOAD() CHANGE FOR PYTORCH>=2.6
+original_torch_load = torch.load
+
+# Modified function to always trust the download source, setting the weights_only flag to False
+def trusted_torch_load(*args, **kwargs):
+    kwargs['weights_only'] = False
+    return original_torch_load(*args, **kwargs)
+torch.load = trusted_torch_load
+
+
+
+def fetch_data(filename):
+    # Fetch transcripts from file:
+    try:
+        data = {}
+        with open(os.path.join(RESULT_PATH, f'{filename}.jsonl'), "r") as file:
+            for line in file:
+                entry = json.loads(line)
+                data.update(entry)
+        print(f"Successfully loaded file.")
+        return data
+    except Exception as e:
+        print(f"Error reading from file: {e}")
+
+
+def save_data(result: list[dict], filename: str):
+    # Update json file with added aligned transcripts:
+    try:
+        with open(os.path.join(RESULT_PATH, f'{filename}.jsonl'), "w") as file:
+            for item in result:
+                json_line = json.dumps(item)
+                file.write(json_line + '\n')
+        print(f"Successfully updated the file")
+    except Exception as e:
+        print(f"Error updating the file: {e}")
+
+
+@profile
+def load_config():
+    print('Loading config file...')
+    parser = argparse.ArgumentParser(description='ASR Inference Runs')
+    parser.add_argument('--config', type=str, required=True)
+    args = parser.parse_args()
+    with open(args.config, 'r') as file:
+        return yaml.safe_load(file)
+
+
+
+def load_data(path, hpc):
+    print('Loading data...')
+    data = AudioData(path=path, hpc=hpc)
+    return data
+
+
+
+
+def run_whisper_baseline_short_audio(config, filename = 'asr_output.jsonl'):
+    data = load_data(path=config['data'], hpc=config['hpc'])
+    
+    model = Whisper(
+                compute_type=config['computetype'],
+                cpu_threads=config['cputhreads'],
+                device=config['device'],
+                model=config['model']
+            )
+    
+    result = batched_inference(
+        data=data,
+        model=model,
+        asr_result_filename=filename
+    )
+    return result
+
+
+def run_whisper_baseline_streaming_audio(config, filename = 'asr_output.jsonl'):
+    data = load_data(path=config['data'], hpc=config['hpc'])
+    computetype = config['computetype']
+    
+    model = Whisper(
+                compute_type=computetype,
+                cpu_threads=config['cputhreads'],
+                device=config['device'],
+                model=config['model']
+            )
+    result = streamed_inference(
+        data=data,
+        model=model,
+        asr_result_filename=filename
+    )
+    
+    return result
+
+
+def run_diarization_streaming(config, output_filename):
+    data = AudioData(path=config['data'], hpc=False)
+    
+    model = Diarize(token=HF_TOKEN)   # Default values are fine for now
+    res_diarize = inference_streaming_diarize(
+        data=data,
+        model=model,
+        output_filename=output_filename
+    )
+    
+    return res_diarize
+
+
+def generate_final_transcript(output_filename: str, final_transcript_filename: str):
+    
+    try:
+        if not output_filename:
+            logger.error('Failed to read empty filename.')
+            return None
+        
+        queue = Queue()
+        reader_process = Process(target=reader, args=(queue, output_filename))
+        reader_process.start()
+
+        with open(final_transcript_filename, 'w') as f:
+            while True:
+                segments_list = []
+                segments, speaker_segments = queue.get()
+                segments_list.append(segments)
+                transcript = assign_word_speakers(
+                    id=segments['id'],
+                    segments_list=segments_list,
+                    speaker_times=speaker_segments['speaker_segments']
+                )
+                json_line = json.dumps(transcript)
+                f.write(json_line + '\n')
+            
+            # TODO: Once verified that the final file is correct, add functionality to remove the other intermediate files.
+    except Exception as e:
+        logger.error('Failed with error: %s', e)
+    finally:
+        reader_process.join()
+        if reader_process.is_alive():
+            reader_process.close()
+        
+
+
+def main(config, long_form=False):
+    filename = 'coral_baseline.jsonl'
+    asr_output_filename = 'asr_output.jsonl'
+
+    if long_form:
+        saved_results = run_whisper_baseline_streaming_audio(config=config, filename=asr_output_filename)
+    else:
+        saved_results = run_whisper_baseline_short_audio(config=config, filename=asr_output_filename)
+
+
+    aligned_results = align_transcripts(asr_output_filename, config, alignment_result_filename='aligned_output.jsonl')
+    diarize_results = run_diarization_streaming(config=config, output_filename='aligned_output.jsonl')
+
+    if (aligned_results is not None) & (diarize_results is not None):
+        generate_final_transcript('aligned_output.jsonl', filename)
+    else:
+        logger.error('Failed to generate transcript, because alignment or diarization returned None... Aligned result: %s, Diarization result: %s', aligned_results, diarize_results)
+
+
+
+
+if __name__=='__main__':
+    print('Starting...')
+    
+    config = load_config()
+    config_mem = load_config.memory_stats[0]
+    logger.info('Config Memory Stats...: Before load: %f, After load: %f, Delta: %f', config_mem['before'], config_mem['after'], config_mem['delta'])
+    
+    main(config=config, long_form=True)
+
+    

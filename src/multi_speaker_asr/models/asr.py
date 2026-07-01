@@ -1,44 +1,72 @@
-from transformers import pipeline, WhisperProcessor, WhisperForConditionalGeneration, Pipeline
-import torch
+from faster_whisper import WhisperModel
+from faster_whisper import BatchedInferencePipeline
+from transformers import pipeline
+from ..utils.utils import profile, LOGGING_CONFIG
+import logging
+import logging.config
 
-class WhisperPipeline:
+logging.config.dictConfig(LOGGING_CONFIG)
+
+
+class ASR:
     """
-    A wrapper class for the ASR models, including Whisper-based models both base and finetuned versions from Huggingface.
+    Wrapper class for ASR models.
+
+    It will contain the Whisper and Wav2Vec2 models, which will inherit basic functions such as unload()
     """
-    MODELS_DICT = {
-        "test": "openai/whisper-tiny", # for initial testing purposes
-        "base": "CoRal-project/roest-v3-whisper-1.5b",
-        "lora": "", # standard lora finetuning of base model for child-domain
-    }
 
-    def __init__(self, model: str = "test", device: str = "cpu"):
-        if model not in self.MODELS_DICT:
-            raise ValueError(f"Unknown model, {model}, passed.")
-        
-        self.model_id = self.MODELS_DICT[model]
+    pass
 
-        if isinstance(device, torch.device):
-            self.device = device
-        elif isinstance(device, str):
-            self.device = torch.device(device)
+    def __init__(self, model, device='cpu'):
+        self.model = model
+        self.device = device
+        self.pipeline = None
 
-        self.pipeline = self.load_pipeline()
-    
 
-    def load_pipeline(self):
-        """
-        Loads the pipeline, specified by the passed model selection, from Huggingface transformers.
-        """
-        processor = WhisperProcessor.from_pretrained(self.model_id)
-        model = WhisperForConditionalGeneration.from_pretrained(self.model_id).to(self.device)
+    def unload(self):
+        self.model = None
 
-        result = pipeline(
-            "automatic-speech-recognition",
-            model=model,
-            chunk_length_s=30,
-            device=self.device,
-            tokenizer=processor.tokenizer,
-            feature_extractor=processor.feature_extractor
+
+
+class Whisper(ASR):
+    logger = logging.getLogger(name='Whisper')
+
+    def __init__(self, compute_type, cpu_threads, device='cpu', model='CoRal-project/roest-v3-whisper-1.5b'):
+        super().__init__(model, device)
+        self.load(
+            compute_type=compute_type,
+            cpu_threads=cpu_threads
         )
-        return result
+        model_memory = self.load.memory_stats[0]
+        self.logger.info('Whisper Model Memory Stats...: Before load: %f, After load: %f, Delta: %f', model_memory['before'], model_memory['after'], model_memory['delta'])
+
+
+    @profile
+    def load(self, compute_type, cpu_threads):
+
+        print(f'Loading model...')
+
+        whisper_model = WhisperModel(
+            model_size_or_path=self.model,
+            device=self.device,
+            compute_type=compute_type,
+            cpu_threads=int(cpu_threads),
+            num_workers=1
+        )
+        self.pipeline = BatchedInferencePipeline(
+            model=whisper_model
+        )
+
+
+
+class Wav2Vec2(ASR):
+    def __init__(self, model='CoRal-project/roest-v3-wav2vec2-315m', device='cpu'):
+        super().__init__(model, device)
+
+    def load(self):
+        self.pipeline = pipeline(
+            task='automatic-speech-recognition',
+            model=self.model,
+            device=self.device
+        )
 
