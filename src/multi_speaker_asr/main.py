@@ -10,11 +10,10 @@ import torch
 from tqdm import tqdm
 from dotenv import load_dotenv
 import yaml
-from multi_speaker_asr.data import AudioData
 import argparse
 import logging
 import logging.config
-from torch.utils.data import DataLoader
+import timeit
  
 
 
@@ -67,6 +66,7 @@ def main(config: yaml):
         filename=config['asr_output_filename']
         )
 
+
     if (id_offset_map is None) | (id_segments_map is None):
         print('Failed with error... inference_asr() returned None')
     
@@ -83,6 +83,7 @@ def main(config: yaml):
         id_segment_map=id_segments_map
         )
  
+
     diarize_status = inference_diarize(
         data_type=config['data'],
         hpc=config['hpc'],
@@ -91,6 +92,7 @@ def main(config: yaml):
         batch_size=config['diarize_batchsize'],
         diarize_filename=config['diarize_output_filename']
     )
+
     
     if (align_status == 'Success') & (diarize_status == 'Success'):
         generate_final_transcript(
@@ -105,6 +107,16 @@ def main(config: yaml):
 if __name__=='__main__':
     config_file = load_config()
     main(config=config_file)
+
+    asr_memory = inference_asr.memory_stats[0]
+    logger.info('Memory Stats during ASR inference...: Before load: %f, After load: %f, Delta: %f', asr_memory['before'], asr_memory['after'], asr_memory['delta'])
+
+    w2v_memory = align_transcripts.memory_stats[0]
+    logger.info('Memory Stats during timestamp alignment...: Before load: %f, After load: %f, Delta: %f', w2v_memory['before'], w2v_memory['after'], w2v_memory['delta'])
+
+    diarize_memory = inference_diarize.memory_stats[0]
+    logger.info('Memory Stats during diarization...: Before load: %f, After load: %f, Delta: %f', diarize_memory['before'], diarize_memory['after'], diarize_memory['delta'])
+
 
 
 

@@ -1,21 +1,19 @@
-from tqdm import tqdm
 from .data import cast, AudioData, get_chunks
-import librosa
 from multi_speaker_asr.models.asr import Whisper
 from faster_whisper.transcribe import restore_speech_timestamps
 from pyannote.audio.pipelines.utils.hook import ProgressHook
 from multi_speaker_asr.models.diarization import Diarize, assign_word_speakers
 from multi_speaker_asr.models.alignment import Wav2Vec2
 import torch
-from multi_speaker_asr.utils.utils import LOGGING_CONFIG
+from multi_speaker_asr.utils.utils import LOGGING_CONFIG, profile
 import gc
 import time
 import logging
 import logging.config
 from multiprocessing import Process, Queue
 import json
-import pyannote
 from torch.utils.data import DataLoader
+import timeit
 
 
 
@@ -165,7 +163,7 @@ def fetch_dataloader(
     )
 
 
-
+@profile
 def inference_asr(
                 data_type: str,
                 on_hpc: bool,
@@ -204,6 +202,7 @@ def inference_asr(
         id_segments_map = {}
 
         try:
+            t1 = timeit.default_timer()
             start_process_time = time.process_time()
             for batch in loader:
 
@@ -243,11 +242,6 @@ def inference_asr(
                     seg_ids.append(seg_id)
                     id_segments_map[batch[seg_id_idx]['audio_id']] = seg_ids
 
-                end_process_time = time.process_time()
-                cpu_time = end_process_time - start_process_time
-
-                logger.info('CPU Time is %f', cpu_time)
-
         except Exception as e:
             logger.error('Failed with error: ', e)
         finally:
@@ -257,11 +251,20 @@ def inference_asr(
                 pipeline.unload()
                 del pipeline
                 del loader
+            
+            end_process_time = time.process_time()
+            cpu_time = end_process_time - start_process_time
+            t2 = timeit.default_timer()
+            walltime = t2 - t1
+
+            logger.info('Walltime is %f', walltime)
+            logger.info('CPU Time is %f', cpu_time)
+
             gc.collect()
 
     return id_offset_map, id_segments_map
 
-
+@profile
 def align_transcripts(
         data_type: str,
         hpc: bool,
@@ -295,9 +298,12 @@ def align_transcripts(
     
     pipeline = Wav2Vec2(model_name=model_name, device='cpu')
     print(f'Running alignment...')
-    start_process_time = time.process_time()
+    
     
     try:
+        t1 = timeit.default_timer()
+        start_process_time = time.process_time()
+
         for sample in loader:
             audio = sample['audio']
             audio_id = sample['audio_id']
@@ -331,10 +337,6 @@ def align_transcripts(
             
             writer_queue.put(transformed_result)
 
-        end_process_time = time.process_time()
-        cpu_time = end_process_time - start_process_time
-        logger.info('CPU Time is %f', cpu_time)
-
     except Exception as e:
         logger.error('Failed with error: %s', e)
     finally:
@@ -347,10 +349,20 @@ def align_transcripts(
             del pipeline
             del loader
         
+        t2 = timeit.default_timer()
+        walltime = t2 - t1
+
+        end_process_time = time.process_time()
+        cpu_time = end_process_time - start_process_time
+        
+        logger.info('CPU Time is %f', cpu_time)
+        logger.info('Walltime is %f', walltime)
+
         gc.collect()
     
     return 'Success'
 
+@profile
 def inference_diarize(
         data_type: str,
         hpc: str,
@@ -382,9 +394,10 @@ def inference_diarize(
     reader_process.start()
 
     try:
+        t1 = timeit.default_timer()
+        start_process_time = time.process_time()
+
         for sample in loader:
-                start_process_time = time.process_time()
-              
                 audio = sample['audio']
                 audio_time = audio.shape[0] / 16000
                 wav = torch.tensor(audio).unsqueeze(0)   # To get the correct format of (channel, time) Tensor.
@@ -408,14 +421,10 @@ def inference_diarize(
                         'duration': segment.duration
                     })
                     
-                end_process_time = time.process_time()
-                cpu_time = end_process_time - start_process_time
-                rtf_sample = cpu_time / audio_time # processing time divided by the actual audio duration
+                
             
                 item = {
                     'audio_id': sample['audio_id'],
-                    'cpu_time': cpu_time,
-                    'rtf': rtf_sample,
                     'speaker_segments': speaker_segments
                     }
                 writerQueue.put(item)
@@ -430,6 +439,15 @@ def inference_diarize(
             del pipeline
             del loader
 
+
+        end_process_time = time.process_time()
+        cpu_time = end_process_time - start_process_time
+
+        t2 = timeit.default_timer()
+        walltime = t2 - t1
+        
+        logger.info('CPU Time is %f', cpu_time)
+        logger.info('Walltime is %f', walltime)
         gc.collect()
 
     return 'Success'
