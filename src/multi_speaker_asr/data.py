@@ -11,6 +11,7 @@ from whisperx.schema import SingleSegment
 from .utils.utils import profile, LOGGING_CONFIG
 import logging
 import logging.config
+import datetime
 
 logging.config.dictConfig(LOGGING_CONFIG)
 
@@ -32,8 +33,9 @@ class AudioData(IterableDataset):
     }
     logger = logging.getLogger(name='AudioData')
 
-    def __init__(self, path, hpc=True, target_sr=16000, max_segment_duration=30, vad_filter=True):
+    def __init__(self, path, hpc=True, target_sr=16000, max_segment_duration=30, vad_filter=True, clip_timestamps=False):
         super().__init__()
+        self.clip_timestamps = clip_timestamps
         self.vad_filter = vad_filter
         self.hpc = hpc
         self.target_sr = target_sr
@@ -70,9 +72,7 @@ class AudioData(IterableDataset):
         else:
             # Assumes it is a local data folder:
             self.ds = Dataset.from_csv(path_or_paths=data_path, split='test').to_iterable_dataset()
-            self.root_path = '/root/master_thesis/' if not self.hpc else '/zhome/28/9/151118/thesis/'
-            self.len_estimate = len(os.listdir(path=self.root_path + 'thesis_multi_speaker_asr/data/coral-v3-long-form-conversations'))
-        
+            self.root_path = 'L:\\Auditdata\\Wrist Angel - Video\\Amalie Sommer\\repo\\thesis_multi_speaker_asr\\data\\audio\\' if not self.hpc else '/zhome/28/9/151118/thesis/'        
         
 
     def __iter__(self):
@@ -93,14 +93,21 @@ class AudioData(IterableDataset):
             max_duration = 30
             target_sr = 16000
 
+            clip_timestamps = []
+            offset = 0 # Meant to be used when it is non-zero and added to the predicted timestamps!
             if wav.shape[0] > (max_duration * target_sr):
+                if self.clip_timestamps:
+                    start = int(sample['start'] * target_sr)
+                    end = int(sample['end'] * target_sr)
+                    wav = wav[start : end]
+                    offset = sample['start']
+                    clip_timestamps.append({'start': start, 'end': end})
                 if self.vad_filter:
                     # Use VAD to get smaller audio segments
                     vad_params = VadOptions(
                         max_speech_duration_s=30,
-                        min_silence_duration_ms=1000,
-                        min_speech_duration_ms=100
-                    )
+                        min_silence_duration_ms=500                 
+                        )
                     clip_timestamps = get_speech_timestamps(
                         audio=wav,
                         vad_options=vad_params
@@ -122,7 +129,8 @@ class AudioData(IterableDataset):
                         'segment_id': sample['id'] + '_' + str(1),
                         'audio': wav,
                         'start': sample['start'] if 'start' in sample.keys() else 0,
-                        'end': sample['end'] if 'end' in sample.keys() else wav.shape[0]
+                        'end': sample['end'] if 'end' in sample.keys() else wav.shape[0],
+                        'offset': offset
                     }
             else:
                 yield {
@@ -137,29 +145,31 @@ class AudioData(IterableDataset):
 
 
     def read_audio(self, audio, target_sr=16000):
-        if isinstance(audio, bytes):
-            audio_ = io.BytesIO(audio)
-        else:
-            audio_ = self.root_path + audio
-        wav, sr = sf.read(audio_, dtype='float32')
-        
-        # Check for multiple channels and convert to mono
-        if wav.ndim > 1:
-            wav = wav.mean(axis=1)
+        try: 
+            if isinstance(audio, bytes):
+                audio_ = io.BytesIO(audio)
+            else:
+                audio_ = self.root_path + audio
+            wav, sr = sf.read(audio_, dtype='float32')
+            
+            # Check for multiple channels and convert to mono
+            if wav.ndim > 1:
+                wav = wav.mean(axis=1)
 
-        if sr != target_sr:
-            wav = librosa.resample(
-                wav,
-                orig_sr=sr,
-                target_sr=target_sr,
-            )
-            wav = wav.astype("float32")
-        return wav
+            if sr != target_sr:
+                wav = librosa.resample(
+                    wav,
+                    orig_sr=sr,
+                    target_sr=target_sr,
+                )
+                wav = wav.astype("float32")
+            return wav
+        except Exception as e:
+            print('Failed with exception: ', e)
 
     
     def collator_fn(self, batch):
         """Should ensure that it returns batch object of the same format, i.e. same parameter names and types"""
-        print('Inside Collator_fn, Batch size: ', len(batch))
         return batch
     
 

@@ -24,7 +24,6 @@ logging.config.dictConfig(LOGGING_CONFIG)
 logger = logging.getLogger(name='Main')
 
 
-os.environ['OMP_NUM_THREADS'] = '4' # Should test 4, 5, and 6 because I also use 1 worker for data reading and 1 worker for writing results to a file.
 
 load_dotenv()
 HF_TOKEN = os.getenv('HF_TOKEN')
@@ -54,33 +53,36 @@ def load_config():
 
 
 def main(config: yaml):
-    """
-    data = AudioData(path=config['data'], hpc=config['hpc'])
-    loader = DataLoader(
-        dataset=data,
-        shuffle=False,
-        batch_size=config['loader_batchsize'],
-        num_workers=0,
-        collate_fn=data.collator_fn
-    )
+
+    data = AudioData(
+        path=config['data'], 
+        hpc=config['hpc'],
+        vad_filter=config['vad_filter'],
+        clip_timestamps=config['clip_timestamps']
+        )
     
     id_offset_map, id_segments_map = inference_asr(
-        loader=loader,
+        data_type=config['data'],
+        on_hpc=config['hpc'],
+        vad_filter=config['vad_filter'],
+        clip_timestamps=config['clip_timestamps'],
+        batch_size=config['asr_batchsize'],
         computetype=config['computetype'],
         cputhreads=config['cputhreads'],
         device=config['device'],
         model=config['model'],
-        batch_size=config['whisper_batchsize'],
         filename=config['asr_output_filename']
-    )
+        )
 
     if (id_offset_map is None) | (id_segments_map is None):
         print('Failed with error... inference_asr() returned None')
     
-    data.vad_filter = False
-
     align_status = align_transcripts(
-        data=data,
+        data_type=config['data'],
+        hpc=config['hpc'],
+        vad_filter=False,
+        clip_timestamps=config['clip_timestamps'],
+        batch_size=config['align_batchsize'],
         align_filename=config['align_output_filename'],
         asr_filename=config['asr_output_filename'], 
         model_name=config['alignment_model'],
@@ -89,22 +91,23 @@ def main(config: yaml):
         )
  
     diarize_status = inference_diarize(
-        data=data,
-        filename=config['align_output_filename']
+        data_type=config['data'],
+        hpc=config['hpc'],
+        vad_filter=False,
+        clip_timestamps=config['clip_timestamps'],
+        batch_size=config['diarize_batchsize'],
+        diarize_filename=config['diarize_output_filename']
     )
     
     if (align_status == 'Success') & (diarize_status == 'Success'):
         generate_final_transcript(
             results_filename=config['final_output_filename'],
-            align_filename=config['align_output_filename']
+            align_filename=config['align_output_filename'],
+            diarize_filename=config['diarize_output_filename']
         )
     else:
-        logger.error('Failed with error: Inference returned a status of None')
-    """
-    generate_final_transcript(
-            results_filename=config['final_output_filename'],
-            align_filename=config['align_output_filename']
-        )
+        logger.error('Failed with error... Diarization status: %s. Alignment status: %s', diarize_status, align_status)
+
 
 if __name__=='__main__':
     config_file = load_config()

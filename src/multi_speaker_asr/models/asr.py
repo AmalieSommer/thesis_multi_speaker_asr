@@ -111,9 +111,6 @@ class Whisper(ASR):
             language_detection_segments: int = 1
             ):
         
-        print('Model is multilingual...: ', self.pipeline.model.model.is_multilingual)
-        print('Supported languages: ', self.pipeline.model.supported_languages)
-        
         # Generate features from the audio chunks:
         features = (
             [self.pipeline.model.feature_extractor(chunk)[..., :-1] for chunk in audio_chunks]
