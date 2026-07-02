@@ -28,43 +28,52 @@ logger = logging.getLogger(name='Evaluate')
 
 
 def result_to_offset(resultQueue: Queue, offsetQueue: Queue, output_file: str):
-    with open(output_file, "w") as f:
-        while True:
-            item = resultQueue.get()
+    try:
+        with open(output_file, "w") as f:
+            while True:
+                item = resultQueue.get()
 
-            if item is None:
-                break
+                if item is None:
+                    break
 
-            pos = f.tell()
-            f.write(json.dumps(item) + "\n")
-            
-            offsetQueue.put((item['segment_id'], pos))
-            f.flush()
+                pos = f.tell()
+                f.write(json.dumps(item) + "\n")
+                
+                offsetQueue.put((item['segment_id'], pos))
+                f.flush()
+    except Exception as e:
+        logger.error('Failed in result_to_offset() with error: %s', e)
 
 
 def offset_to_result(resultQueue: Queue, offsetQueue: Queue, output_file: str):
-    with open(output_file, "r") as f:
-        while True:
-            offset = offsetQueue.get()
+    try:
+        with open(output_file, "r") as f:
+            while True:
+                offset = offsetQueue.get()
 
-            if offset is None:
-                break
-            f.seek(offset)
-            line = f.readline()
-            result = json.loads(line)
-            resultQueue.put(result)
+                if offset is None:
+                    break
+                f.seek(offset)
+                line = f.readline()
+                result = json.loads(line)
+                resultQueue.put(result)
+    except Exception as e:
+        logger.error('Failed in offset_to_result() with error: %s', e)
 
 
 
 def writer(queue: Queue, output_file: str):
-    with open(output_file, "w") as f:
-        while True:
-            item = queue.get()
+    try:
+        with open(output_file, "w") as f:
+            while True:
+                item = queue.get()
 
-            if item is None:
-                break
-            f.write(json.dumps(item) + "\n")
-            f.flush()
+                if item is None:
+                    break
+                f.write(json.dumps(item) + "\n")
+                f.flush()
+    except Exception as e:
+        logger.error('Failed in writer() with error: %s', e)
 
 
 def updater(queue: Queue, output_file: str):
@@ -87,7 +96,7 @@ def updater(queue: Queue, output_file: str):
             for record in records:
                 f.write(json.dumps(record) + '\n')
     except Exception as e:
-        logger.error('Failed with error: %s', e)
+        logger.error('Failed in updater() with error: %s', e)
 
 
 
@@ -105,6 +114,7 @@ def reader(queue: Queue, input_file: str):
     except Exception as e:
         logger.error('Process failed with error: %s', e)
     finally:
+        logger.error('Failed in reader() with error: %s', e)
         queue.put(None) # For terminating the process
 
 def read_multiples(alignQueue: Queue, diarizeQueue: Queue, align_file: str, diarize_file: str):
@@ -194,7 +204,6 @@ def inference_asr(
         id_segments_map = {}
 
         try:
-                
             start_process_time = time.process_time()
             for batch in loader:
 

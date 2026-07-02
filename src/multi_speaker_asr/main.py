@@ -53,13 +53,6 @@ def load_config():
 
 
 def main(config: yaml):
-
-    data = AudioData(
-        path=config['data'], 
-        hpc=config['hpc'],
-        vad_filter=config['vad_filter'],
-        clip_timestamps=config['clip_timestamps']
-        )
     
     id_offset_map, id_segments_map = inference_asr(
         data_type=config['data'],

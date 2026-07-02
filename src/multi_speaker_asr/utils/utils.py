@@ -17,7 +17,7 @@ LOGGING_CONFIG = {
         'file': {
             'level': 'DEBUG',
             'class': 'logging.FileHandler',
-            'filename': 'pipeline_performance.log',
+            'filename': 'pipeline_performance_int8.log',
             'formatter': 'default',
         },
         'stdout': {
