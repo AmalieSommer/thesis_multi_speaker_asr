@@ -110,9 +110,9 @@ def reader(queue: Queue, input_file: str):
                 record = json.loads(line)
                 queue.put(record)
     except Exception as e:
-        logger.error('Process failed with error: %s', e)
-    finally:
         logger.error('Failed in reader() with error: %s', e)
+    finally:
+        logger.info('Finished reading the file: %s', input_file)
         queue.put(None) # For terminating the process
 
 def read_multiples(alignQueue: Queue, diarizeQueue: Queue, align_file: str, diarize_file: str):
@@ -304,38 +304,53 @@ def align_transcripts(
         t1 = timeit.default_timer()
         start_process_time = time.process_time()
 
-        for sample in loader:
-            audio = sample['audio']
-            audio_id = sample['audio_id']
+        for batch in loader:
+            for sample in batch:
+                print(type(sample))
+                print(sample)
 
-            seg_ids = id_segment_map.get(audio_id, None)
-            if seg_ids is None:
-                raise Exception('Audio id %s had an empty list of segments', audio_id)
-            
-            segments = []
-            for seg in seg_ids:
-                offset = id_offset_map.get(seg)
-                if offset == None:
-                    continue
+                audio = sample['audio']
+                audio_id = sample['audio_id']
 
-                offset_queue.put(offset)
-                asr_sample = segments_queue.get()
-                segments.append(cast(asr_sample))
+                print('In alignment...')
+                print(f'Shape of audio: {audio.shape}')
+                
+
+                seg_ids = id_segment_map.get(audio_id, None)
+                print(f'Segment ids for audio {audio_id}: {seg_ids}')
+                if seg_ids is None:
+                    raise Exception('Audio id %s had an empty list of segments', audio_id)
+                
+                segments = []
+                for seg in seg_ids:
+                    offset = id_offset_map.get(seg)
+                    if offset == None:
+                        print('Offset was None!')
+                        continue
+                    
+                    print(f'Offset value is: {offset}')
+                    offset_queue.put(offset)
+                    asr_sample = segments_queue.get()
+                    print(f'Received ASR sample from json: {asr_sample}')
+                    segments.append(cast(asr_sample))
 
 
-            transcription_result = pipeline.run_alignment(
-                transcript=segments,
-                audio=audio
-            )
-            transformed_result = {
-                                'audio_id': audio_id,
-                                'offset': sample['offset'],
-                                'words': [{'word': obj['word'],
-                                            'start': obj['start'],
-                                            'end': obj['end'],
-                                            'score': obj['score']} for obj in transcription_result['word_segments']]}
-            
-            writer_queue.put(transformed_result)
+                print(f'Values of segments processed: {segments}')
+                transcription_result = pipeline.run_alignment(
+                    transcript=segments,
+                    audio=audio
+                )
+                print(f'Finished running alignment and got the result: {transcription_result}')
+                transformed_result = {
+                                    'audio_id': audio_id,
+                                    'offset': sample['offset'],
+                                    'words': [{'word': obj['word'],
+                                                'start': obj['start'],
+                                                'end': obj['end'],
+                                                'score': obj['score']} for obj in transcription_result['word_segments']]}
+                
+                print(transformed_result)
+                writer_queue.put(transformed_result)
 
     except Exception as e:
         logger.error('Failed with error: %s', e)
@@ -396,38 +411,38 @@ def inference_diarize(
     try:
         t1 = timeit.default_timer()
         start_process_time = time.process_time()
+        for batch in loader:
+                for sample in batch:
+                    audio = sample['audio']
+                    audio_time = audio.shape[0] / 16000
+                    wav = torch.tensor(audio).unsqueeze(0)   # To get the correct format of (channel, time) Tensor.
 
-        for sample in loader:
-                audio = sample['audio']
-                audio_time = audio.shape[0] / 16000
-                wav = torch.tensor(audio).unsqueeze(0)   # To get the correct format of (channel, time) Tensor.
+                    speaker_segments = []
+                    with ProgressHook() as hook:
+                        output = pipeline.model({
+                            'waveform': wav,
+                            'sample_rate': 16000
+                        },
+                        hook=hook,
+                        min_speakers=min_speakers,
+                        max_speakers=max_speakers
+                        )
 
-                speaker_segments = []
-                with ProgressHook() as hook:
-                    output = pipeline.model({
-                        'waveform': wav,
-                        'sample_rate': 16000
-                    },
-                    hook=hook,
-                    min_speakers=min_speakers,
-                    max_speakers=max_speakers
-                    )
-
-                for segment, _, speaker in output.speaker_diarization.itertracks(yield_label=True):
-                    speaker_segments.append({
-                        'speaker': speaker,
-                        'start': segment.start,
-                        'end': segment.end,
-                        'duration': segment.duration
-                    })
+                    for segment, _, speaker in output.speaker_diarization.itertracks(yield_label=True):
+                        speaker_segments.append({
+                            'speaker': speaker,
+                            'start': segment.start,
+                            'end': segment.end,
+                            'duration': segment.duration
+                        })
+                        
                     
                 
-            
-                item = {
-                    'audio_id': sample['audio_id'],
-                    'speaker_segments': speaker_segments
-                    }
-                writerQueue.put(item)
+                    item = {
+                        'audio_id': sample['audio_id'],
+                        'speaker_segments': speaker_segments
+                        }
+                    writerQueue.put(item)
                 
     except Exception as e:
         logger.error('Failed with error...: %s', e)

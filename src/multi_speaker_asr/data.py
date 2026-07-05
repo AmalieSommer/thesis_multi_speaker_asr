@@ -72,7 +72,7 @@ class AudioData(IterableDataset):
         else:
             # Assumes it is a local data folder:
             self.ds = Dataset.from_csv(path_or_paths=data_path, split='test').to_iterable_dataset()
-            self.root_path = 'L:\\Auditdata\\Wrist Angel - Video\\Amalie Sommer\\repo\\thesis_multi_speaker_asr\\data\\audio\\' if not self.hpc else '/zhome/28/9/151118/thesis/'        
+            self.root_path = ' ' if not self.hpc else '/zhome/28/9/151118/thesis/'        
         
 
     def __iter__(self):
@@ -106,7 +106,7 @@ class AudioData(IterableDataset):
                     # Use VAD to get smaller audio segments
                     vad_params = VadOptions(
                         max_speech_duration_s=30,
-                        min_silence_duration_ms=500                 
+                        min_silence_duration_ms=160                 
                         )
                     clip_timestamps = get_speech_timestamps(
                         audio=wav,
