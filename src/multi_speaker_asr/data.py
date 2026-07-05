@@ -12,6 +12,7 @@ from .utils.utils import profile, LOGGING_CONFIG
 import logging
 import logging.config
 import datetime
+import numpy as np
 
 logging.config.dictConfig(LOGGING_CONFIG)
 
@@ -72,7 +73,7 @@ class AudioData(IterableDataset):
         else:
             # Assumes it is a local data folder:
             self.ds = Dataset.from_csv(path_or_paths=data_path, split='test').to_iterable_dataset()
-            self.root_path = ' ' if not self.hpc else '/zhome/28/9/151118/thesis/'        
+            self.root_path = '/root/master_thesis/' if not self.hpc else '/zhome/28/9/151118/thesis/'        
         
 
     def __iter__(self):
@@ -113,6 +114,73 @@ class AudioData(IterableDataset):
                         vad_options=vad_params
                     )
 
+                    audio_chunks = []
+                    chunks_metadata = []
+
+                    current_segments = []
+                    current_duration = 0
+                    total_duration = 0
+                    current_audio = np.array([], dtype=np.float32)
+
+                    for index, clip in enumerate(clip_timestamps):
+                        if (
+                            current_duration + clip['end'] - clip['start'] > max_duration * target_sr
+                        ):
+                            yield {
+                                'audio_id': sample['id'],
+                                'segment_id': index,
+                                'audio': current_audio,
+                                'chunk_metadata': {
+                                    'offset': total_duration / target_sr,
+                                    'duration': current_duration / target_sr,
+                                    'segments': current_segments
+                                }
+                            }
+                            
+                            audio_chunks.append(current_audio)
+                            chunks_metadata.append({
+                                'offset': total_duration / target_sr,
+                                'duration': current_duration / target_sr,
+                                'segments': current_segments
+                            })
+                            total_duration += current_duration
+
+                            current_segments = []
+                            current_audio = wav[clip['start'] : clip['end']]
+                            current_duration = clip['end'] - clip['start']
+
+                            
+                        else:
+                            current_segments.append({
+                                'id': sample['id'],
+                                'start': clip['start'],
+                                'end': clip['end']
+                            })
+                            current_audio = np.concatenate(
+                                (current_audio, wav[clip['start'] : clip['end']])
+                            )
+                            current_duration += clip['end'] - clip['start']
+
+                    audio_chunks.append(current_audio)
+                    chunks_metadata.append({
+                        'offset': total_duration / target_sr,
+                        'duration': current_duration / target_sr,
+                        'segments': current_segments
+                    })
+
+                    yield {
+                                'audio_id': sample['id'],
+                                'segment_id': index,
+                                'audio': current_audio,
+                                'chunk_metadata': {
+                                    'offset': total_duration / target_sr,
+                                    'duration': current_duration / target_sr,
+                                    'segments': current_segments
+                                }
+                            }
+                    
+
+                    """
                     for counter, speech_segment in enumerate(clip_timestamps):
                         new_id = sample['id'] + '_' + str(counter + 1)
                         yield {
@@ -122,11 +190,12 @@ class AudioData(IterableDataset):
                             'start': speech_segment['start'],
                             'end': speech_segment['end']
                         }
+                    """
                 else:
                     self.logger.error('The audio file is greater than 30 seconds. You risk only getting 30 seconds of the audio processed.')
                     yield {
                         'audio_id': sample['id'],
-                        'segment_id': sample['id'] + '_' + str(1),
+                        'segment_id': 0,
                         'audio': wav,
                         'start': sample['start'] if 'start' in sample.keys() else 0,
                         'end': sample['end'] if 'end' in sample.keys() else wav.shape[0],
@@ -135,7 +204,7 @@ class AudioData(IterableDataset):
             else:
                 yield {
                     'audio_id': sample['id'],
-                    'segment_id': sample['id'] + '_' + str(1),
+                    'segment_id': 0,
                     'audio': wav,
                     'start': sample['start'] if 'start' in sample.keys() else 0,
                     'end': sample['end'] if 'end' in sample.keys() else wav.shape[0]

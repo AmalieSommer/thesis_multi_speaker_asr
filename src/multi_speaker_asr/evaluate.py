@@ -14,6 +14,9 @@ from multiprocessing import Process, Queue
 import json
 from torch.utils.data import DataLoader
 import timeit
+from faster_whisper.transcribe import SpeechTimestampsMap
+import itertools
+from .utils.vad import VAD
 
 
 
@@ -163,6 +166,33 @@ def fetch_dataloader(
     )
 
 
+def restore_original_timeline(segments, ts_mapping, segment_ids):
+
+    for segment in segments:
+        if segment.words:
+            segment_id = segment_ids[segment.id - 1]
+            ts_map = ts_mapping[segment_id]
+            words = []
+            for word in segment.words:
+                # Ensure the word start and end times are resolved to the same chunk.
+                middle = (word.start + word.end) / 2
+                chunk_index = ts_map.get_chunk_index(middle)
+                word.start = ts_map.get_original_time(word.start, chunk_index)
+                word.end = ts_map.get_original_time(word.end, chunk_index)
+                words.append(word)
+
+            segment.start = words[0].start
+            segment.end = words[-1].end
+            segment.words = words
+
+        else:
+            segment.start = ts_map.get_original_time(segment.start)
+            segment.end = ts_map.get_original_time(segment.end, is_end=True)
+
+        yield segment
+
+
+
 @profile
 def inference_asr(
                 data_type: str,
@@ -184,7 +214,7 @@ def inference_asr(
         batch_size=batch_size
     )
 
-
+    # TODO: Add a flag or some indication that it should handle chunked audio or not using e.g. clip_timestamps. Requires some refactoring to make it work for both segmented audio (i.e. CoRal) and other audio types.
     with torch.inference_mode():
         pipeline = Whisper(
             compute_type=computetype,
@@ -200,30 +230,58 @@ def inference_asr(
 
         id_offset_map ={}
         id_segments_map = {}
+        timestamp_map = {}
 
         try:
             t1 = timeit.default_timer()
             start_process_time = time.process_time()
             for batch in loader:
 
-                (audio_chunks, chunks_metadata) = get_chunks(batch=batch)
+                audio_chunks = [chunks['audio'] for chunks in batch]
+                metadata = [chunks['chunk_metadata'] for chunks in batch]
 
                 segments, _ = pipeline.transcribe(
                     audio_chunks=audio_chunks,
-                    chunks_metadata=chunks_metadata,
+                    chunks_metadata=metadata,
                     batch_size=batch_size,
                     log_progress=True,
                     word_timestamps=True
                     )
 
-                timestamps = [{'start': sample['start'], 'end': sample['end']} for sample in batch]
-                segments = restore_speech_timestamps(
-                    segments=segments, 
-                    speech_chunks=timestamps,
-                    sampling_rate=16000
-                    )
-                 
-                for segment in segments:
+                segment_ids = [item['audio_id'] for item in batch]
+                original_timeline = list(itertools.chain.from_iterable([segmentsList['segments'] for segmentsList in metadata]))
+
+                if len(timestamp_map) == 0: # is empty...
+        
+                    for key, group in itertools.groupby(original_timeline, lambda x: x['id']):
+                        vad = VAD()
+                        vad.build_mapping([{'start': x['start'], 'end': x['end']} for x in group])
+                        timestamp_map[key] = vad
+                        
+                else:
+                    items_to_keep = []
+                    for key, group in itertools.groupby(original_timeline, lambda x: x['id']):
+                        if key in timestamp_map.keys():
+                            ts_map = timestamp_map.get(key)
+                            ts_map.update_mapping(list(group))
+                            items_to_keep.append(key)
+                        else:
+                            # it needs to create a new timestamp mapping
+                            vad = VAD()
+                            vad.build_mapping(list(group))
+                            timestamp_map[key] = vad
+                            items_to_keep.append(key)
+                        
+                    timestamp_map = {k: v for k, v in timestamp_map.items() if k in items_to_keep}
+                
+
+                segments_restored = restore_original_timeline(
+                    segments=segments,
+                    ts_mapping=timestamp_map,
+                    segment_ids=segment_ids
+                )
+                
+                for segment in segments_restored:
                     seg_id_idx = segment.id - 1
                     obj = {
                         'audio_id': batch[seg_id_idx]['audio_id'], # Note, segment.id is not zero-indexed
@@ -233,6 +291,7 @@ def inference_asr(
                         'text': segment.text,
                         'avg_logprob': segment.avg_logprob
                     }
+
                     resultsQueue.put(obj)
                     (curr_id, curr_pos) = offsetQueue.get()
                     id_offset_map[curr_id] = curr_pos

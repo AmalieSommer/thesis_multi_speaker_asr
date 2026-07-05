@@ -17,7 +17,7 @@ LOGGING_CONFIG = {
         'file': {
             'level': 'DEBUG',
             'class': 'logging.FileHandler',
-            'filename': 'data/results/int8/cpu_threads_8/pipeline_performance.log',
+            'filename': 'data/coral-v3-long-form-conversations/test/pipeline_performance.log',
             'formatter': 'default',
         },
         'stdout': {
