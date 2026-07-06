@@ -1,5 +1,5 @@
-from .data import cast, AudioData, get_chunks
-from multi_speaker_asr.models.asr import Whisper
+from .data import cast, AudioData
+from multi_speaker_asr.models.asr import WhisperPipeline
 from faster_whisper.transcribe import restore_speech_timestamps
 from pyannote.audio.pipelines.utils.hook import ProgressHook
 from multi_speaker_asr.models.diarization import Diarize, assign_word_speakers
@@ -144,58 +144,36 @@ def read_multiples(alignQueue: Queue, diarizeQueue: Queue, align_file: str, diar
 
 def fetch_dataloader(
         data_type: str,
+        audio_path: str,
         on_hpc: bool,
         vad_filter: bool,
         clip_timestamps: bool,
-        batch_size: int
+        batch_size: int,
+        is_asr: bool
     ):
     
     data = AudioData(
         path=data_type,
+        audio_path=audio_path,
         hpc=on_hpc,
         vad_filter=vad_filter,
-        clip_timestamps=clip_timestamps
+        clip_timestamps=clip_timestamps,
+        is_asr=is_asr
     )
 
     return DataLoader(
         dataset=data,
         shuffle=False,
         batch_size=batch_size,
-        num_workers=1,
+        num_workers=0,
         collate_fn=data.collator_fn
     )
-
-
-def restore_original_timeline(segments, ts_mapping, segment_ids):
-
-    for segment in segments:
-        if segment.words:
-            segment_id = segment_ids[segment.id - 1]
-            ts_map = ts_mapping[segment_id]
-            words = []
-            for word in segment.words:
-                # Ensure the word start and end times are resolved to the same chunk.
-                middle = (word.start + word.end) / 2
-                chunk_index = ts_map.get_chunk_index(middle)
-                word.start = ts_map.get_original_time(word.start, chunk_index)
-                word.end = ts_map.get_original_time(word.end, chunk_index)
-                words.append(word)
-
-            segment.start = words[0].start
-            segment.end = words[-1].end
-            segment.words = words
-
-        else:
-            segment.start = ts_map.get_original_time(segment.start)
-            segment.end = ts_map.get_original_time(segment.end, is_end=True)
-
-        yield segment
-
 
 
 @profile
 def inference_asr(
                 data_type: str,
+                audio_path: str,
                 on_hpc: bool,
                 vad_filter: bool,
                 clip_timestamps: bool,
@@ -208,21 +186,23 @@ def inference_asr(
             ):
     loader = fetch_dataloader(
         data_type=data_type,
+        audio_path=audio_path,
         on_hpc=on_hpc,
         vad_filter=vad_filter,
         clip_timestamps=clip_timestamps,
-        batch_size=batch_size
+        batch_size=batch_size,
+        is_asr=True
     )
 
     # TODO: Add a flag or some indication that it should handle chunked audio or not using e.g. clip_timestamps. Requires some refactoring to make it work for both segmented audio (i.e. CoRal) and other audio types.
     with torch.inference_mode():
-        pipeline = Whisper(
+        pipeline = WhisperPipeline(
             compute_type=computetype,
             cpu_threads=cputhreads,
-            device=device,
-            model=model
+            model=model,
+            device=device
         )
-
+        
         resultsQueue = Queue()
         offsetQueue = Queue()
         write_results_process = Process(target=result_to_offset, args=(resultsQueue, offsetQueue, filename))
@@ -230,8 +210,6 @@ def inference_asr(
 
         id_offset_map ={}
         id_segments_map = {}
-        timestamp_map = {}
-
         try:
             t1 = timeit.default_timer()
             start_process_time = time.process_time()
@@ -239,49 +217,21 @@ def inference_asr(
 
                 audio_chunks = [chunks['audio'] for chunks in batch]
                 metadata = [chunks['chunk_metadata'] for chunks in batch]
+                original_timeline = list(itertools.chain.from_iterable([segmentsList['segments'] for segmentsList in metadata]))
 
                 segments, _ = pipeline.transcribe(
                     audio_chunks=audio_chunks,
                     chunks_metadata=metadata,
+                    ids=[item['audio_id'] for item in batch],
+                    clip_timestamps=original_timeline,
+                    clip_timestamps_provided=clip_timestamps,
+                    vad_filter=vad_filter,
                     batch_size=batch_size,
                     log_progress=True,
                     word_timestamps=True
                     )
-
-                segment_ids = [item['audio_id'] for item in batch]
-                original_timeline = list(itertools.chain.from_iterable([segmentsList['segments'] for segmentsList in metadata]))
-
-                if len(timestamp_map) == 0: # is empty...
-        
-                    for key, group in itertools.groupby(original_timeline, lambda x: x['id']):
-                        vad = VAD()
-                        vad.build_mapping([{'start': x['start'], 'end': x['end']} for x in group])
-                        timestamp_map[key] = vad
-                        
-                else:
-                    items_to_keep = []
-                    for key, group in itertools.groupby(original_timeline, lambda x: x['id']):
-                        if key in timestamp_map.keys():
-                            ts_map = timestamp_map.get(key)
-                            ts_map.update_mapping(list(group))
-                            items_to_keep.append(key)
-                        else:
-                            # it needs to create a new timestamp mapping
-                            vad = VAD()
-                            vad.build_mapping(list(group))
-                            timestamp_map[key] = vad
-                            items_to_keep.append(key)
-                        
-                    timestamp_map = {k: v for k, v in timestamp_map.items() if k in items_to_keep}
                 
-
-                segments_restored = restore_original_timeline(
-                    segments=segments,
-                    ts_mapping=timestamp_map,
-                    segment_ids=segment_ids
-                )
-                
-                for segment in segments_restored:
+                for segment in segments:
                     seg_id_idx = segment.id - 1
                     obj = {
                         'audio_id': batch[seg_id_idx]['audio_id'], # Note, segment.id is not zero-indexed
@@ -326,6 +276,7 @@ def inference_asr(
 @profile
 def align_transcripts(
         data_type: str,
+        audio_path: str,
         hpc: bool,
         vad_filter: bool,
         clip_timestamps: bool,
@@ -340,10 +291,12 @@ def align_transcripts(
     
     loader = fetch_dataloader(
         data_type=data_type,
+        audio_path=audio_path,
         on_hpc=hpc,
         vad_filter=vad_filter,
         clip_timestamps=clip_timestamps,
-        batch_size=batch_size
+        batch_size=batch_size,
+        is_asr=False
     )
 
     writer_queue = Queue()
@@ -387,28 +340,22 @@ def align_transcripts(
                         print('Offset was None!')
                         continue
                     
-                    print(f'Offset value is: {offset}')
                     offset_queue.put(offset)
                     asr_sample = segments_queue.get()
-                    print(f'Received ASR sample from json: {asr_sample}')
                     segments.append(cast(asr_sample))
 
 
-                print(f'Values of segments processed: {segments}')
                 transcription_result = pipeline.run_alignment(
                     transcript=segments,
                     audio=audio
                 )
-                print(f'Finished running alignment and got the result: {transcription_result}')
                 transformed_result = {
                                     'audio_id': audio_id,
-                                    'offset': sample['offset'],
                                     'words': [{'word': obj['word'],
                                                 'start': obj['start'],
                                                 'end': obj['end'],
                                                 'score': obj['score']} for obj in transcription_result['word_segments']]}
                 
-                print(transformed_result)
                 writer_queue.put(transformed_result)
 
     except Exception as e:
@@ -439,6 +386,7 @@ def align_transcripts(
 @profile
 def inference_diarize(
         data_type: str,
+        audio_path: str,
         hpc: str,
         vad_filter: bool,
         clip_timestamps: bool,
@@ -450,10 +398,12 @@ def inference_diarize(
 
     loader = fetch_dataloader(
         data_type=data_type,
+        audio_path=audio_path,
         on_hpc=hpc,
         vad_filter=vad_filter,
         clip_timestamps=clip_timestamps,
-        batch_size=batch_size
+        batch_size=batch_size,
+        is_asr=False
     )
     
  
@@ -473,7 +423,6 @@ def inference_diarize(
         for batch in loader:
                 for sample in batch:
                     audio = sample['audio']
-                    audio_time = audio.shape[0] / 16000
                     wav = torch.tensor(audio).unsqueeze(0)   # To get the correct format of (channel, time) Tensor.
 
                     speaker_segments = []

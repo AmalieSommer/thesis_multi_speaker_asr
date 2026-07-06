@@ -55,6 +55,7 @@ def main(config: yaml):
     
     id_offset_map, id_segments_map = inference_asr(
         data_type=config['data'],
+        audio_path=config['audio_path'],
         on_hpc=config['hpc'],
         vad_filter=config['vad_filter'],
         clip_timestamps=config['clip_timestamps'],
@@ -72,6 +73,7 @@ def main(config: yaml):
     
     align_status = align_transcripts(
         data_type=config['data'],
+        audio_path=config['audio_path'],
         hpc=config['hpc'],
         vad_filter=False,
         clip_timestamps=config['clip_timestamps'],
@@ -86,6 +88,7 @@ def main(config: yaml):
 
     diarize_status = inference_diarize(
         data_type=config['data'],
+        audio_path=config['audio_path'],
         hpc=config['hpc'],
         vad_filter=False,
         clip_timestamps=config['clip_timestamps'],

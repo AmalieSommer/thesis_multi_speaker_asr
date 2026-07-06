@@ -9,6 +9,7 @@ from faster_whisper.vad import VadOptions, get_speech_timestamps
 import soundfile as sf
 from whisperx.schema import SingleSegment
 from .utils.utils import profile, LOGGING_CONFIG
+from .utils.vad import collect_audio_chunks, get_timestamps
 import logging
 import logging.config
 import datetime
@@ -34,8 +35,20 @@ class AudioData(IterableDataset):
     }
     logger = logging.getLogger(name='AudioData')
 
-    def __init__(self, path, hpc=True, target_sr=16000, max_segment_duration=30, vad_filter=True, clip_timestamps=False):
+    def __init__(
+            self, 
+            path, 
+            audio_path, 
+            hpc=True, 
+            target_sr=16000, 
+            max_segment_duration=30, 
+            vad_filter=True, 
+            clip_timestamps=False,
+            is_asr=True
+            ):
         super().__init__()
+        self.is_asr=is_asr
+        self.audio_path = audio_path
         self.clip_timestamps = clip_timestamps
         self.vad_filter = vad_filter
         self.hpc = hpc
@@ -73,7 +86,7 @@ class AudioData(IterableDataset):
         else:
             # Assumes it is a local data folder:
             self.ds = Dataset.from_csv(path_or_paths=data_path, split='test').to_iterable_dataset()
-            self.root_path = '/root/master_thesis/' if not self.hpc else '/zhome/28/9/151118/thesis/'        
+            self.root_path = self.audio_path if not self.hpc else '/zhome/28/9/151118/thesis/'        
         
 
     def __iter__(self):
@@ -81,137 +94,33 @@ class AudioData(IterableDataset):
             yield from self.preprocess(sample=item)
       
 
-    def preprocess(self, sample, max_duration=30, target_sr=16000):
+    def preprocess(self, sample):
         try:
             audio = sample['audio'] if 'audio' in sample.keys() else None
 
             if audio == None:
-                raise Exception('Missong audio or text in dataset sample!')
+                raise Exception('Missong audio in dataset sample!')
             
-
             audio = sample['audio']['bytes'] if type(sample['audio']) == dict else sample['audio']
             wav = self.read_audio(audio=audio)
-            max_duration = 30
-            target_sr = 16000
 
-            clip_timestamps = []
-            offset = 0 # Meant to be used when it is non-zero and added to the predicted timestamps!
-            if wav.shape[0] > (max_duration * target_sr):
-                if self.clip_timestamps:
-                    start = int(sample['start'] * target_sr)
-                    end = int(sample['end'] * target_sr)
-                    wav = wav[start : end]
-                    offset = sample['start']
-                    clip_timestamps.append({'start': start, 'end': end})
-                if self.vad_filter:
-                    # Use VAD to get smaller audio segments
-                    vad_params = VadOptions(
-                        max_speech_duration_s=30,
-                        min_silence_duration_ms=160                 
-                        )
-                    clip_timestamps = get_speech_timestamps(
-                        audio=wav,
-                        vad_options=vad_params
-                    )
-
-                    audio_chunks = []
-                    chunks_metadata = []
-
-                    current_segments = []
-                    current_duration = 0
-                    total_duration = 0
-                    current_audio = np.array([], dtype=np.float32)
-
-                    for index, clip in enumerate(clip_timestamps):
-                        if (
-                            current_duration + clip['end'] - clip['start'] > max_duration * target_sr
-                        ):
-                            yield {
-                                'audio_id': sample['id'],
-                                'segment_id': index,
-                                'audio': current_audio,
-                                'chunk_metadata': {
-                                    'offset': total_duration / target_sr,
-                                    'duration': current_duration / target_sr,
-                                    'segments': current_segments
-                                }
-                            }
-                            
-                            audio_chunks.append(current_audio)
-                            chunks_metadata.append({
-                                'offset': total_duration / target_sr,
-                                'duration': current_duration / target_sr,
-                                'segments': current_segments
-                            })
-                            total_duration += current_duration
-
-                            current_segments = []
-                            current_audio = wav[clip['start'] : clip['end']]
-                            current_duration = clip['end'] - clip['start']
-
-                            
-                        else:
-                            current_segments.append({
-                                'id': sample['id'],
-                                'start': clip['start'],
-                                'end': clip['end']
-                            })
-                            current_audio = np.concatenate(
-                                (current_audio, wav[clip['start'] : clip['end']])
-                            )
-                            current_duration += clip['end'] - clip['start']
-
-                    audio_chunks.append(current_audio)
-                    chunks_metadata.append({
-                        'offset': total_duration / target_sr,
-                        'duration': current_duration / target_sr,
-                        'segments': current_segments
-                    })
-
-                    yield {
-                                'audio_id': sample['id'],
-                                'segment_id': index,
-                                'audio': current_audio,
-                                'chunk_metadata': {
-                                    'offset': total_duration / target_sr,
-                                    'duration': current_duration / target_sr,
-                                    'segments': current_segments
-                                }
-                            }
-                    
-
-                    """
-                    for counter, speech_segment in enumerate(clip_timestamps):
-                        new_id = sample['id'] + '_' + str(counter + 1)
-                        yield {
-                            'audio_id': sample['id'],
-                            'segment_id': new_id,
-                            'audio': wav[speech_segment['start'] : speech_segment['end']],
-                            'start': speech_segment['start'],
-                            'end': speech_segment['end']
-                        }
-                    """
-                else:
-                    self.logger.error('The audio file is greater than 30 seconds. You risk only getting 30 seconds of the audio processed.')
-                    yield {
-                        'audio_id': sample['id'],
-                        'segment_id': 0,
-                        'audio': wav,
-                        'start': sample['start'] if 'start' in sample.keys() else 0,
-                        'end': sample['end'] if 'end' in sample.keys() else wav.shape[0],
-                        'offset': offset
-                    }
-            else:
-                yield {
-                    'audio_id': sample['id'],
-                    'segment_id': 0,
-                    'audio': wav,
-                    'start': sample['start'] if 'start' in sample.keys() else 0,
-                    'end': sample['end'] if 'end' in sample.keys() else wav.shape[0]
-                }
+            offset, clip_timestamps = get_timestamps(
+                data_sample=sample,
+                audio=wav,
+                duration=wav.shape[0],
+                clip_timestamps=self.clip_timestamps,
+                vad_filter=self.vad_filter
+            )
+            
+            yield from collect_audio_chunks(
+                data_sample=sample,
+                is_asr=self.is_asr,
+                audio=wav,
+                clip_timestamps=clip_timestamps,
+                offset=offset
+            )
         except Exception as e:
-            self.logger.error('Failed with error... ', e)
-
+            self.logger.error('Failed in preprocess() with error... ', e)
 
     def read_audio(self, audio, target_sr=16000):
         try: 
@@ -240,32 +149,6 @@ class AudioData(IterableDataset):
     def collator_fn(self, batch):
         """Should ensure that it returns batch object of the same format, i.e. same parameter names and types"""
         return batch
-    
-
-def get_chunks(batch: list[dict], target_sr=16000):
-    audio_chunks = []
-    chunks_metadata = []
-    total_duation = 0
-    segments = []
-
-    for sample in batch:
-        curr_duration = sample['end'] - sample['start']
-        segments.append({
-            'start': sample['start'],
-            'end': sample['end']
-        })
-        chunks_metadata.append({
-            'offset': total_duation / target_sr,
-            'duration': curr_duration / target_sr,
-            'segments':  segments
-        })
-        audio_chunks.append(sample['audio'])
-        total_duation = total_duation + curr_duration
-        segments = []
-
-    return audio_chunks, chunks_metadata
-
-
 
 def cast(object: dict):
     return SingleSegment(

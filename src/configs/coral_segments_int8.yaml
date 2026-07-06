@@ -4,8 +4,9 @@ align_output_filename: 'align_output_segments_int8.jsonl'
 final_output_filename: 'output_segments_int8.jsonl'
 model: 'pluttodk/roest-v3-whisper-1.5b-ct2'
 data: 'coral'
+audio_path: 'thesis_multi_speaker_asr\\data\\audio\\'
 computetype: int8
-cputhreads: 4
+cputhreads: 10
 alignment_model: 'CoRal-project/roest-v3-wav2vec2-315m'
 hpc: False
 clip_timestamps: False
