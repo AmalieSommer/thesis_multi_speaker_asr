@@ -255,11 +255,11 @@ class WhisperPipeline(BatchedInferencePipeline):
             options,
             log_progress,
         )
+
         if clip_timestamps_provided | vad_filter:
             segments = self.restore_original_timeline(
                 segments, ids
             )
-
         return segments, info
     
 

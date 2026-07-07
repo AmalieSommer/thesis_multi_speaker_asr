@@ -334,6 +334,7 @@ def align_transcripts(
                     raise Exception('Audio id %s had an empty list of segments', audio_id)
                 
                 segments = []
+                audio_offset = 0
                 for seg in seg_ids:
                     offset = id_offset_map.get(seg)
                     if offset == None:
@@ -342,6 +343,7 @@ def align_transcripts(
                     
                     offset_queue.put(offset)
                     asr_sample = segments_queue.get()
+                    audio_offset = sample['offset']
                     segments.append(cast(asr_sample))
 
 
@@ -351,6 +353,7 @@ def align_transcripts(
                 )
                 transformed_result = {
                                     'audio_id': audio_id,
+                                    'offset': audio_offset, # if the audio is clipped it will be larger than zero, and will be added to the timestamps at the end of the pipeline
                                     'words': [{'word': obj['word'],
                                                 'start': obj['start'],
                                                 'end': obj['end'],
@@ -448,6 +451,7 @@ def inference_diarize(
                 
                     item = {
                         'audio_id': sample['audio_id'],
+                        'offset': sample['offset'],
                         'speaker_segments': speaker_segments
                         }
                     writerQueue.put(item)
@@ -508,6 +512,17 @@ def generate_final_transcript(
                 segments=segments_list,
                 speaker_times=diarization['speaker_segments']
             )
+            for t in transcript:
+                t_offset = t['offset']
+                words_timeline = t['words']
+                restored_timeline = list(map(lambda x: {
+                    'word': x['word'],
+                    'start': x['start'] + t_offset,
+                    'end': x['end'] + t_offset,
+                    'score': x['score'],
+                    'speaker': x['speaker']
+                }, words_timeline))
+                t['words'] = restored_timeline
             writerQueue.put(transcript)
             
         # TODO: Once verified that the final file is correct, add functionality to remove the other intermediate files.
