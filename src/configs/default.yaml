@@ -1,8 +1,0 @@
-device: 'cpu'
-filename: 'roest_whisper_baseline'
-model: 'pluttodk/roest-v3-whisper-1.5b-ct2'
-data: 'coral'
-computetype: int8
-cputhreads: 6
-alignment_model: 'CoRal-project/roest-v3-wav2vec2-315m'
-hpc: False

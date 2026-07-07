@@ -1,25 +1,21 @@
-from multi_speaker_asr.utils.utils import profile, LOGGING_CONFIG, process_memory
+from multi_speaker_asr.utils.utils import LOGGING_CONFIG
 import os
-import json
 from multi_speaker_asr.evaluate import (
-    streamed_inference, 
-    batched_inference, 
-    inference_streaming_diarize,
+    inference_asr,
+    inference_diarize,
     align_transcripts,
-    reader
+    generate_final_transcript
     )
 import torch
 from tqdm import tqdm
 from dotenv import load_dotenv
 import yaml
-from multi_speaker_asr.data import AudioData
-from multi_speaker_asr.models.asr import Whisper
 import argparse
-from multi_speaker_asr.models.diarization import Diarize, assign_word_speakers
-import itertools
 import logging
 import logging.config
-from multiprocessing import Process, Queue
+import timeit
+ 
+
 
 
 
@@ -27,7 +23,6 @@ logging.config.dictConfig(LOGGING_CONFIG)
 logger = logging.getLogger(name='Main')
 
 
-os.environ['OMP_NUM_THREADS'] = '5' # Should test 4, 5, and 6 because I also use 1 worker for data reading and 1 worker for writing results to a file.
 
 load_dotenv()
 HF_TOKEN = os.getenv('HF_TOKEN')
@@ -44,7 +39,100 @@ def trusted_torch_load(*args, **kwargs):
 torch.load = trusted_torch_load
 
 
+def load_config():
+    """
+    Loads a .yaml configuration file with argument params.
+    """
+    print('Loading config file...')
+    parser = argparse.ArgumentParser(description='ASR Inference Runs')
+    parser.add_argument('--config', type=str, required=True)
+    args = parser.parse_args()
+    with open(args.config, 'r') as file:
+        return yaml.safe_load(file)
 
+
+def main(config: yaml):
+    
+    id_offset_map, id_segments_map = inference_asr(
+        data_type=config['data'],
+        audio_path=config['audio_path'],
+        on_hpc=config['hpc'],
+        vad_filter=config['vad_filter'],
+        clip_timestamps=config['clip_timestamps'],
+        batch_size=config['asr_batchsize'],
+        computetype=config['computetype'],
+        cputhreads=config['cputhreads'],
+        device=config['device'],
+        model=config['model'],
+        filename=config['asr_output_filename']
+        )
+
+
+    if (id_offset_map is None) | (id_segments_map is None):
+        print('Failed with error... inference_asr() returned None')
+    
+    align_status = align_transcripts(
+        data_type=config['data'],
+        audio_path=config['audio_path'],
+        hpc=config['hpc'],
+        vad_filter=False,
+        clip_timestamps=config['clip_timestamps'],
+        batch_size=config['align_batchsize'],
+        align_filename=config['align_output_filename'],
+        asr_filename=config['asr_output_filename'], 
+        model_name=config['alignment_model'],
+        id_offset_map=id_offset_map,
+        id_segment_map=id_segments_map
+        )
+ 
+
+    diarize_status = inference_diarize(
+        data_type=config['data'],
+        audio_path=config['audio_path'],
+        hpc=config['hpc'],
+        vad_filter=False,
+        clip_timestamps=config['clip_timestamps'],
+        batch_size=config['diarize_batchsize'],
+        diarize_filename=config['diarize_output_filename']
+    )
+
+    
+    if (align_status == 'Success') & (diarize_status == 'Success'):
+        generate_final_transcript(
+            results_filename=config['final_output_filename'],
+            align_filename=config['align_output_filename'],
+            diarize_filename=config['diarize_output_filename']
+        )
+    else:
+        logger.error('Failed with error... Diarization status: %s. Alignment status: %s', diarize_status, align_status)
+
+
+if __name__=='__main__':
+    config_file = load_config()
+    main(config=config_file)
+
+    asr_memory = inference_asr.memory_stats[0]
+    logger.info('Memory Stats during ASR inference...: Before load: %f, After load: %f, Delta: %f', asr_memory['before'], asr_memory['after'], asr_memory['delta'])
+
+    w2v_memory = align_transcripts.memory_stats[0]
+    logger.info('Memory Stats during timestamp alignment...: Before load: %f, After load: %f, Delta: %f', w2v_memory['before'], w2v_memory['after'], w2v_memory['delta'])
+
+    diarize_memory = inference_diarize.memory_stats[0]
+    logger.info('Memory Stats during diarization...: Before load: %f, After load: %f, Delta: %f', diarize_memory['before'], diarize_memory['after'], diarize_memory['delta'])
+
+
+
+
+
+
+
+
+
+
+
+
+
+"""
 def fetch_data(filename):
     # Fetch transcripts from file:
     try:
@@ -192,9 +280,6 @@ def main(config, long_form=False):
     else:
         logger.error('Failed to generate transcript, because alignment or diarization returned None... Aligned result: %s, Diarization result: %s', aligned_results, diarize_results)
 
-
-
-
 if __name__=='__main__':
     print('Starting...')
     
@@ -203,5 +288,5 @@ if __name__=='__main__':
     logger.info('Config Memory Stats...: Before load: %f, After load: %f, Delta: %f', config_mem['before'], config_mem['after'], config_mem['delta'])
     
     main(config=config, long_form=True)
-
+"""
     
