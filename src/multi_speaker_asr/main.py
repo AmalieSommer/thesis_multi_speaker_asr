@@ -2,6 +2,7 @@ from multi_speaker_asr.utils.utils import LOGGING_CONFIG
 import os
 from multi_speaker_asr.evaluate import (
     inference_asr,
+    inference_asr_presegmented,
     inference_diarize,
     align_transcripts,
     generate_final_transcript
@@ -51,7 +52,23 @@ def load_config():
         return yaml.safe_load(file)
 
 
-def main(config: yaml):
+
+def run_asr(config: yaml):
+    id_offset_map, id_segments_map = inference_asr_presegmented(
+        data_type=config['data'],
+        audio_path=config['audio_path'],
+        on_hpc=config['hpc'],
+        vad_filter=config['vad_filter'],
+        clip_timestamps=config['clip_timestamps'],
+        batch_size=config['asr_batchsize'],
+        computetype=config['computetype'],
+        cputhreads=config['cputhreads'],
+        device=config['device'],
+        model=config['model'],
+        filename=config['asr_output_filename']
+        )
+
+def run_pipeline(config: yaml):
     
     id_offset_map, id_segments_map = inference_asr(
         data_type=config['data'],
@@ -106,11 +123,6 @@ def main(config: yaml):
     else:
         logger.error('Failed with error... Diarization status: %s. Alignment status: %s', diarize_status, align_status)
 
-
-if __name__=='__main__':
-    config_file = load_config()
-    main(config=config_file)
-
     asr_memory = inference_asr.memory_stats[0]
     logger.info('Memory Stats during ASR inference...: Before load: %f, After load: %f, Delta: %f', asr_memory['before'], asr_memory['after'], asr_memory['delta'])
 
@@ -121,6 +133,14 @@ if __name__=='__main__':
     logger.info('Memory Stats during diarization...: Before load: %f, After load: %f, Delta: %f', diarize_memory['before'], diarize_memory['after'], diarize_memory['delta'])
 
 
+
+if __name__=='__main__':
+    config_file = load_config()
+    
+    run_asr(config_file)
+    #run_pipeline(config=config_file)
+
+    
 
 
 
