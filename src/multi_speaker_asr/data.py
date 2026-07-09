@@ -223,12 +223,12 @@ class AudioData(IterableDataset):
                 raise Exception('Missong audio in dataset sample!')
             
             audio = sample['audio']['bytes'] if type(sample['audio']) == dict else sample['audio']
-            wav = self.read_audio(audio=audio)
+            audio = self.read_audio(audio=audio)
 
-            offset, clip_timestamps = get_timestamps(
+            offset, clip_timestamps, audio = get_timestamps(
                 data_sample=sample,
-                audio=wav,
-                duration=wav.shape[0],
+                audio=audio,
+                duration=audio.shape[0],
                 clip_timestamps=self.clip_timestamps,
                 vad_filter=self.vad_filter
             )
@@ -236,7 +236,7 @@ class AudioData(IterableDataset):
             yield from collect_audio_chunks(
                 data_sample=sample,
                 is_asr=self.is_asr,
-                audio=wav,
+                audio=audio,
                 clip_timestamps=clip_timestamps,
                 offset=offset
             )
