@@ -1,0 +1,16 @@
+2026-07-06 08:46:56,907 - AudioData - INFO - Dataset Memory Stats...: Before load: 768.815104, After load: 772.239360, Delta: 3.424256
+2026-07-06 08:47:00,646 - Whisper - INFO - Whisper Model Memory Stats...: Before load: 772.239360, After load: 2623.328256, Delta: 1851.088896
+2026-07-06 22:59:04,744 - Evaluate - INFO - Walltime is 51124.071417
+2026-07-06 22:59:04,746 - Evaluate - INFO - CPU Time is 238435.026312
+2026-07-06 22:59:06,467 - AudioData - INFO - Dataset Memory Stats...: Before load: 768.815104, After load: 772.239360, Delta: 3.424256
+2026-07-06 22:59:09,022 - Wav2Vec2 - INFO - Alignment Model Memory Stats...: Before load: 3629.604864, After load: 3633.033216, Delta: 3.428352
+2026-07-07 00:14:57,844 - Evaluate - INFO - CPU Time is 15136.328051
+2026-07-07 00:14:57,846 - Evaluate - INFO - Walltime is 4548.821238
+2026-07-07 00:14:59,529 - AudioData - INFO - Dataset Memory Stats...: Before load: 768.815104, After load: 772.239360, Delta: 3.424256
+2026-07-07 00:15:00,660 - Diarization - INFO - Diarization Model Memory Stats...: Before load: 3720.794112, After load: 3733.512192, Delta: 12.718080
+2026-07-07 00:15:00,757 - Evaluate - INFO - Finished reading the file: data/results/int8/cpu_threads_10/diarize_output_coral_segments.jsonl
+2026-07-07 01:13:44,699 - Evaluate - INFO - CPU Time is 7268.330166
+2026-07-07 01:13:44,700 - Evaluate - INFO - Walltime is 3523.944487
+2026-07-07 01:13:46,437 - Main - INFO - Memory Stats during ASR inference...: Before load: 768.815104, After load: 3629.584384, Delta: 2860.769280
+2026-07-07 01:13:46,437 - Main - INFO - Memory Stats during timestamp alignment...: Before load: 3629.584384, After load: 3720.785920, Delta: 91.201536
+2026-07-07 01:13:46,437 - Main - INFO - Memory Stats during diarization...: Before load: 3720.785920, After load: 1499.467776, Delta: -2221.318144

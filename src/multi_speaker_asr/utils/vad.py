@@ -103,11 +103,11 @@ def get_timestamps(
         # if not, then log an errormessage to enable VAD or provide timestamps.
         start = int(data_sample['start'] * sampling_rate)
         end = int(data_sample['end'] * sampling_rate)
-        clipped_audio = audio[start : end]
+        audio = audio[start : end]
 
         offset = start if start <= 0 else start / sampling_rate # Avoids division with zero error...
 
-        if clipped_audio.shape[0] < max_duration * sampling_rate:
+        if audio.shape[0] < max_duration * sampling_rate:
             timestamps = [{'start': start, 'end': end}]
             
         else:
@@ -116,11 +116,11 @@ def get_timestamps(
                         max_speech_duration_s=max_duration,
                         min_silence_duration_ms=160,
                     )
-                timestamps = get_speech_timestamps(audio=clipped_audio, vad_options=vad_parameters)
+                timestamps = get_speech_timestamps(audio=audio, vad_options=vad_parameters)
             else:
-                timestamps = [{'start': start, 'end': end}]
+                timestamps = [{'start': 0, 'end': audio.shape[0]}]
                 logger.info('The clip_timestamps clip the audio to a duration longer than the 30 second limit. It will only process the first 30 seconds. Otherwise, enable VAD filtering.')
-    return offset, timestamps
+    return offset, timestamps, audio
 
 def collect_audio_chunks(
         data_sample,
@@ -176,7 +176,7 @@ def collect_audio_chunks(
 
     yield {
             'audio_id': data_sample['id'],
-            'segment_id': curr_id,
+            'segment_id': len(clip_timestamps),
             'audio': current_audio,
             'offset': offset,
             'chunk_metadata': {

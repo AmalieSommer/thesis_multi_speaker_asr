@@ -59,7 +59,7 @@ class WhisperPipeline(BatchedInferencePipeline):
             audio_chunks,
             chunks_metadata,
             ids,
-            language = None, 
+            language = "da", 
             task = "transcribe", 
             log_progress = False, 
             beam_size = 5, 
