@@ -26,7 +26,6 @@ logger = logging.getLogger(name='Main')
 
 load_dotenv()
 HF_TOKEN = os.getenv('HF_TOKEN')
-RESULT_PATH = '/root/master_thesis/thesis_multi_speaker_asr/src/results'
 
 tqdm.monitor_interval = 0 # Stops the tqdm from creating monitoring threads causing shutdown-race conditions...
 # BECAUSE OF PYTORCH LOAD() CHANGE FOR PYTORCH>=2.6
