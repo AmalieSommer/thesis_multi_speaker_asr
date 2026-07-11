@@ -12,8 +12,8 @@ from multi_speaker_asr.utils.utils import profile, LOGGING_CONFIG
 from multi_speaker_asr.utils.vad import collect_audio_chunks, get_timestamps
 import logging
 import logging.config
-import datetime
 import numpy as np
+from pathlib import Path
 
 logging.config.dictConfig(LOGGING_CONFIG)
 
@@ -24,194 +24,35 @@ class AudioData(IterableDataset):
     """
     Data wrapper class to load either local or Huggingface datasets. Perform preprocessing, resampling and formatting as preparation for model training and inference.
     """
-
-    DATA = {
-        'coral': {
-            'name': 'CoRal-project/coral-v3',
-            'type': 'conversation',
-            'split': 'test',
-            'path': 'root/.cache/huggingface/datasets/CoRal-project___coral-v3/conversation/0.0.0/01f7c93c21fc9dec87fe9f7149c79569cc433f08'
-        }
-    }
     logger = logging.getLogger(name='AudioData')
 
     def __init__(
-            self, 
-            path, 
-            audio_path, 
-            hpc=True, 
+            self,  
             target_sr=16000, 
             max_segment_duration=30, 
             vad_filter=True, 
             clip_timestamps=False,
-            is_asr=True
             ):
         super().__init__()
-        self.is_asr=is_asr
-        self.audio_path = audio_path
         self.clip_timestamps = clip_timestamps
         self.vad_filter = vad_filter
-        self.hpc = hpc
         self.target_sr = target_sr
         self.max_segment_duration = max_segment_duration
-        try:
-            self.path = self.DATA[path] # path to an online dataset e.g. from Huggingface
-        except:
-            self.path = path    # path to a local folder
-            
-        self.load() # Initialize the dataset...
-        data_memory = self.load.memory_stats[0]
-        self.logger.info('Dataset Memory Stats...: Before load: %f, After load: %f, Delta: %f', data_memory['before'], data_memory['after'], data_memory['delta'])
-    
+        
+        
 
     @profile
-    def load(self):
+    def load(self, path):
         """
         Loads a dataset either from local or online resource.
         If the path does not exist in the DATA dict, then it is assumed local, and will be loaded manually.
         """
-        data_path = self.path
-
-        if type(data_path) == dict:
-            # If the path is from an online resource, then load it using datasets built-in function:
-            self.ds = load_dataset(
-                path=data_path['name'],
-                name=data_path['type'],
-                split=data_path['split'],
-                streaming=True
-            )
-            # Ensure it does not decode audio using torchDecoder
-            self.ds = self.ds.cast_column('audio', Audio(decode=False))
-            self.ds = self.ds.rename_column('id_conversation', 'id')
-        else:
-            # Assumes it is a local data folder:
-            self.ds = Dataset.from_csv(path_or_paths=data_path, split='test').to_iterable_dataset()
-            self.root_path = self.audio_path if not self.hpc else '/zhome/28/9/151118/thesis/'        
-        
+        self.ds = Dataset.from_csv(path_or_paths=path, split='test').to_iterable_dataset()        
 
     def __iter__(self):
         for item in self.ds:
-            yield item
-            #yield from self.preprocess(sample=item)
+            yield from self.preprocess(sample=item)
 
-    def collator(self, batch):
-        if len(batch) == 1:
-            return self.preprocess(batch[0])
-        else:
-            # The items are pre-segmented and need to be concatenated until they equal a duration closer to 30 seconds.
-            audio_chunks = []
-            chunks_metadata = []
-            
-            current_speaker = None
-            current_segments = []
-            current_duration = 0
-            total_duration = 0
-            current_audio = np.array([], dtype=np.float32)
-
-            try:
-
-                for sample in batch:
-                    if current_speaker is None:
-                        current_speaker = sample['id_speaker']
-                    audio = sample['audio'] if 'audio' in sample.keys() else None
-
-                    if audio is None:
-                        raise Exception('Missong audio in dataset sample!')
-                    
-                    audio = sample['audio']['bytes'] if type(sample['audio']) == dict else sample['audio']
-                    wav = self.read_audio(audio=audio)
-                    
-                    chunk_start = 0
-                    chunk_end = wav.shape[0]
-
-                    if sample['id_speaker'] != current_speaker:
-                        audio_chunks.append(current_audio)
-                        chunks_metadata.append({
-                            "offset": total_duration / self.target_sr,
-                            "duration": current_duration / self.target_sr,
-                            "segments": current_segments,
-                        })
-                        total_duration += current_duration
-                        current_segments = []
-                        current_segments.append({
-                                'id': sample['id'],
-                                'id_speaker': sample['id_speaker'],
-                                'age': sample['age'],
-                                'gender': sample['gender'],
-                                'country_birth': sample['country_birth'],
-                                'dialect': sample['dialect'],
-                                'overlap': sample['overlap'],
-                                'text': sample['text'],
-                                'start': 0,
-                                'end': wav.shape[0]
-                            })
-
-                        current_audio = wav
-                        current_duration = chunk_end - chunk_start
-                        current_speaker = sample['id_speaker']
-                    else:
-                        if (
-                            current_duration + chunk_end - chunk_start
-                            > self.max_segment_duration * self.target_sr
-                        ):
-                            audio_chunks.append(current_audio)
-                            chunks_metadata.append({
-                                "offset": total_duration / self.target_sr,
-                                "duration": current_duration / self.target_sr,
-                                "segments": current_segments,
-                            })
-                            total_duration += current_duration
-                            current_segments = []
-                            current_audio = wav
-                            current_duration = chunk_end - chunk_start
-                            current_speaker = sample['id_speaker']
-
-                            current_segments.append({
-                                'id': sample['id'],
-                                'id_speaker': sample['id_speaker'],
-                                'age': sample['age'],
-                                'gender': sample['gender'],
-                                'country_birth': sample['country_birth'],
-                                'dialect': sample['dialect'],
-                                'overlap': sample['overlap'],
-                                'text': sample['text'],
-                                'start': 0,
-                                'end': wav.shape[0]
-                            })
-                        else:
-                            current_segments.append({
-                                'id': sample['id'],
-                                'id_speaker': sample['id_speaker'],
-                                'age': sample['age'],
-                                'gender': sample['gender'],
-                                'country_birth': sample['country_birth'],
-                                'dialect': sample['dialect'],
-                                'overlap': sample['overlap'],
-                                'text': sample['text'],
-                                'start': 0,
-                                'end': wav.shape[0]
-                            })
-                            current_audio = np.concatenate(
-                                (current_audio, wav)
-                            )
-
-                            current_duration += chunk_end - chunk_start
-                            current_speaker = sample['id_speaker']
-
-                audio_chunks.append(current_audio)
-
-                chunk_metadata = {
-                    "offset": total_duration / self.target_sr,
-                    "duration": current_duration / self.target_sr,
-                    "segments": current_segments,
-                }
-                chunks_metadata.append(chunk_metadata)
-                return [{
-                    'audio': audio_chunks,
-                    'chunk_metadata': chunks_metadata
-                }]
-            except Exception as e:
-                self.logger.error('Failed in collator...')
     
       
 
@@ -243,12 +84,13 @@ class AudioData(IterableDataset):
         except Exception as e:
             self.logger.error('Failed in preprocess() with error... ', e)
 
+
     def read_audio(self, audio, target_sr=16000):
         try: 
             if isinstance(audio, bytes):
                 audio_ = io.BytesIO(audio)
             else:
-                audio_ = self.root_path + audio
+                audio_ = Path(CWD, audio)
             wav, sr = sf.read(audio_, dtype='float32')
             
             # Check for multiple channels and convert to mono
@@ -267,9 +109,153 @@ class AudioData(IterableDataset):
             print('Failed with exception: ', e)
 
     
-    def collator_fn(self, batch):
-        """Should ensure that it returns batch object of the same format, i.e. same parameter names and types"""
+    
+
+class SegmentedData(AudioData):
+    def __init__(
+            self, 
+            target_sr=16000, 
+            max_segment_duration=30
+            ):
+        self.target_sr = target_sr
+        self.max_segment_duration = max_segment_duration
+        
+    @profile
+    def load(self, path: str = 'CoRal-project/coral-v3', name: str = 'conversation', split: str = 'test'):
+        # If the path is from an online resource, then load it using datasets built-in function:
+            self.ds = load_dataset(
+                path=path,
+                name=name,
+                split=split,
+                streaming=True
+            )
+            # Ensure it does not decode audio using torchDecoder
+            self.ds = self.ds.cast_column('audio', Audio(decode=False))
+            self.ds = self.ds.rename_column('id_conversation', 'id')
+
+    def collator(self, batch):
         return batch
+
+    def __iter__(self):
+        
+        current_speaker = None
+        current_segments = []
+        current_duration = 0
+        total_duration = 0
+        current_audio = np.array([], dtype=np.float32)
+        try:
+            iter = 0
+            for item in self.ds:
+                if current_speaker is None:
+                    current_speaker = item['id_speaker']
+                audio = item['audio'] if 'audio' in item.keys() else None
+
+                if audio is None:
+                    raise Exception('Missong audio in dataset sample!')
+                
+                audio = item['audio']['bytes'] if type(item['audio']) == dict else item['audio']
+                wav = self.read_audio(audio=audio)
+                
+                chunk_start = 0
+                chunk_end = wav.shape[0]
+
+                if item['id_speaker'] != current_speaker:
+                    yield {
+                        "batch_id": iter,
+                        "audio": current_audio,
+                        "chunk_metadata": {
+                            'offset': total_duration / self.target_sr,
+                            "duration": (chunk_end - chunk_start) / self.target_sr,
+                            "segments": current_segments,
+                        },
+                    }
+
+                    total_duration += current_duration
+                    current_segments = []
+                    current_segments.append({
+                            'id': item['id'],
+                            'id_speaker': item['id_speaker'],
+                            'age': item['age'],
+                            'gender': item['gender'],
+                            'country_birth': item['country_birth'],
+                            'dialect': item['dialect'],
+                            'overlap': item['overlap'],
+                            'text': item['text'],
+                            'start': 0,
+                            'end': wav.shape[0]
+                        })
+
+                    current_audio = wav
+                    current_duration = chunk_end - chunk_start
+                    current_speaker = item['id_speaker']
+                else:
+                    if (
+                        current_duration + chunk_end - chunk_start
+                        > self.max_segment_duration * self.target_sr
+                    ):
+    
+                        yield {
+                            "batch_id": iter,
+                            "audio": current_audio,
+                            "chunk_metadata": {
+                                'offset': total_duration / self.target_sr,
+                                "duration": current_duration / self.target_sr,
+                                "segments": current_segments,
+                            },
+                        }
+                        
+                        total_duration += current_duration
+                        current_segments = []
+                        current_audio = wav
+                        current_duration = chunk_end - chunk_start
+                        current_speaker = item['id_speaker']
+
+                        current_segments.append({
+                            'id': item['id'],
+                            'id_speaker': item['id_speaker'],
+                            'age': item['age'],
+                            'gender': item['gender'],
+                            'country_birth': item['country_birth'],
+                            'dialect': item['dialect'],
+                            'overlap': item['overlap'],
+                            'text': item['text'],
+                            'start': 0,
+                            'end': wav.shape[0]
+                        })
+                    else:
+                        current_segments.append({
+                            'id': item['id'],
+                            'id_speaker': item['id_speaker'],
+                            'age': item['age'],
+                            'gender': item['gender'],
+                            'country_birth': item['country_birth'],
+                            'dialect': item['dialect'],
+                            'overlap': item['overlap'],
+                            'text': item['text'],
+                            'start': 0,
+                            'end': wav.shape[0]
+                        })
+                        current_audio = np.concatenate(
+                            (current_audio, wav)
+                        )
+
+                        current_duration += chunk_end - chunk_start
+                        current_speaker = item['id_speaker']
+
+                iter += 1
+
+            yield {
+                "batch_id": iter,
+                "audio": current_audio,
+                "chunk_metadata": {
+                    'offset': total_duration / self.target_sr,
+                    "duration": (chunk_end - chunk_start) / self.target_sr,
+                    "segments": current_segments,
+                },
+            }
+        except Exception as e:
+            self.logger.error('Failed in collator...')
+
 
 def cast(object: dict):
     return SingleSegment(
@@ -278,23 +264,6 @@ def cast(object: dict):
         text=object['text'],
         avg_logprob=object['avg_logprob']
     )
-
-
-def stream_audio(audio, sr: int = 16000, block_length_sec=30):
-        
-        frame_size = (2048 * sr) // 16000
-        hop_length = (1024 * sr) // 16000
-
-        block_length = int(block_length_sec * sr) // hop_length
-
-        stream = librosa.stream(
-                    path=audio,
-                    block_length=block_length,
-                    frame_length=frame_size,
-                    hop_length=hop_length
-                )
-        # Returns a Generator object that when called in a loop will yield one item at a time
-        return stream
 
 
 def clean_transcription(sentence: str):
@@ -320,4 +289,7 @@ def clean_transcription(sentence: str):
             continue
 
     return sentence_copy    
+
+
+
 

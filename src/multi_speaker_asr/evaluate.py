@@ -1,4 +1,4 @@
-from .data import cast, AudioData
+from .data import cast, AudioData, SegmentedData
 from multi_speaker_asr.models.asr import WhisperPipeline
 from faster_whisper.transcribe import restore_speech_timestamps
 from pyannote.audio.pipelines.utils.hook import ProgressHook
@@ -174,11 +174,6 @@ def fetch_dataloader(
 
 @profile
 def inference_asr_presegmented(
-                data_type: str,
-                audio_path: str,
-                on_hpc: bool,
-                vad_filter: bool,
-                clip_timestamps: bool,
                 batch_size: int, 
                 computetype='int8', 
                 cputhreads=4, 
@@ -186,17 +181,16 @@ def inference_asr_presegmented(
                 model='pluttodk/roest-v3-whisper-1.5b-ct2', 
                 filename='asr_output_int8.jsonl'
             ):
-    loader = fetch_dataloader(
-        data_type=data_type,
-        audio_path=audio_path,
-        on_hpc=on_hpc,
-        vad_filter=vad_filter,
-        clip_timestamps=clip_timestamps,
+    data = SegmentedData()
+    data.load()
+    loader = DataLoader(
+        dataset=data,
+        shuffle=False,
         batch_size=batch_size,
-        is_asr=True
+        num_workers=0,
+        collate_fn=data.collator
     )
 
-    # TODO: Add a flag or some indication that it should handle chunked audio or not using e.g. clip_timestamps. Requires some refactoring to make it work for both segmented audio (i.e. CoRal) and other audio types.
     with torch.inference_mode():
         pipeline = WhisperPipeline(
             compute_type=computetype,
@@ -209,49 +203,42 @@ def inference_asr_presegmented(
         write_results_process = Process(target=writer, args=(resultsQueue, filename))
         write_results_process.start()
 
-        id_offset_map ={}
-        id_segments_map = {}
         try:
-            t1 = timeit.default_timer()
-            start_process_time = time.process_time()
-            for batch in loader:
+            for epoch in range(3):
+                batch_num = 0
+                for batch in loader:
 
-                audio_chunks = list(itertools.chain.from_iterable([chunks['audio'] for chunks in batch]))
-                metadata = list(itertools.chain.from_iterable([chunks['chunk_metadata'] for chunks in batch]))
-                original_timeline = list(itertools.chain.from_iterable([segmentsList['segments'] for segmentsList in metadata]))
+                    audio_chunks = [chunks['audio'] for chunks in batch]
+                    metadata = [chunks['chunk_metadata'] for chunks in batch]
+                    original_timeline = list(itertools.chain.from_iterable([segmentsList['segments'] for segmentsList in metadata]))
 
-                segments, _ = pipeline.transcribe(
-                    audio_chunks=audio_chunks,
-                    chunks_metadata=metadata,
-                    ids=[],
-                    clip_timestamps=original_timeline,
-                    clip_timestamps_provided=clip_timestamps,
-                    vad_filter=vad_filter,
-                    batch_size=8,
-                    log_progress=True,
-                    word_timestamps=True
-                    )
-                
-                for segment in segments:
-                    seg_id_idx = segment.id - 1
-
-                    reference = clean_transcription(" ".join([m_data['text'] for m_data in metadata[seg_id_idx]['segments']]))
-                    hypothesis = clean_transcription(segment.text)
-                    seg_wer = wer(reference=reference, hypothesis=hypothesis)
-                    seg_cer = cer(reference=reference, hypothesis=hypothesis)
-
-
+                    epoch_start = timeit.default_timer()
+                    segments, _ = pipeline.transcribe(
+                        audio_chunks=audio_chunks,
+                        chunks_metadata=metadata,
+                        ids=[],
+                        clip_timestamps=original_timeline,
+                        clip_timestamps_provided=False,
+                        vad_filter=False,
+                        batch_size=8,
+                        log_progress=True,
+                        word_timestamps=True
+                        )
+                    hypothesis = [segment.text for segment in segments] # To initialize and run the lazy loading implementation...
+                    epoch_stop = timeit.default_timer() - epoch_start
+                    logger.critical('Epoch: %i, Batch: %i Walltime: %f', epoch, batch_num, epoch_stop)
+                    chunks = [[segment['id'] for segment in segments_list['segments']] for segments_list in metadata]
+                    batch_duration = sum([data['duration'] for data in metadata])
                     obj = {
-                        'start': segment.start,
-                        'end': segment.end,
-                        'wer': seg_wer,
-                        'cer': seg_cer,
-                        'text': segment.text,
-                        'avg_logprob': segment.avg_logprob,
-                        'metadata': metadata[seg_id_idx],
+                        'epoch': epoch,
+                        'batch_id': batch_num,
+                        'hypothesis': hypothesis,
+                        'segment_ids': chunks,
+                        'walltime': epoch_stop,
+                        'audio_duration': batch_duration
                     }
-
                     resultsQueue.put(obj)
+                    batch_num += 1
 
         except Exception as e:
             logger.error('Failed with error: ', e)
@@ -262,18 +249,9 @@ def inference_asr_presegmented(
                 pipeline.unload()
                 del pipeline
                 del loader
-            
-            end_process_time = time.process_time()
-            cpu_time = end_process_time - start_process_time
-            t2 = timeit.default_timer()
-            walltime = t2 - t1
-
-            logger.info('Walltime is %f', walltime)
-            logger.info('CPU Time is %f', cpu_time)
 
             gc.collect()
 
-    return id_offset_map
 
 
 
