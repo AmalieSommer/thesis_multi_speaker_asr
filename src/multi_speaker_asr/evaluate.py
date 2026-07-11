@@ -405,18 +405,12 @@ def align_transcripts(
 
         for batch in loader:
             for sample in batch:
-                print(type(sample))
-                print(sample)
 
                 audio = sample['audio']
                 audio_id = sample['audio_id']
 
-                print('In alignment...')
-                print(f'Shape of audio: {audio.shape}')
-                
 
                 seg_ids = id_segment_map.get(audio_id, None)
-                print(f'Segment ids for audio {audio_id}: {seg_ids}')
                 if seg_ids is None:
                     raise Exception('Audio id %s had an empty list of segments', audio_id)
                 
@@ -425,7 +419,6 @@ def align_transcripts(
                 for seg in seg_ids:
                     offset = id_offset_map.get(seg)
                     if offset == None:
-                        print('Offset was None!')
                         continue
                     
                     offset_queue.put(offset)
