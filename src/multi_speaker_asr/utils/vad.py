@@ -123,10 +123,9 @@ def get_timestamps(
     return offset, timestamps, audio
 
 def collect_audio_chunks(
-        data_sample,
+        id,
         audio: np.ndarray,
         offset: float,
-        is_asr: bool,
         clip_timestamps: List[dict],
         max_duration: int = 30,
         sampling_rate: int = 16000
@@ -142,9 +141,9 @@ def collect_audio_chunks(
         curr_id = i
         if (
              current_duration + clip['end'] - clip['start'] > max_duration * sampling_rate
-        ) & is_asr:
+        ):
             sample = {
-                'audio_id': data_sample['id'],
+                'audio_id': id,
                 'segment_id': curr_id,
                 'audio': current_audio,
                 'offset': offset,
@@ -165,7 +164,7 @@ def collect_audio_chunks(
                             
         else:
             current_segments.append({
-                'id': data_sample['id'],
+                'id': id,
                 'start': clip['start'], # could add the offset if the audio is clipped
                 'end': clip['end'] # could add the offset if the audio is clipped
             })
@@ -175,7 +174,7 @@ def collect_audio_chunks(
             current_duration += clip['end'] - clip['start']
 
     yield {
-            'audio_id': data_sample['id'],
+            'audio_id': id,
             'segment_id': len(clip_timestamps),
             'audio': current_audio,
             'offset': offset,
@@ -185,4 +184,43 @@ def collect_audio_chunks(
                 'segments': current_segments
             }
         }
-        
+    
+
+
+
+
+def collect_word_chunks(
+        clip_timestamps: List[dict],
+        max_duration: int = 30,
+        sampling_rate: int = 16000
+        ):
+    
+    new_chunk_start = clip_timestamps[0]['start'] # To take the start of every new iteration...
+    start_chunk = clip_timestamps[0]['start']
+    end_chunk = 0
+    text_chunk = ""
+
+    for i, clip in enumerate(clip_timestamps):
+
+        if (
+             clip['end'] - new_chunk_start > max_duration
+        ) & (len(str.strip(text_chunk)) > 0):
+            yield {
+                'start': start_chunk,
+                'end': end_chunk,
+                'text': text_chunk
+            }
+            text_chunk = clip['word']
+            new_chunk_start = end_chunk
+            start_chunk = clip['start']
+            end_chunk = clip['end']
+
+        else:
+            end_chunk = clip['end']
+            text_chunk += clip['word']
+
+    yield {
+            'start': start_chunk,
+            'end': end_chunk,
+            'text': text_chunk
+        }

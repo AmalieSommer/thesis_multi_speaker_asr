@@ -38,6 +38,7 @@ class AudioData(IterableDataset):
         self.vad_filter = vad_filter
         self.target_sr = target_sr
         self.max_segment_duration = max_segment_duration
+        self.ds = None
         
         
 
@@ -47,14 +48,15 @@ class AudioData(IterableDataset):
         Loads a dataset either from local or online resource.
         If the path does not exist in the DATA dict, then it is assumed local, and will be loaded manually.
         """
-        self.ds = Dataset.from_csv(path_or_paths=path, split='test').to_iterable_dataset()        
+        self.ds = Dataset.from_csv(path_or_paths=path, split='test').to_iterable_dataset()
+        self.id_to_audio = {item['id']: item['audio'] for item in self.ds}  
 
     def __iter__(self):
         for item in self.ds:
             yield from self.preprocess(sample=item)
 
-    
-      
+    def collator(self, batch):
+        return batch
 
     def preprocess(self, sample):
         try:
@@ -75,8 +77,7 @@ class AudioData(IterableDataset):
             )
             
             yield from collect_audio_chunks(
-                data_sample=sample,
-                is_asr=self.is_asr,
+                id=sample['id'],
                 audio=audio,
                 clip_timestamps=clip_timestamps,
                 offset=offset
@@ -134,7 +135,7 @@ class SegmentedData(AudioData):
             self.ds = self.ds.rename_column('id_conversation', 'id')
 
     def collator(self, batch):
-        return batch
+        return super().collator(batch)
 
     def __iter__(self):
         

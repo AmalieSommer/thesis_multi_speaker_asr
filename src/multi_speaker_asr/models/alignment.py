@@ -49,6 +49,62 @@ class Wav2Vec2:
             stride_length_s=stride
         )
         return output
+    
+
+    def find_first_idx(self, words, target_start, offset):
+        left = 0
+        right = len(words) - 1
+        res = -1
+
+        while left <= right:
+            mid = (left + right) // 2
+
+            word_start = words[mid]
+            if word_start >= target_start:
+                res = mid
+                right = mid - 1
+            else:
+                left = mid + 1
+
+        return res
+    
+    def find_last_idx(self, words, target_start, offset):
+        left = 0
+        right = len(words) - 1
+        res = -1
+
+        while left <= right:
+            mid = (left + right) // 2
+
+            word_start = words[mid] 
+            if word_start <= target_start:
+                res = mid
+                left = mid + 1
+            else:
+                right = mid - 1
+
+        return res
+    
+    def get_chunk_generator(self, words, chunk_offset=0, chunk_size=10, segment_duration=None):
+
+        if segment_duration is None:
+            if words:
+                segment_duration = words[-1]['end'] - words[0]['start']
+            else:
+                segment_duration = chunk_size
+        current_time = 0
+        base_time = words[0]['start'] if words else 0
+
+        starting_index = self.find_first_idx([word['start'] for word in words], base_time + current_time, chunk_offset)
+        while current_time < segment_duration:
+            next_chunk_time = current_time + chunk_size
+            ending_index = self.find_last_idx([word['end'] for word in words], base_time + next_chunk_time, chunk_offset)
+
+            yield starting_index, ending_index
+
+            starting_index = ending_index
+            current_time = next_chunk_time
+
 
     def unload(self):
         self.pipeline = None

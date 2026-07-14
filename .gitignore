@@ -9,6 +9,9 @@ mozdata/
 *.ipynb
 *.prof
 
+/notebooks
+/src/hpc_results
+
 /pyproject.toml
 /uv.lock
 

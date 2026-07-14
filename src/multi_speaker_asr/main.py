@@ -5,7 +5,8 @@ from multi_speaker_asr.evaluate import (
     inference_asr_presegmented,
     inference_diarize,
     align_transcripts,
-    generate_final_transcript
+    generate_final_transcript,
+    inference_full_pipeline
     )
 import torch
 from tqdm import tqdm
@@ -50,6 +51,19 @@ def load_config():
     with open(args.config, 'r') as file:
         return yaml.safe_load(file)
 
+def run_full_pipeline(config: yaml):
+    inference_full_pipeline(
+        data_type=config['data'],
+        vad_filter=config['vad_filter'],
+        clip_timestamps=config['clip_timestamps'],
+        batch_size=config['asr_batchsize'],
+        computetype=config['computetype'],
+        cputhreads=config['cputhreads'],
+        device=config['device'],
+        asr_model=config['model'],
+        align_model=config['alignment_model'],
+        filename=config['asr_output_filename']
+    )
 
 
 def run_asr(config: yaml):
@@ -131,7 +145,8 @@ def run_pipeline(config: yaml):
 if __name__=='__main__':
     config_file = load_config()
     
-    run_asr(config_file)
+    run_full_pipeline(config=config_file)
+    #run_asr(config_file)
     #run_pipeline(config=config_file)
 
     
