@@ -14,6 +14,10 @@ from typing import Iterable, List, Optional, Tuple, Union
 from ..utils.utils import profile, LOGGING_CONFIG
 import logging
 import logging.config
+import time
+import json
+import psutil
+import os
 
 logging.config.dictConfig(LOGGING_CONFIG)
 
@@ -53,6 +57,27 @@ class WhisperPipeline(BatchedInferencePipeline):
 
     def unload(self):
         self.model = None
+
+    def run_whisper(self, batch, batch_size, vad_filter, clip_timestamps):
+
+        
+            audio_chunks = [chunks['audio'] for chunks in batch]
+            metadata = [chunks['chunk_metadata'] for chunks in batch]
+            original_timeline = list(itertools.chain.from_iterable([segmentsList['segments'] for segmentsList in metadata]))
+
+            segments, _ = self.transcribe(
+                audio_chunks=audio_chunks,
+                chunks_metadata=metadata,
+                ids=[item['audio_id'] for item in batch],
+                clip_timestamps=original_timeline,
+                clip_timestamps_provided=clip_timestamps,
+                vad_filter=vad_filter,
+                batch_size=batch_size,
+                log_progress=True,
+                word_timestamps=True
+            )
+            return segments
+
 
     def transcribe(
             self, 

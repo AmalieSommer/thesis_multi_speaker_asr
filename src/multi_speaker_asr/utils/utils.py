@@ -17,7 +17,7 @@ LOGGING_CONFIG = {
         'file': {
             'level': 'DEBUG',
             'class': 'logging.FileHandler',
-            'filename': 'pipeline_performance.log',
+            'filename': 'data\\results\\cpu_threads_10\\run_3pipeline_performance.log',
             'formatter': 'default',
         },
         'stdout': {

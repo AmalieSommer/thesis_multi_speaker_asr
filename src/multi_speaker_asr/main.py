@@ -62,7 +62,10 @@ def run_full_pipeline(config: yaml):
         device=config['device'],
         asr_model=config['model'],
         align_model=config['alignment_model'],
-        filename=config['asr_output_filename']
+        asr_filename=config['asr_output_filename'],
+        align_filename=config['align_output_filename'],
+        diarize_filename=config['diarize_output_filename'],
+        results_filename=config['final_output_filename']
     )
 
 
