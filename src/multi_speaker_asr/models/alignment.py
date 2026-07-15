@@ -51,7 +51,7 @@ class Wav2Vec2:
         return output
     
 
-    def find_first_idx(self, words, target_start, offset):
+    def find_first_idx(self, words, target_start):
         left = 0
         right = len(words) - 1
         res = -1
@@ -68,7 +68,7 @@ class Wav2Vec2:
 
         return res
     
-    def find_last_idx(self, words, target_start, offset):
+    def find_last_idx(self, words, target_start):
         left = 0
         right = len(words) - 1
         res = -1
@@ -85,24 +85,16 @@ class Wav2Vec2:
 
         return res
     
-    def get_chunk_generator(self, words, chunk_offset=0, chunk_size=10, segment_duration=None):
+    def get_chunk_generator(self, words, offset, chunk_size=10):
 
-        if segment_duration is None:
-            if words:
-                segment_duration = words[-1]['end'] - words[0]['start']
-            else:
-                segment_duration = chunk_size
-        current_time = 0
-        base_time = words[0]['start'] if words else 0
+        current_time = offset
 
-        starting_index = self.find_first_idx([word['start'] for word in words], base_time + current_time, chunk_offset)
-        while current_time < segment_duration:
+        starting_index = self.find_first_idx([word['start'] for word in words], current_time)
+        while current_time < (offset + chunk_size):
             next_chunk_time = current_time + chunk_size
-            ending_index = self.find_last_idx([word['end'] for word in words], base_time + next_chunk_time, chunk_offset)
+            ending_index = self.find_last_idx([word['end'] for word in words], next_chunk_time)
 
             yield starting_index, ending_index
-
-            starting_index = ending_index
             current_time = next_chunk_time
 
 

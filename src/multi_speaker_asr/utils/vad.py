@@ -105,7 +105,7 @@ def get_timestamps(
         end = int(data_sample['end'] * sampling_rate)
         audio = audio[start : end]
 
-        offset = start if start <= 0 else start / sampling_rate # Avoids division with zero error...
+        offset = 0 if start <= 0 else start / sampling_rate # Avoids division with zero error...
 
         if audio.shape[0] < max_duration * sampling_rate:
             timestamps = [{'start': start, 'end': end}]
