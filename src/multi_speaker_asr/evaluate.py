@@ -319,11 +319,17 @@ def inference_full_pipeline(
             clip_timestamps=clip_timestamps,
         )
         data.load(path=data_type)
+        max_epochs = 4
+        asr_tracker = CarbonTracker(max_epochs)
+        align_tracker = CarbonTracker(max_epochs)
+        diarize_tracker = CarbonTracker(max_epochs)
+        pipeline_tracker = CarbonTracker(max_epochs)
         
         with torch.inference_mode():
             for epoch in range(3):
                 pipeline_walltime_start = perf_counter()
                 pipeline_cputime_start = process_time()
+                pipeline_tracker.epoch_start()
                 try:
                     loader = DataLoader(
                                 dataset=data,
@@ -339,6 +345,8 @@ def inference_full_pipeline(
                                 device=device
                             )
                     batch_num = 0
+                    asr_tracker.epoch_start()
+
                     with open(asr_filename, 'a') as file:
                         for batch in loader: # ASR module...
                             asr_walltime_start = time.perf_counter()
@@ -373,7 +381,9 @@ def inference_full_pipeline(
                             
                             file.write(json.dumps(result) + '\n')
                             file.flush()
-                        
+
+                    asr_tracker.epoch_end()
+
                 except Exception as e:
                     logger.error('Failed with error: %s', e)
                 finally:
@@ -383,11 +393,16 @@ def inference_full_pipeline(
                     gc.collect()
 
                 try:
-                    align(align_model, align_filename, asr_filename, data, epoch)
+                    pipeline = Wav2Vec2(model_name=align_model, device='cpu')
 
+                    align_tracker.epoch_start()
+                    align(pipeline, align_filename, asr_filename, data, epoch)
+                    align_tracker.epoch_end()
                 except Exception as e:
                     logger.error('Failed with error: %s', e)
                 finally:
+                    pipeline.unload()
+                    del pipeline
                     gc.collect()
 
 
@@ -396,6 +411,8 @@ def inference_full_pipeline(
                     pipeline = Diarize()   # Default values are fine for now
                     pipeline.load()
                     iter = 0
+
+                    diarize_tracker.epoch_start()
                     with open(diarize_filename, 'a') as file:
                         for sample in data.ds:
                             # Split into subsegments of size 5 seconds with a small overlap of e.g. 0.5-1 second.
@@ -448,6 +465,9 @@ def inference_full_pipeline(
                                 iter += 1
                                 file.write(json.dumps(item) + '\n')
                                 file.flush()
+
+                    diarize_tracker.epoch_end()
+
                 except Exception as e:
                     logger.error('Failed during diarization with error: %s', e)
                 finally:
@@ -475,7 +495,10 @@ def inference_full_pipeline(
                 except Exception as e:
                     logger.error('Failed during combining the results to a final transcript with error: %s', e)
                 
+
                 # At the end of each epoch, log the compute resources used in total during the single epoch...
+                pipeline_tracker.epoch_end()
+
                 pipeline_walltime = perf_counter() - pipeline_walltime_start
                 pipeline_cputime = process_time() - pipeline_cputime_start
                 logger.critical('Epoch: %i, Batch: %i Walltime: %f CPU time: %f', epoch, batch_num, pipeline_walltime, pipeline_cputime)
@@ -486,10 +509,8 @@ def inference_full_pipeline(
                     proc.memory_info().rss / (1024**3)
                 )
 
-def align(model_name, write_file, read_file, data, epoch):
-    pipeline = Wav2Vec2(model_name=model_name, device='cpu')
-    print(f'Running alignment...')
-
+def align(pipeline, write_file, read_file, data, epoch):
+    
     batch_num = 0
     with open(read_file, 'r') as reader, open(write_file, 'a') as writer:
         for line in reader:
