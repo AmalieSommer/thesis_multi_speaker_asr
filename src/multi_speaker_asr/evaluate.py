@@ -23,6 +23,7 @@ import soundfile as sf
 from scipy.spatial.distance import cdist
 import numpy as np
 import librosa
+from carbontracker.tracker import CarbonTracker
 
 
 
@@ -186,9 +187,11 @@ def inference_asr_presegmented(
         dataset=data,
         shuffle=False,
         batch_size=batch_size,
-        num_workers=0,
+        num_workers=1,
         collate_fn=data.collator
     )
+    max_epochs = 4
+    tracker = CarbonTracker(epochs=max_epochs)
 
     with torch.inference_mode():
         pipeline = WhisperPipeline(
@@ -197,57 +200,59 @@ def inference_asr_presegmented(
             model=model,
             device=device
         )
-        
-        resultsQueue = Queue()
-        write_results_process = Process(target=writer, args=(resultsQueue, filename))
-        write_results_process.start()
 
         try:
-            for epoch in range(3):
-                batch_num = 0
-                for batch in loader:
+            with open(filename, 'a') as file:
+                for epoch in range(max_epochs):
+                    batch_num = 0
+                    tracker.epoch_start()
 
-                    audio_chunks = [chunks['audio'] for chunks in batch]
-                    metadata = [chunks['chunk_metadata'] for chunks in batch]
-                    original_timeline = list(itertools.chain.from_iterable([segmentsList['segments'] for segmentsList in metadata]))
+                    for batch in loader:
 
-                    epoch_start = perf_counter()
-                    segments, _ = pipeline.transcribe(
-                        audio_chunks=audio_chunks,
-                        chunks_metadata=metadata,
-                        ids=[],
-                        clip_timestamps=original_timeline,
-                        clip_timestamps_provided=False,
-                        vad_filter=False,
-                        batch_size=8,
-                        log_progress=True,
-                        word_timestamps=True
-                        )
-                    hypothesis = [segment.text for segment in segments] # To initialize and run the lazy loading implementation...
-                    epoch_stop = perf_counter() - epoch_start
-                    logger.critical('Epoch: %i, Batch: %i Walltime: %f', epoch, batch_num, epoch_stop)
-                    chunks = [[segment['id'] for segment in segments_list['segments']] for segments_list in metadata]
-                    batch_duration = sum([data['duration'] for data in metadata])
-                    obj = {
-                        'epoch': epoch,
-                        'batch_id': batch_num,
-                        'hypothesis': hypothesis,
-                        'segment_ids': chunks,
-                        'walltime': epoch_stop,
-                        'audio_duration': batch_duration
-                    }
-                    resultsQueue.put(obj)
-                    batch_num += 1
+                        audio_chunks = [chunks['audio'] for chunks in batch]
+                        metadata = [chunks['chunk_metadata'] for chunks in batch]
+                        original_timeline = list(itertools.chain.from_iterable([segmentsList['segments'] for segmentsList in metadata]))
+
+                        epoch_start = perf_counter()
+                        segments, _ = pipeline.transcribe(
+                            audio_chunks=audio_chunks,
+                            chunks_metadata=metadata,
+                            ids=[],
+                            clip_timestamps=original_timeline,
+                            clip_timestamps_provided=False,
+                            vad_filter=False,
+                            batch_size=8,
+                            log_progress=True,
+                            word_timestamps=True
+                            )
+                        hypothesis = [segment.text for segment in segments] # To initialize and run the lazy loading implementation...
+                        epoch_stop = perf_counter() - epoch_start
+                        
+                        chunks = [[segment['id'] for segment in segments_list['segments']] for segments_list in metadata]
+                        batch_duration = sum([data['duration'] for data in metadata])
+
+                        logger.critical('Epoch: %i, Batch: %i Walltime: %f Batch Duration: %f', epoch, batch_num, epoch_stop, batch_duration)
+                        result = {
+                            'epoch': epoch,
+                            'batch_id': batch_num,
+                            'hypothesis': hypothesis,
+                            'segment_ids': chunks,
+                            'walltime': epoch_stop,
+                            'audio_duration': batch_duration
+                        }
+                        file.write(json.dumps(result) + '\n')
+                        file.flush()
+                        batch_num += 1
+
+                    tracker.epoch_end()
 
         except Exception as e:
             logger.error('Failed with error: ', e)
+            tracker.stop()
         finally:
-            resultsQueue.put(None) # To signal the process to terminate upon exit.
-            write_results_process.join()
-            if not write_results_process.is_alive:
-                pipeline.unload()
-                del pipeline
-                del loader
+            pipeline.unload()
+            del pipeline
+            del loader
 
             gc.collect()
 
