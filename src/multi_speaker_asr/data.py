@@ -14,6 +14,7 @@ import logging
 import logging.config
 import numpy as np
 from pathlib import Path
+import itertools
 
 logging.config.dictConfig(LOGGING_CONFIG)
 
@@ -56,7 +57,18 @@ class AudioData(IterableDataset):
             yield from self.preprocess(sample=item)
 
     def collator(self, batch):
-        return batch
+        new_batch = {}
+        for key, group in itertools.groupby(batch, lambda x: x['audio_id']):
+            group = list(group)
+            audio = [item['audio'] for item in group]
+            metadata = [item['chunk_metadata'] for item in group]
+            new_batch[key] = {
+                'audio': audio,
+                'chunk_metadata': metadata
+            }
+
+        print(len(batch))
+        return new_batch
 
     def preprocess(self, sample):
         try:

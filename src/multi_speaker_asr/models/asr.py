@@ -64,6 +64,10 @@ class WhisperPipeline(BatchedInferencePipeline):
             audio_chunks = [chunks['audio'] for chunks in batch]
             metadata = [chunks['chunk_metadata'] for chunks in batch]
             original_timeline = list(itertools.chain.from_iterable([segmentsList['segments'] for segmentsList in metadata]))
+=======
+    def run_whisper(self, audio_chunks, chunks_metadata, orig_timeline, batch, batch_size, vad_filter, clip_timestamps):
+            original_timeline = list(itertools.chain.from_iterable([segmentsList['segments'] for segmentsList in chunks_metadata]))
+>>>>>>> 5bbe760fd4e048168fd2bdce515faac2eb50e06d
 
             segments, _ = self.transcribe(
                 audio_chunks=audio_chunks,
