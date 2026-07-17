@@ -7,10 +7,10 @@ from faster_whisper.audio import pad_or_trim
 from faster_whisper.vad import VadOptions, get_speech_timestamps, collect_chunks
 from faster_whisper.tokenizer import Tokenizer
 from faster_whisper.utils import format_timestamp
-from faster_whisper.transcribe import TranscriptionInfo, TranscriptionOptions, get_suppressed_tokens
+from faster_whisper.transcribe import Segment, TranscriptionInfo, TranscriptionOptions, get_suppressed_tokens
 from ..utils.vad import VAD
 
-from typing import Iterable, List, Optional, Tuple, Union
+from typing import Any, Generator, Iterable, List, Optional, Tuple, Union
 from ..utils.utils import profile, LOGGING_CONFIG
 import logging
 import logging.config
@@ -58,23 +58,19 @@ class WhisperPipeline(BatchedInferencePipeline):
     def unload(self):
         self.model = None
 
-    def run_whisper(self, batch, batch_size, vad_filter, clip_timestamps):
-
-        
-            audio_chunks = [chunks['audio'] for chunks in batch]
-            metadata = [chunks['chunk_metadata'] for chunks in batch]
-            original_timeline = list(itertools.chain.from_iterable([segmentsList['segments'] for segmentsList in metadata]))
+    def run_whisper(self, audio_chunks, chunks_metadata, orig_timeline, batch, batch_size, vad_filter, clip_timestamps):
+            original_timeline = list(itertools.chain.from_iterable([segmentsList['segments'] for segmentsList in chunks_metadata]))
 
             segments, _ = self.transcribe(
                 audio_chunks=audio_chunks,
-                chunks_metadata=metadata,
+                chunks_metadata=chunks_metadata,
                 ids=[item['audio_id'] for item in batch],
-                clip_timestamps=original_timeline,
+                clip_timestamps=orig_timeline,
                 clip_timestamps_provided=clip_timestamps,
                 vad_filter=vad_filter,
                 batch_size=batch_size,
                 log_progress=True,
-                word_timestamps=True
+                word_timestamps=False
             )
             return segments
 
@@ -127,7 +123,7 @@ class WhisperPipeline(BatchedInferencePipeline):
             hotwords = None, 
             language_detection_threshold = 0.5, 
             language_detection_segments = 1
-            ):
+            ) -> Generator[Any, Any, None] | Generator[Segment, Any, None]:
         
         sampling_rate = self.model.feature_extractor.sampling_rate
 

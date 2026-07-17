@@ -138,16 +138,17 @@ def collect_audio_chunks(
     curr_id = 0
 
     for i, clip in enumerate(clip_timestamps):
-        curr_id = i
+        
         if (
              current_duration + clip['end'] - clip['start'] > max_duration * sampling_rate
         ):
+            curr_id += 1
             sample = {
                 'audio_id': id,
-                'segment_id': curr_id,
                 'audio': current_audio,
                 'offset': offset,
                 'chunk_metadata': {
+                    'segment_id': curr_id,
                     'offset': total_duration / sampling_rate,
                     'duration': current_duration / sampling_rate,
                     'segments': current_segments
@@ -173,12 +174,13 @@ def collect_audio_chunks(
             )
             current_duration += clip['end'] - clip['start']
 
+    curr_id += 1
     yield {
             'audio_id': id,
-            'segment_id': len(clip_timestamps),
             'audio': current_audio,
             'offset': offset,
             'chunk_metadata': {
+                'segment_id': curr_id,
                 'offset': total_duration / sampling_rate,
                 'duration': current_duration / sampling_rate,
                 'segments': current_segments

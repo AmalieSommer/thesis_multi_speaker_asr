@@ -27,128 +27,11 @@ from carbontracker.tracker import CarbonTracker
 
 
 
-
-
 logging.config.dictConfig(LOGGING_CONFIG)
 logging.getLogger("faster_whisper").setLevel(logging.DEBUG)
 
 logger = logging.getLogger(name='Evaluate')
 proc = psutil.Process(os.getpid())
-
-
-
-def result_to_offset(resultQueue: Queue, offsetQueue: Queue, output_file: str):
-    try:
-        with open(output_file, "w") as f:
-            while True:
-                item = resultQueue.get()
-
-                if item is None:
-                    break
-
-                pos = f.tell()
-                f.write(json.dumps(item) + "\n")
-                
-                offsetQueue.put((item['segment_id'], pos))
-                f.flush()
-    except Exception as e:
-        logger.error('Failed in result_to_offset() with error: %s', e)
-
-
-def offset_to_result(resultQueue: Queue, offsetQueue: Queue, output_file: str):
-    try:
-        with open(output_file, "r") as f:
-            while True:
-                offset = offsetQueue.get()
-
-                if offset is None:
-                    break
-                f.seek(offset)
-                line = f.readline()
-                result = json.loads(line)
-                resultQueue.put(result)
-    except Exception as e:
-        logger.error('Failed in offset_to_result() with error: %s', e)
-
-
-
-def writer(queue: Queue, output_file: str):
-    try:
-        with open(output_file, "w") as f:
-            while True:
-                item = queue.get()
-
-                if item is None:
-                    break
-                f.write(json.dumps(item) + "\n")
-                f.flush()
-    except Exception as e:
-        logger.error('Failed in writer() with error: %s', e)
-
-
-def updater(queue: Queue, output_file: str):
-    try:
-        # First read the file into memory:
-        with open(output_file, 'r') as f:
-            records = [json.loads(line) for line in f]
-
-        while True:
-            item = queue.get()
-
-            if item is None:
-                break
-
-            for record in records:
-                if record[0]['audio_id'] == item['audio_id']:
-                    record.append(item)
-            
-        with open(output_file, 'w') as f:
-            for record in records:
-                f.write(json.dumps(record) + '\n')
-    except Exception as e:
-        logger.error('Failed in updater() with error: %s', e)
-
-
-
-def reader(queue: Queue, input_file: str):
-    try:
-        with open(input_file, 'r') as f:
-            for line in f:
-                line = line.strip()
-
-                if not line:
-                    continue
-
-                record = json.loads(line)
-                queue.put(record)
-    except Exception as e:
-        logger.error('Failed in reader() with error: %s', e)
-    finally:
-        logger.info('Finished reading the file: %s', input_file)
-        queue.put(None) # For terminating the process
-
-def read_multiples(alignQueue: Queue, diarizeQueue: Queue, align_file: str, diarize_file: str):
-    try:
-        with open(align_file, 'r') as a_file, open(diarize_file, 'r') as d_file:
-            for a, d in zip(a_file, d_file):
-                a = a.strip()
-                d = d.strip()
-
-                if not a:
-                    continue
-                a_record = json.loads(a)
-                alignQueue.put(a_record)
-                if not d:
-                    continue
-                d_record = json.loads(d)
-                diarizeQueue.put(d_record)
-
-    except Exception as e:
-        logger.error('Process failed with error: %s', e)
-    finally:
-        print('Finished reading the entire file...')
-        alignQueue.put(None)
-        diarizeQueue.put(None)
 
 
 def fetch_dataloader(
@@ -265,7 +148,7 @@ def asr_long_audio(
         computetype='int8', 
         cputhreads=4, 
         device='cpu', 
-        model='pluttodk/roest-v3-whisper-1.5b-ct2', 
+        model='pluttodk/roest-v3-whisper-1.5b-ct2',
         filename='asr_output_int8.jsonl'
         ):
     data = AudioData(
@@ -278,37 +161,46 @@ def asr_long_audio(
 
     try:
         with torch.inference_mode():
+            pipeline = WhisperPipeline(
+                                compute_type=computetype,
+                                cpu_threads=cputhreads,
+                                model=model,
+                                device=device
+                            )
             with open(filename, 'a') as file:
                 for epoch in range(max_epochs):
                     loader = DataLoader(
                                 dataset=data,
                                 shuffle=False,
                                 batch_size=batch_size,
-                                num_workers=1,
+                                num_workers=0,
                                 collate_fn=data.collator
                             )
-                    pipeline = WhisperPipeline(
-                                compute_type=computetype,
-                                cpu_threads=cputhreads,
-                                model=model,
-                                device=device
-                            )
-                    
                     batch_num = 0
                     asr_tracker.epoch_start()
 
                     for batch in loader: # ASR module...
                         asr_walltime_start = time.perf_counter()
                         asr_cputime_start = time.process_time()
+
+                        for k, v in batch.items():
+                            metadata = v['chunk_metadata']
+                            orig_timeline = list(itertools.chain.from_iterable([segmentsList['segments'] for segmentsList in metadata]))
                         
-                        segments = pipeline.run_whisper(
-                            batch=batch,
-                            batch_size=batch_size,
-                            vad_filter=vad_filter,
-                            clip_timestamps=clip_timestamps
-                        )
-                        
-                        result = {'epoch': epoch,'batch_id': batch_num, 'segments': [{'audio_id': batch[segment.id - 1]['audio_id'], 'clip_offset': batch[segment.id - 1]['offset'], 'words': segment.words} for segment in segments]}
+                            segments, _ = pipeline.transcribe(
+                                audio_chunks=v['audio'],
+                                chunks_metadata=metadata,
+                                clip_timestamps=orig_timeline,
+                                clip_timestamps_provided=clip_timestamps,
+                                vad_filter=vad_filter,
+                                batch_size=batch_size,
+                                log_progress=True,
+                                word_timestamps=False
+                            )
+                            result = {'epoch': epoch, 'audio_id': k, 'segments': [{'segment_id': s.id, 'start': s.start, 'end': s.end, 'text': s.text} for s in segments]}
+                            file.write(json.dumps(result) + '\n')
+                            file.flush()
+                        #result = {'epoch': epoch,'batch_id': batch_num, 'segments': [{'audio_id': batch[segment.id - 1]['audio_id'], 'clip_offset': batch[segment.id - 1]['offset'], 'words': segment.words} for segment in segments]}
                         asr_walltime = perf_counter() - asr_walltime_start
                         asr_cputime = process_time() - asr_cputime_start
 
@@ -318,18 +210,16 @@ def asr_long_audio(
                                 batch_num,
                                 proc.memory_info().rss / (1024**3)
                             )
-
+                        """
                         result['wall_time'] = asr_walltime
                         result['cpu_time'] = asr_cputime
                         result['segments'] = [{
                                                 'audio_id': items['audio_id'],  
                                                 'clip_offset': items['clip_offset'],
                                                 'words': [{'start': word.start, 'end': word.end, 'word': word.word} for word in items['words']]} for items in result['segments']]
-                        logger.critical('Epoch: %i, Batch: %i Walltime: %f CPU time: %f', epoch, batch_num, asr_walltime, asr_cputime)
+                        """
+                        logger.info('Epoch: %i, Batch: %i Walltime: %f CPU time: %f', epoch, batch_num, asr_walltime, asr_cputime)
                         batch_num += 1
-                        
-                        file.write(json.dumps(result) + '\n')
-                        file.flush()
 
                     asr_tracker.epoch_end()
 
