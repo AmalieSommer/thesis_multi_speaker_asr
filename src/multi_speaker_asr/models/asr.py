@@ -7,10 +7,10 @@ from faster_whisper.audio import pad_or_trim
 from faster_whisper.vad import VadOptions, get_speech_timestamps, collect_chunks
 from faster_whisper.tokenizer import Tokenizer
 from faster_whisper.utils import format_timestamp
-from faster_whisper.transcribe import TranscriptionInfo, TranscriptionOptions, get_suppressed_tokens
+from faster_whisper.transcribe import Segment, TranscriptionInfo, TranscriptionOptions, get_suppressed_tokens
 from ..utils.vad import VAD
 
-from typing import Iterable, List, Optional, Tuple, Union
+from typing import Any, Generator, Iterable, List, Optional, Tuple, Union
 from ..utils.utils import profile, LOGGING_CONFIG
 import logging
 import logging.config
@@ -58,7 +58,7 @@ class WhisperPipeline(BatchedInferencePipeline):
     def unload(self):
         self.model = None
 
-    def run_whisper(self, batch, batch_size, vad_filter, clip_timestamps):
+    def run_whisper(self, batch, batch_size, vad_filter, clip_timestamps) -> Generator[Any, Any, None] | Generator[Segment, Any, None]:
 
         
             audio_chunks = [chunks['audio'] for chunks in batch]

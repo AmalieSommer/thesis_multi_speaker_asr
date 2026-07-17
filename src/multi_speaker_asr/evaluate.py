@@ -256,8 +256,10 @@ def inference_asr_presegmented(
 
             gc.collect()
 
+MAX_EPOCHS = 5
 
-def asr_long_audio(
+
+def asr_inference(
         data_type: str,
         vad_filter: bool,
         clip_timestamps: bool,
@@ -273,13 +275,12 @@ def asr_long_audio(
             clip_timestamps=clip_timestamps,
         )
     data.load(path=data_type)
-    max_epochs = 5
-    asr_tracker = CarbonTracker(max_epochs)
+    asr_tracker = CarbonTracker(MAX_EPOCHS)
 
     try:
         with torch.inference_mode():
             with open(filename, 'a') as file:
-                for epoch in range(max_epochs):
+                for epoch in range(MAX_EPOCHS):
                     loader = DataLoader(
                                 dataset=data,
                                 shuffle=False,
@@ -340,6 +341,117 @@ def asr_long_audio(
         del pipeline
         del loader
         gc.collect()
+
+
+def aligner_inference(
+        data_type: str,
+        vad_filter: bool = False,
+        clip_timestamps: bool = False,
+        model='CoRal-project/roest-v3-wav2vec2-315m', 
+        write_file='align_output_longer_int8.jsonl',
+        read_file='asr_output_longer_int8.jsonl'
+    ):
+    data = AudioData(
+            vad_filter=vad_filter,
+            clip_timestamps=clip_timestamps,
+        )
+    data.load(path=data_type)
+
+    try:
+        batch_num = 0
+        chunk_size = 10
+
+        pipeline = Wav2Vec2(model_name=model, device='cpu')
+        tracker = CarbonTracker(MAX_EPOCHS)
+        asr_results_lookup = {}
+        with open(read_file, 'r') as reader:
+            for line in reader:
+                out = json.loads(line)
+                out_id = out['audio_id']
+                asr_results_lookup[out_id] = out['segments']
+
+        with torch.inference_mode():
+            for epoch in range(MAX_EPOCHS):
+                tracker.epoch_start()
+
+                current_audiofile = None
+                prev_chunk_duration = 0
+                with open(write_file, 'a') as writer:
+                    for sample in data.ds:
+
+                        # Fetch the info from ASR output:
+                        audio_file = sample['audio_id']
+                        asr_output = asr_results_lookup.get(audio_file)
+                        if not asr_output: continue
+
+
+                        audio_path = data.id_to_audio.get(audio_file)
+                        if audio_path is None:
+                            continue
+                            
+                        for idx, segment in enumerate(sample['segments']):
+                            words = segment['words']
+                            if not words:
+                                continue
+                            
+                            segment_end = max([word['end'] for word in words])
+                            for chunk_offset, audio_chunk in fetch_audio_chunk(audio_path=audio_path, chunk_size=chunk_size, overlap=0.1, clip_offset=(clip_offset + prev_chunk_duration)):
+                                chunk_offset -= clip_offset
+                                if chunk_offset >= segment_end:
+                                    break
+                        
+                                active_words_with_indices = [
+                                    (idx, w) for idx, w in enumerate(words)
+                                    if chunk_offset <= w['start'] < (chunk_offset + chunk_size)
+                                ]
+                                if not active_words_with_indices:
+                                    continue
+                                chunk_words = [item[1] for item in active_words_with_indices]
+                                transcript = [SingleSegment(start=min([w['start'] for w in chunk_words]) - chunk_offset, 
+                                                                end=max([w['end'] for w in chunk_words]) - chunk_offset, 
+                                                                text=' '.join([w['word'] for w in chunk_words]))]
+                                alignment_walltime_start = perf_counter()
+                                alignment_cputime_start = process_time()
+                                transcription_result = pipeline.run_alignment(
+                                                            transcript=transcript,
+                                                            audio=audio_chunk
+                                                        )
+                                alignment_walltime = perf_counter() - alignment_walltime_start
+                                alignment_cputime = process_time() - alignment_cputime_start
+                                logger.critical('Epoch: %i, Batch: %i Walltime: %f CPU time: %f', epoch, batch_num, alignment_walltime, alignment_cputime)
+                                logger.info(
+                                    "Alignment Module... Epoch: %i Batch: %i RSS: %.2f GB",
+                                    epoch,
+                                    batch_num,
+                                    proc.memory_info().rss / (1024**3)
+                                )
+                                res = {
+                                    'epoch': epoch,
+                                    'seg_idx': idx, 
+                                    'audio_id': audio_file,
+                                    'segments': [{
+                                        'start': (item['start'] + chunk_offset + clip_offset),
+                                        'end': (item['end'] + chunk_offset + clip_offset),
+                                        'text': item['text']} for item in transcription_result['segments']],
+                                    'word_segments': [{'word': item['word'], 'start': (item['start'] + chunk_offset + clip_offset), 'end': (item['end'] + chunk_offset + clip_offset), 'score': item['score']} for item in transcription_result['word_segments']]
+                                }
+                                writer.write(json.dumps(res) + '\n')
+                                writer.flush()
+
+                                batch_num += 1
+                                prev_chunk_duration = segment_end
+
+        tracker.epoch_end()
+    except Exception as e:
+        logger.error('Failed with error: %s', e)
+    finally:
+        pipeline.unload()
+        del pipeline
+        gc.collect()
+    
+
+    
+
 
 def fetch_audio_chunk(audio_path, chunk_size, overlap, clip_offset=0, target_sr=16000):
     if overlap >= chunk_size:
