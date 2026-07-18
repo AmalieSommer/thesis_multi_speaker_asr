@@ -12,6 +12,7 @@ import argparse
 import logging
 import logging.config
 import timeit
+from multi_speaker_asr.data import cast, AudioData
  
 
 
@@ -61,10 +62,10 @@ def run_asr(config):
     )
 
 def run_alignment(config):
+    data = AudioData()
+    data.load(path=config['data'])
     aligner_inference(
-        config['data'],
-        config['vad_filter'],
-        config['clip_timestamps'],
+        data.id_to_audio,
         config['alignment_model'],
         config['align_output_filename'],
         config['asr_output_filename']
@@ -72,4 +73,5 @@ def run_alignment(config):
 
 if __name__=='__main__':
     config_file = load_config()
-    run_asr(config=config_file)
+    run_alignment(config=config_file)
+    #run_asr(config=config_file)

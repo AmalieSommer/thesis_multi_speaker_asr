@@ -59,29 +59,45 @@ class AudioData(IterableDataset):
         current_audio = []
         current_metadata = []
         current_audio_id = None
+        offset = 0
+
         for item in self.ds:
-            if not item['audio']: 
+            if not item["audio"]:
                 continue
-            if current_audio_id is None: 
-                current_audio_id = item['id']
-            
+
+            offset = item.get("start", 0)
+
             for chunk in self.preprocess(sample=item):
-                if chunk['audio_id'] != current_audio_id:
-                    
+
+                if current_audio_id is None:
+                    current_audio_id = chunk["audio_id"]
+
+                if chunk["audio_id"] != current_audio_id:
+                    # Yield previous audio
                     yield {
-                        'audio_id': current_audio_id,
-                        'offset': offset,
-                        'audio': current_audio,
-                        'chunk_metadata': current_metadata
+                        "audio_id": current_audio_id,
+                        "offset": offset,
+                        "audio": current_audio,
+                        "chunk_metadata": current_metadata,
                     }
 
-                    current_audio_id = item['id']
-                    current_metadata = []
+                    # Start new audio
+                    current_audio_id = chunk["audio_id"]
                     current_audio = []
-                else:
-                    current_audio.append(chunk['audio'])
-                    current_metadata.append(chunk['chunk_metadata'])
-            offset = 0 if 'start' not in item.keys() else item['start']
+                    current_metadata = []
+
+                # Always append the current chunk
+                current_audio.append(chunk["audio"])
+                current_metadata.append(chunk["chunk_metadata"])
+
+        # Yield the last audio
+        if current_audio:
+            yield {
+                "audio_id": current_audio_id,
+                "offset": offset,
+                "audio": current_audio,
+                "chunk_metadata": current_metadata,
+            }
 
 
     def collator_fn(self, batch):

@@ -173,7 +173,7 @@ def asr_inference(
                                 dataset=data,
                                 shuffle=False,
                                 batch_size=None,
-                                num_workers=0,
+                                num_workers=1,
                                 collate_fn=data.collator_fn
                             )
                     batch_num = 0
@@ -242,11 +242,10 @@ def asr_inference(
 
 def aligner_inference(
         id_to_audio: dict,
-        vad_filter: bool = False,
-        clip_timestamps: bool = False,
         model='CoRal-project/roest-v3-wav2vec2-315m', 
         write_file='align_output_longer_int8.jsonl',
-        read_file='asr_output_longer_int8.jsonl'
+        read_file='asr_output_longer_int8.jsonl',
+        max_segment_duration=30
     ):
     
 
@@ -273,11 +272,36 @@ def aligner_inference(
                         for i, segment in enumerate(segments):
                             start_segment = segment['start']
                             end_segment = segment['end']
-                            normalized_text = clean_transcription(segment['text'])
-                            transcript = SingleSegment(start=(start_segment), 
-                                                        end=(end_segment), 
-                                                        text=normalized_text)
-                            segment_results.append(transcript)
+
+                            # Check if the duration is longer than some threshold, and if so, then take the words and create new segments:
+                            if end_segment - start_segment > max_segment_duration:
+                                current = []
+                                chunks = []
+                                words = segment['words']
+                                chunk_start = start_segment
+                                for word in words:
+                                    if word['end'] - chunk_start <= max_segment_duration:
+                                        current.append(word)
+                                    else:
+                                        chunks.append(current)
+                                        current = [word]
+                                        chunk_start = word['start']
+                                if current:
+                                    chunks.append(current)
+
+                                # Reformat the gathered chunks:
+                                word_segments = [SingleSegment(
+                                            start=chunk[0]['start'],
+                                            end=chunk[-1]['end'],
+                                            text=clean_transcription(" ".join([word['text'] for word in chunk]))) for chunk in chunks]
+                                for s in word_segments:
+                                    segment_results.append(s)
+                            else:
+                                normalized_text = clean_transcription(segment['text'])
+                                transcript = SingleSegment(start=(start_segment), 
+                                                            end=(end_segment), 
+                                                            text=normalized_text)
+                                segment_results.append(transcript)
 
                         alignment_walltime_start = perf_counter()
                         alignment_cputime_start = process_time()
