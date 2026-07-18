@@ -1,13 +1,8 @@
 from multi_speaker_asr.utils.utils import LOGGING_CONFIG
 import os
 from multi_speaker_asr.evaluate import (
-    inference_asr,
-    inference_asr_presegmented,
-    inference_diarize,
-    align_transcripts,
-    generate_final_transcript,
-    inference_full_pipeline,
-    asr_long_audio
+    asr_inference,
+    aligner_inference
     )
 import torch
 from tqdm import tqdm
@@ -52,6 +47,8 @@ def load_config():
     with open(args.config, 'r') as file:
         return yaml.safe_load(file)
 
+
+"""
 def run_full_pipeline(config: yaml):
     inference_full_pipeline(
         data_type=config['data'],
@@ -144,22 +141,28 @@ def run_pipeline(config: yaml):
     diarize_memory = inference_diarize.memory_stats[0]
     logger.info('Memory Stats during diarization...: Before load: %f, After load: %f, Delta: %f', diarize_memory['before'], diarize_memory['after'], diarize_memory['delta'])
 
-
+"""
 
 if __name__=='__main__':
     config_file = load_config()
-    asr_long_audio(
-        data_type=config_file['data'],
-        vad_filter=config_file['vad_filter'],
-        clip_timestamps=config_file['clip_timestamps'],
-        batch_size=config_file['asr_batchsize'],
-        cputhreads=config_file['cputhreads'],
-        device=config_file['device'],
-        model=config_file['model'],
-        filename=config_file['asr_output_filename']
+    aligner_inference(
+        config_file['data'],
+        config_file['vad_filter'],
+        config_file['clip_timestamps'],
+        config_file['alignment_model'],
+        config_file['align_output_filename'],
+        config_file['asr_output_filename']
     )
-    #run_full_pipeline(config=config_file)
-    #run_asr(config_file)
-    #run_pipeline(config=config_file)
-
-    
+    """
+    asr_inference(
+        config_file['data'],
+        config_file['vad_filter'],
+        config_file['clip_timestamps'],
+        config_file['asr_batchsize'],
+        config_file['computetype'],
+        config_file['cputhreads'],
+        config_file['device'],
+        config_file['model'],
+        config_file['asr_output_filename']
+    )
+    """

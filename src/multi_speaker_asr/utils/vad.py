@@ -146,9 +146,8 @@ def collect_audio_chunks(
             sample = {
                 'audio_id': id,
                 'audio': current_audio,
-                'offset': offset,
                 'chunk_metadata': {
-                    'segment_id': curr_id,
+                    'chunk_id': curr_id,
                     'offset': total_duration / sampling_rate,
                     'duration': current_duration / sampling_rate,
                     'segments': current_segments
@@ -157,7 +156,11 @@ def collect_audio_chunks(
         
             total_duration += current_duration
 
-            current_segments = []
+            current_segments = [{
+                'segment_id': i,
+                'start': clip['start'], 
+                'end': clip['end'] 
+            }]
             current_audio = audio[clip['start'] : clip['end']]
             current_duration = clip['end'] - clip['start']
 
@@ -165,7 +168,7 @@ def collect_audio_chunks(
                             
         else:
             current_segments.append({
-                'id': id,
+                'segment_id': i,
                 'start': clip['start'], # could add the offset if the audio is clipped
                 'end': clip['end'] # could add the offset if the audio is clipped
             })
@@ -180,7 +183,7 @@ def collect_audio_chunks(
             'audio': current_audio,
             'offset': offset,
             'chunk_metadata': {
-                'segment_id': curr_id,
+                'chunk_id': curr_id,
                 'offset': total_duration / sampling_rate,
                 'duration': current_duration / sampling_rate,
                 'segments': current_segments

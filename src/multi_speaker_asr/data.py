@@ -33,6 +33,7 @@ class AudioData(IterableDataset):
             max_segment_duration=30, 
             vad_filter=True, 
             clip_timestamps=False,
+            batch_size=5
             ):
         super().__init__()
         self.clip_timestamps = clip_timestamps
@@ -40,6 +41,8 @@ class AudioData(IterableDataset):
         self.target_sr = target_sr
         self.max_segment_duration = max_segment_duration
         self.ds = None
+        self.batch_size = batch_size
+        self.chunk_buffer = []
         
         
 
@@ -53,22 +56,39 @@ class AudioData(IterableDataset):
         self.id_to_audio = {item['id']: item['audio'] for item in self.ds}  
 
     def __iter__(self):
+        batch_buffer = []
+        audio_id = None
         for item in self.ds:
-            yield from self.preprocess(sample=item)
+            if not item['audio']: continue
+            if audio_id is None: audio_id = audio_id = item['id']
+            
+            chunk = self.preprocess(sample=item)
+            for c in chunk:
+                if c['audio_id'] == audio_id:
+                    if len(batch_buffer) < self.batch_size:
+                        batch_buffer.append(c)
+                    else:
+                        yield batch_buffer
+                        batch_buffer = [c]
+                else:
+                    yield batch_buffer
+                    audio_id = c['audio_id']
+                    batch_buffer = [c]
 
-    def collator(self, batch):
-        new_batch = {}
-        for key, group in itertools.groupby(batch, lambda x: x['audio_id']):
+
+    def collator(self, batches):
+        samples = [sample for batch in batches for sample in batch]
+        for key, group in itertools.groupby(samples, lambda x: x['audio_id']):
             group = list(group)
             audio = [item['audio'] for item in group]
             metadata = [item['chunk_metadata'] for item in group]
-            new_batch[key] = {
+
+            yield {
+                'audio_id': key,
                 'audio': audio,
                 'chunk_metadata': metadata
             }
 
-        print(len(batch))
-        return new_batch
 
     def preprocess(self, sample):
         try:
@@ -301,7 +321,7 @@ def clean_transcription(sentence: str):
         except ValueError as e:
             continue
 
-    return sentence_copy    
+    return sentence_copy
 
 
 
