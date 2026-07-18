@@ -172,49 +172,63 @@ def asr_inference(
                     loader = DataLoader(
                                 dataset=data,
                                 shuffle=False,
-                                batch_size=batch_size,
+                                batch_size=None,
                                 num_workers=0,
-                                collate_fn=data.collator
+                                collate_fn=data.collator_fn
                             )
                     batch_num = 0
                     asr_tracker.epoch_start()
 
-                    for batches in loader: # ASR module...
-                            for batch in batches:
-                                metadata = batch['chunk_metadata']
-                                orig_timeline = list(itertools.chain.from_iterable([segmentsList['segments'] for segmentsList in metadata]))
+                    for batch in loader: # ASR module...
+                        metadata = batch['chunk_metadata']
+                        orig_timeline = list(itertools.chain.from_iterable([segmentsList['segments'] for segmentsList in metadata]))
+                    
+                        segments, _ = pipeline.transcribe(
+                            audio_chunks=batch['audio'],
+                            chunks_metadata=metadata,
+                            clip_timestamps=orig_timeline,
+                            clip_timestamps_provided=clip_timestamps,
+                            vad_filter=vad_filter,
+                            batch_size=8,
+                            log_progress=True,
+                            word_timestamps=True # To be used for controlling the amount of text being aligned at once for the alignment module
+                        )
+                        asr_walltime_start = time.perf_counter()
+                        asr_cputime_start = time.process_time()
+                        total_duration = sum([m['duration'] for m in metadata])
+                        segments_ = []
+                        for s in segments:
+                            seg_ = {
+                                'segment_id': s.id, 
+                                'start': s.start, 
+                                'end': s.end, 
+                                'text': s.text,
+                                'words': [{'start': w.start, 'end': w.end, 'text': w.word} for w in s.words]
+                            }
+                            segments_.append(seg_)
                             
-                                segments, _ = pipeline.transcribe(
-                                    audio_chunks=batch['audio'],
-                                    chunks_metadata=metadata,
-                                    clip_timestamps=orig_timeline,
-                                    clip_timestamps_provided=clip_timestamps,
-                                    vad_filter=vad_filter,
-                                    batch_size=batch_size,
-                                    log_progress=True,
-                                    word_timestamps=False
-                                )
-                                asr_walltime_start = time.perf_counter()
-                                asr_cputime_start = time.process_time()
-                                result = {
-                                    'epoch': epoch, 
-                                    'audio_id': batch['audio_id'],
-                                    'duration': sum([m['duration'] for m in metadata]), 
-                                    'segments': [{'segment_id': s.id, 'start': s.start, 'end': s.end, 'text': s.text} for s in segments]}
-                                asr_walltime = perf_counter() - asr_walltime_start
-                                asr_cputime = process_time() - asr_cputime_start
-                                logger.info(
-                                        "ASR Module... Epoch: %i Batch: %i RSS: %.2f GB",
-                                        epoch,
-                                        batch_num,
-                                        proc.memory_info().rss / (1024**3)
-                                    )
-                                logger.info('Epoch: %i, Batch: %i Walltime: %f CPU time: %f', epoch, batch_num, asr_walltime, asr_cputime)
+                        result = {
+                        'epoch': epoch,
+                        'batch': batch_num,
+                        'audio_id': batch['audio_id'],
+                        'offset': batch['offset'],
+                        'duration': total_duration, 
+                        'segments': segments_
+                        }
+                        asr_walltime = perf_counter() - asr_walltime_start
+                        asr_cputime = process_time() - asr_cputime_start
+                        logger.info(
+                                "ASR Module... Epoch: %i Batch: %i RSS: %.2f GB",
+                                epoch,
+                                batch_num,
+                                proc.memory_info().rss / (1024**3)
+                            )
+                        logger.info('Epoch: %i, Batch: %i Walltime: %f CPU time: %f', epoch, batch_num, asr_walltime, asr_cputime)
 
-                                file.write(json.dumps(result) + '\n')
-                                file.flush()
+                        file.write(json.dumps(result) + '\n')
+                        file.flush()
 
-                                batch_num += 1
+                        batch_num += 1
                     asr_tracker.epoch_end()
 
     except Exception as e:

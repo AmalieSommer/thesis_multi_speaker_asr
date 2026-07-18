@@ -56,38 +56,36 @@ class AudioData(IterableDataset):
         self.id_to_audio = {item['id']: item['audio'] for item in self.ds}  
 
     def __iter__(self):
-        batch_buffer = []
-        audio_id = None
+        current_audio = []
+        current_metadata = []
+        current_audio_id = None
         for item in self.ds:
-            if not item['audio']: continue
-            if audio_id is None: audio_id = audio_id = item['id']
+            if not item['audio']: 
+                continue
+            if current_audio_id is None: 
+                current_audio_id = item['id']
             
-            chunk = self.preprocess(sample=item)
-            for c in chunk:
-                if c['audio_id'] == audio_id:
-                    if len(batch_buffer) < self.batch_size:
-                        batch_buffer.append(c)
-                    else:
-                        yield batch_buffer
-                        batch_buffer = [c]
+            for chunk in self.preprocess(sample=item):
+                if chunk['audio_id'] != current_audio_id:
+                    
+                    yield {
+                        'audio_id': current_audio_id,
+                        'offset': offset,
+                        'audio': current_audio,
+                        'chunk_metadata': current_metadata
+                    }
+
+                    current_audio_id = item['id']
+                    current_metadata = []
+                    current_audio = []
                 else:
-                    yield batch_buffer
-                    audio_id = c['audio_id']
-                    batch_buffer = [c]
+                    current_audio.append(chunk['audio'])
+                    current_metadata.append(chunk['chunk_metadata'])
+            offset = 0 if 'start' not in item.keys() else item['start']
 
 
-    def collator(self, batches):
-        samples = [sample for batch in batches for sample in batch]
-        for key, group in itertools.groupby(samples, lambda x: x['audio_id']):
-            group = list(group)
-            audio = [item['audio'] for item in group]
-            metadata = [item['chunk_metadata'] for item in group]
-
-            yield {
-                'audio_id': key,
-                'audio': audio,
-                'chunk_metadata': metadata
-            }
+    def collator_fn(self, batch):
+        return batch
 
 
     def preprocess(self, sample):

@@ -77,11 +77,10 @@ def get_timestamps(
         max_duration: int = 30
     ):
     
-    offset = None
+    offset = 0 if 'start' not in data_sample.keys() else data_sample['start']
     timestamps = []
 
     if not clip_timestamps:
-        offset = 0 # There is no clipping of the original audio...
         # The sample has no specified start and end times for the audio segment:
         if vad_filter:
             # There are no timestamps provided with the audio and the vad_filter flag is enabled.
@@ -104,8 +103,6 @@ def get_timestamps(
         start = int(data_sample['start'] * sampling_rate)
         end = int(data_sample['end'] * sampling_rate)
         audio = audio[start : end]
-
-        offset = 0 if start <= 0 else start / sampling_rate # Avoids division with zero error...
 
         if audio.shape[0] < max_duration * sampling_rate:
             timestamps = [{'start': start, 'end': end}]
