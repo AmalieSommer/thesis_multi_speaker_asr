@@ -14,11 +14,95 @@ import logging
 import logging.config
 import numpy as np
 from pathlib import Path
+import itertools
 
 logging.config.dictConfig(LOGGING_CONFIG)
 
 
 CWD = os.getcwd()
+
+
+
+class AudioDataset(IterableDataset):
+    def __init__(self, metadata, mode: str = 'segments', transform = None):
+        self.metadata = Dataset.from_csv(path_or_paths=metadata, split='test').to_iterable_dataset()
+        self.mode = mode
+        self.transform = transform
+
+    def __iter__(self):
+        if self.mode == 'segments':
+            yield from self.__iter__segments()
+        elif self.mode == 'recordings':
+            yield from self.__iter__recordings()
+        else:
+            raise ValueError('Unknown mode value...')
+        
+    def __iter__segments(self):
+        for sample in self.metadata:
+            if sample['segment_duration'] <= 1.0:
+                # Skip audio segments that are too short...
+                continue
+            
+            audio = self.load_audio(
+                sample['segment']
+            )
+            if audio is None: 
+                continue
+
+            yield {
+                'audio_id': sample['audio_id'],
+                'segment_id': sample['segment_id'],
+                'text': sample['text'],
+                'audio': audio
+            }
+    
+    def __iter__recordings(self):
+        for sample in self.metadata:
+            if sample['segment_duration'] <= 1.0:
+                # Skip audio segments that are too short...
+                continue
+
+            audio_offset = sample['audio_offset']
+            audio = self.load_audio(
+                sample['audio'],
+                start=sample['start'],
+                end=sample['end'],
+                offset=audio_offset
+            )
+
+            yield {
+                'audio_id': sample['audio_id'],
+                'segment_id': sample['segment_id'],
+                'text': sample['text'],
+                'audio': audio,
+            }
+
+
+    def load_audio(self, audio, start=None, end=None, offset=0, target_sr=16000):
+        if not audio:
+            raise ValueError('Missing audio file...')
+        
+        wav, sr = librosa.load(path=audio, sr=target_sr)
+        if not start:
+            start = 0
+        if not end:
+            end = len(wav) / sr
+        start = int(start - offset)
+        end = int(end - offset)
+
+        audio = wav[(start * sr) : (end * sr)]
+        return audio
+    
+
+    def collator(self, batch):
+        audio_batch = [b['audio'] for b in batch]
+        metadata = [{
+            'audio_id': b['audio_id'],
+            'segment_id': b['segment_id'],
+            'text': b['text']
+        } for b in batch]
+        return audio_batch, metadata
+
 
 class AudioData(IterableDataset):
     """
@@ -32,6 +116,7 @@ class AudioData(IterableDataset):
             max_segment_duration=30, 
             vad_filter=True, 
             clip_timestamps=False,
+            batch_size=5
             ):
         super().__init__()
         self.clip_timestamps = clip_timestamps
@@ -39,6 +124,8 @@ class AudioData(IterableDataset):
         self.target_sr = target_sr
         self.max_segment_duration = max_segment_duration
         self.ds = None
+        self.batch_size = batch_size
+        self.chunk_buffer = []
         
         
 
@@ -52,11 +139,55 @@ class AudioData(IterableDataset):
         self.id_to_audio = {item['id']: item['audio'] for item in self.ds}  
 
     def __iter__(self):
-        for item in self.ds:
-            yield from self.preprocess(sample=item)
+        current_audio = []
+        current_metadata = []
+        current_audio_id = None
+        offset = 0
 
-    def collator(self, batch):
+        for item in self.ds:
+            if not item["audio"]:
+                continue
+
+            #offset = item.get("start", 0)
+
+            for chunk in self.preprocess(sample=item):
+
+                if current_audio_id is None:
+                    current_audio_id = chunk["audio_id"]
+
+                if chunk["audio_id"] != current_audio_id:
+                    # Yield previous audio
+                    yield {
+                        "audio_id": current_audio_id,
+                        "offset": offset,
+                        "audio": current_audio,
+                        "chunk_metadata": current_metadata,
+                    }
+
+                    # Start new audio
+                    current_audio_id = chunk["audio_id"]
+                    current_audio = []
+                    current_metadata = []
+                    offset = item.get("start", 0)
+
+                # Always append the current chunk
+                current_audio.append(chunk["audio"])
+                current_metadata.append(chunk["chunk_metadata"])
+                offset = item.get("start", 0)
+
+        # Yield the last audio
+        if current_audio:
+            yield {
+                "audio_id": current_audio_id,
+                "offset": offset,
+                "audio": current_audio,
+                "chunk_metadata": current_metadata,
+            }
+
+
+    def collator_fn(self, batch):
         return batch
+
 
     def preprocess(self, sample):
         try:
@@ -289,7 +420,7 @@ def clean_transcription(sentence: str):
         except ValueError as e:
             continue
 
-    return sentence_copy    
+    return sentence_copy
 
 
 

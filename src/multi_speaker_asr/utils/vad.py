@@ -77,11 +77,10 @@ def get_timestamps(
         max_duration: int = 30
     ):
     
-    offset = None
+    offset = 0 if 'start' not in data_sample.keys() else data_sample['start']
     timestamps = []
 
     if not clip_timestamps:
-        offset = 0 # There is no clipping of the original audio...
         # The sample has no specified start and end times for the audio segment:
         if vad_filter:
             # There are no timestamps provided with the audio and the vad_filter flag is enabled.
@@ -104,8 +103,6 @@ def get_timestamps(
         start = int(data_sample['start'] * sampling_rate)
         end = int(data_sample['end'] * sampling_rate)
         audio = audio[start : end]
-
-        offset = 0 if start <= 0 else start / sampling_rate # Avoids division with zero error...
 
         if audio.shape[0] < max_duration * sampling_rate:
             timestamps = [{'start': start, 'end': end}]
@@ -138,16 +135,16 @@ def collect_audio_chunks(
     curr_id = 0
 
     for i, clip in enumerate(clip_timestamps):
-        curr_id = i
+        
         if (
              current_duration + clip['end'] - clip['start'] > max_duration * sampling_rate
         ):
+            curr_id += 1
             sample = {
                 'audio_id': id,
-                'segment_id': curr_id,
                 'audio': current_audio,
-                'offset': offset,
                 'chunk_metadata': {
+                    'chunk_id': curr_id,
                     'offset': total_duration / sampling_rate,
                     'duration': current_duration / sampling_rate,
                     'segments': current_segments
@@ -156,7 +153,11 @@ def collect_audio_chunks(
         
             total_duration += current_duration
 
-            current_segments = []
+            current_segments = [{
+                'segment_id': i,
+                'start': clip['start'], 
+                'end': clip['end'] 
+            }]
             current_audio = audio[clip['start'] : clip['end']]
             current_duration = clip['end'] - clip['start']
 
@@ -164,7 +165,7 @@ def collect_audio_chunks(
                             
         else:
             current_segments.append({
-                'id': id,
+                'segment_id': i,
                 'start': clip['start'], # could add the offset if the audio is clipped
                 'end': clip['end'] # could add the offset if the audio is clipped
             })
@@ -173,12 +174,13 @@ def collect_audio_chunks(
             )
             current_duration += clip['end'] - clip['start']
 
+    curr_id += 1
     yield {
             'audio_id': id,
-            'segment_id': len(clip_timestamps),
             'audio': current_audio,
             'offset': offset,
             'chunk_metadata': {
+                'chunk_id': curr_id,
                 'offset': total_duration / sampling_rate,
                 'duration': current_duration / sampling_rate,
                 'segments': current_segments

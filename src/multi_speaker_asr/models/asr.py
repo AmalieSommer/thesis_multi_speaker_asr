@@ -1,16 +1,15 @@
 import itertools
 
 import numpy as np
-from faster_whisper import WhisperModel
-from faster_whisper import BatchedInferencePipeline
+from faster_whisper import WhisperModel, BatchedInferencePipeline
 from faster_whisper.audio import pad_or_trim
 from faster_whisper.vad import VadOptions, get_speech_timestamps, collect_chunks
 from faster_whisper.tokenizer import Tokenizer
 from faster_whisper.utils import format_timestamp
-from faster_whisper.transcribe import TranscriptionInfo, TranscriptionOptions, get_suppressed_tokens
+from faster_whisper.transcribe import Segment, TranscriptionInfo, TranscriptionOptions, get_suppressed_tokens
 from ..utils.vad import VAD
 
-from typing import Iterable, List, Optional, Tuple, Union
+from typing import Any, Generator, Iterable, List, Optional, Tuple, Union
 from ..utils.utils import profile, LOGGING_CONFIG
 import logging
 import logging.config
@@ -18,8 +17,75 @@ import time
 import json
 import psutil
 import os
+from transformers import pipeline, AutoProcessor, AutoModelForCTC
 
 logging.config.dictConfig(LOGGING_CONFIG)
+
+
+class RoestASR:
+    def __init__(self, model_type: str, device: str = 'cpu', batch_size=4, compute_type='int8', cpu_threads=10):
+        self.batch_size = batch_size
+        self.device = device
+        self.model_type = model_type
+
+        if model_type == 'wav2vec2':
+            # To avoid certain external packages, it loads the processor and model by itself...
+            self.processor = AutoProcessor.from_pretrained('CoRal-project/roest-v3-wav2vec2-315m')
+            self.model = AutoModelForCTC.from_pretrained('CoRal-project/roest-v3-wav2vec2-315m')
+        elif model_type == 'whisper':
+            self.pipeline = pipeline(
+                task='automatic-speech-recognition',
+                model='CoRal-project/roest-v3-whisper-1.5b',
+                device=device
+            )
+        elif model_type == 'ct2':
+            self.model = WhisperModel(
+                model_size_or_path='pluttodk/roest-v3-whisper-1.5b-ct2',
+                device=device,
+                compute_type=compute_type,
+                cpu_threads=cpu_threads
+            )
+            self.pipeline = BatchedInferencePipeline(self.model)
+        else:
+            raise ValueError('Unknown model type...')
+        
+
+
+    def transcribe(self, audio_batch, metadata, return_timestamps=False, language='da'):
+        if self.model_type in ('whisper', 'wav2vec2'):
+
+            args ={}
+            if return_timestamps:
+                args['return_timestamps'] = 'word'
+            if not isinstance(audio_batch, (list, tuple)):
+                results = self.pipeline(audio_batch, **args)
+            else:
+                results = self.pipeline(audio_batch, batch_size=self.batch_size)
+            if return_timestamps:
+                return [{
+                    'text': result['text'],
+                    'words': result.get('chunks', None)
+                } for result in results]
+            return [{
+                'text': result['text']
+            } for result in results]
+        
+        elif self.model_type == 'ct2':
+            if not isinstance(audio_batch, (list, tuple)):
+                audio_batch = [audio_batch]
+
+            outputs = []
+            for i, sample in enumerate(audio_batch):
+                segments, _ = self.pipeline.transcribe(
+                    audio=sample,
+                    language=language,
+                    log_progress=True
+                )
+                outputs.append([{'segment_id': metadata[i]['segment_id'],'start': seg.start, 'end': seg.end, 'text': seg.text} for seg in segments])
+
+            return outputs
+
+        
 
 
 class WhisperPipeline(BatchedInferencePipeline):
@@ -58,32 +124,11 @@ class WhisperPipeline(BatchedInferencePipeline):
     def unload(self):
         self.model = None
 
-    def run_whisper(self, batch, batch_size, vad_filter, clip_timestamps):
-
-        
-            audio_chunks = [chunks['audio'] for chunks in batch]
-            metadata = [chunks['chunk_metadata'] for chunks in batch]
-            original_timeline = list(itertools.chain.from_iterable([segmentsList['segments'] for segmentsList in metadata]))
-
-            segments, _ = self.transcribe(
-                audio_chunks=audio_chunks,
-                chunks_metadata=metadata,
-                ids=[item['audio_id'] for item in batch],
-                clip_timestamps=original_timeline,
-                clip_timestamps_provided=clip_timestamps,
-                vad_filter=vad_filter,
-                batch_size=batch_size,
-                log_progress=True,
-                word_timestamps=True
-            )
-            return segments
-
 
     def transcribe(
             self, 
             audio_chunks,
             chunks_metadata,
-            ids,
             language = "da", 
             task = "transcribe", 
             log_progress = False, 
@@ -127,7 +172,7 @@ class WhisperPipeline(BatchedInferencePipeline):
             hotwords = None, 
             language_detection_threshold = 0.5, 
             language_detection_segments = 1
-            ):
+            ) -> Generator[Any, Any, None] | Generator[Segment, Any, None]:
         
         sampling_rate = self.model.feature_extractor.sampling_rate
 
@@ -138,33 +183,6 @@ class WhisperPipeline(BatchedInferencePipeline):
             )
             multilingual = False
         chunk_length = chunk_length or self.model.feature_extractor.chunk_length
-      
-        # If either vad was applied to the audio or the audio was clipped, it will restore the original timeline:
-        if clip_timestamps_provided | vad_filter:
-            # Create the mappings to map from the speech-only timeline to the original timeline.
-            if len(self.ts_map) == 0:
-                # Initialize and generate a new mapping:
-                for key, group in itertools.groupby(clip_timestamps, lambda x: x['id']):
-                    ts_mapping = VAD()
-                    ts_mapping.build_mapping([{'start': x['start'], 'end': x['end']} for x in group])
-                    self.ts_map[key] = ts_mapping
-            else:
-                items_to_keep = []
-                for key, group in itertools.groupby(clip_timestamps, lambda x: x['id']):
-                    group_ = [{'start': x['start'], 'end': x['end']} for x in group]
-                    if key in self.ts_map.keys():
-                        ts_mapping = self.ts_map.get(key)
-                        ts_mapping.update_mapping(group_)
-                        items_to_keep.append(key)
-                    else:
-                        # it needs to create a new timestamp mapping
-                        ts_mapping = VAD()
-                        ts_mapping.build_mapping(group_)
-                        self.ts_map[key] = ts_mapping
-                        items_to_keep.append(key)
-                    
-                self.ts_map = {k: v for k, v in self.ts_map.items() if k in items_to_keep}
-
         duration_after_processing = (
             sum((segment["end"] - segment["start"]) for segment in clip_timestamps)
             / sampling_rate
@@ -280,19 +298,19 @@ class WhisperPipeline(BatchedInferencePipeline):
             options,
             log_progress,
         )
-
+     
         if clip_timestamps_provided | vad_filter:
             segments = self.restore_original_timeline(
-                segments, ids
+                segments, clip_timestamps
             )
         return segments, info
     
 
-    def restore_original_timeline(self, segments, segment_ids):
+    def restore_original_timeline(self, segments, timestamps):
+        ts_map = VAD()
+        ts_map.build_mapping(timestamps)
         for segment in segments:
             if segment.words:
-                segment_id = segment_ids[segment.id - 1]
-                ts_map = self.ts_map[segment_id]
                 words = []
                 for word in segment.words:
                     # Ensure the word start and end times are resolved to the same chunk.
@@ -305,9 +323,7 @@ class WhisperPipeline(BatchedInferencePipeline):
                 segment.start = words[0].start
                 segment.end = words[-1].end
                 segment.words = words
-
             else:
                 segment.start = ts_map.get_original_time(segment.start)
                 segment.end = ts_map.get_original_time(segment.end, is_end=True)
-
             yield segment
