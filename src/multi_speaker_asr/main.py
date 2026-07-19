@@ -2,7 +2,8 @@ from multi_speaker_asr.utils.utils import LOGGING_CONFIG
 import os
 from multi_speaker_asr.evaluate import (
     asr_inference,
-    aligner_inference
+    aligner_inference,
+    evaluate_inference
     )
 import torch
 from tqdm import tqdm
@@ -58,7 +59,7 @@ def run_asr(config):
         cputhreads=config['cputhreads'],
         device=config['device'],
         model=config['model'],
-        filename=config['output_file']
+        filename=config['asr_output_filename']
     )
 
 def run_alignment(config):
@@ -73,5 +74,7 @@ def run_alignment(config):
 
 if __name__=='__main__':
     config_file = load_config()
-    run_alignment(config=config_file)
+    evaluate_inference(config=config_file)
+    
     #run_asr(config=config_file)
+    #run_alignment(config=config_file)

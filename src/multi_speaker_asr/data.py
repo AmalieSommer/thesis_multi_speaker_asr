@@ -21,6 +21,89 @@ logging.config.dictConfig(LOGGING_CONFIG)
 
 CWD = os.getcwd()
 
+
+
+class AudioDataset(IterableDataset):
+    def __init__(self, metadata, mode: str = 'segments', transform = None):
+        self.metadata = Dataset.from_csv(path_or_paths=metadata, split='test').to_iterable_dataset()
+        self.mode = mode
+        self.transform = transform
+
+    def __iter__(self):
+        if self.mode == 'segments':
+            yield from self.__iter__segments()
+        elif self.mode == 'recordings':
+            yield from self.__iter__recordings()
+        else:
+            raise ValueError('Unknown mode value...')
+        
+    def __iter__segments(self):
+        for sample in self.metadata:
+            if sample['segment_duration'] <= 1.0:
+                # Skip audio segments that are too short...
+                continue
+            
+            audio = self.load_audio(
+                sample['segment']
+            )
+            if audio is None: 
+                continue
+
+            yield {
+                'audio_id': sample['audio_id'],
+                'segment_id': sample['segment_id'],
+                'text': sample['text'],
+                'audio': audio
+            }
+    
+    def __iter__recordings(self):
+        for sample in self.metadata:
+            if sample['segment_duration'] <= 1.0:
+                # Skip audio segments that are too short...
+                continue
+
+            audio_offset = sample['audio_offset']
+            audio = self.load_audio(
+                sample['audio'],
+                start=sample['start'],
+                end=sample['end'],
+                offset=audio_offset
+            )
+
+            yield {
+                'audio_id': sample['audio_id'],
+                'segment_id': sample['segment_id'],
+                'text': sample['text'],
+                'audio': audio,
+            }
+
+
+    def load_audio(self, audio, start=None, end=None, offset=0, target_sr=16000):
+        if not audio:
+            raise ValueError('Missing audio file...')
+        
+        wav, sr = librosa.load(path=audio, sr=target_sr)
+        if not start:
+            start = 0
+        if not end:
+            end = len(wav) / sr
+        start = int(start - offset)
+        end = int(end - offset)
+
+        audio = wav[(start * sr) : (end * sr)]
+        return audio
+    
+
+    def collator(self, batch):
+        audio_batch = [b['audio'] for b in batch]
+        metadata = [{
+            'audio_id': b['audio_id'],
+            'segment_id': b['segment_id'],
+            'text': b['text']
+        } for b in batch]
+        return audio_batch, metadata
+
+
 class AudioData(IterableDataset):
     """
     Data wrapper class to load either local or Huggingface datasets. Perform preprocessing, resampling and formatting as preparation for model training and inference.
@@ -65,7 +148,7 @@ class AudioData(IterableDataset):
             if not item["audio"]:
                 continue
 
-            offset = item.get("start", 0)
+            #offset = item.get("start", 0)
 
             for chunk in self.preprocess(sample=item):
 
@@ -85,10 +168,12 @@ class AudioData(IterableDataset):
                     current_audio_id = chunk["audio_id"]
                     current_audio = []
                     current_metadata = []
+                    offset = item.get("start", 0)
 
                 # Always append the current chunk
                 current_audio.append(chunk["audio"])
                 current_metadata.append(chunk["chunk_metadata"])
+                offset = item.get("start", 0)
 
         # Yield the last audio
         if current_audio:

@@ -1,5 +1,5 @@
-from multi_speaker_asr.data import cast, AudioData, SegmentedData, clean_transcription
-from multi_speaker_asr.models.asr import WhisperPipeline
+from multi_speaker_asr.data import cast, AudioData, SegmentedData, clean_transcription, AudioDataset
+from multi_speaker_asr.models.asr import WhisperPipeline, RoestASR
 from pyannote.audio.pipelines.utils.hook import ProgressHook
 from multi_speaker_asr.models.diarization import Diarize, assign_word_speakers, RollingClusters
 from multi_speaker_asr.models.alignment import Wav2Vec2
@@ -32,6 +32,49 @@ logging.getLogger("faster_whisper").setLevel(logging.DEBUG)
 
 logger = logging.getLogger(name='Evaluate')
 proc = psutil.Process(os.getpid())
+
+
+
+def evaluate_inference(config, max_epochs=3):
+    dataset = AudioDataset(metadata=config['metadata'], mode=config['dataset_mode'])
+    loader = DataLoader(dataset=dataset, batch_size=config['batch_size'], shuffle=False, num_workers=1, collate_fn=dataset.collator)
+
+    model = RoestASR(model_type=config['model_type'], batch_size=config['batch_size'])
+    tracker = CarbonTracker(epochs=max_epochs)
+    try:
+        with torch.inference_mode():
+            for epoch in range(max_epochs):
+                tracker.epoch_start()
+                for batch in loader:
+                    if not batch:
+                        continue
+
+                    audio_batch = batch[0]
+                    metadata = batch[1]
+                    asr_walltime_start = time.perf_counter()
+                    asr_cputime_start = time.process_time()
+                    output = model.transcribe(audio_batch=audio_batch, metadata=metadata, return_timestamps=False)
+                    asr_walltime = perf_counter() - asr_walltime_start
+                    asr_cputime = process_time() - asr_cputime_start
+                    logger.info(
+                            "ASR Module... Epoch: %i, RSS: %.2f GB",
+                            epoch,
+                            proc.memory_info().rss / (1024**3)
+                        )
+                    logger.info('ASR... Epoch: %i, Walltime: %f CPU time: %f', epoch, asr_walltime, asr_cputime)
+                    with open(config['asr_filepath'], 'a') as writer:
+                        writer.write(json.dumps(output) + '\n')
+                        writer.flush()
+                tracker.epoch_end()
+    except Exception as e:
+        logger.error('Failed with error: %s', e)
+    finally:
+        del dataset
+        del loader
+        del model
+        gc.collect()
+
+
 
 
 def fetch_dataloader(
@@ -139,7 +182,7 @@ def inference_asr_presegmented(
 
             gc.collect()
 
-MAX_EPOCHS = 5
+MAX_EPOCHS = 3
 
 def asr_inference(
         data_type: str,
@@ -223,7 +266,7 @@ def asr_inference(
                                 batch_num,
                                 proc.memory_info().rss / (1024**3)
                             )
-                        logger.info('Epoch: %i, Batch: %i Walltime: %f CPU time: %f', epoch, batch_num, asr_walltime, asr_cputime)
+                        logger.info('ASR... Epoch: %i, Batch: %i Walltime: %f CPU time: %f', epoch, batch_num, asr_walltime, asr_cputime)
 
                         file.write(json.dumps(result) + '\n')
                         file.flush()
@@ -311,7 +354,7 @@ def aligner_inference(
                                                 )
                         alignment_walltime = perf_counter() - alignment_walltime_start
                         alignment_cputime = process_time() - alignment_cputime_start
-                        logger.critical('Epoch: %i, Batch: %i Walltime: %f CPU time: %f', epoch, batch_num, alignment_walltime, alignment_cputime)
+                        logger.critical('Alignment... Epoch: %i, Batch: %i Walltime: %f CPU time: %f', epoch, batch_num, alignment_walltime, alignment_cputime)
                         logger.info(
                             "Alignment Module... Epoch: %i Batch: %i RSS: %.2f GB",
                             epoch,
