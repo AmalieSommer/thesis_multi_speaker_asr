@@ -17,76 +17,50 @@ import time
 import json
 import psutil
 import os
-from transformers import pipeline, AutoProcessor, AutoModelForCTC
+from transformers import pipeline, AutoProcessor, AutoModelForCTC, AutoModelForSpeechSeq2Seq
+from .engines import BaseEngine, CT2, OnnxEngine, PytorchEngine
 
 logging.config.dictConfig(LOGGING_CONFIG)
 
 
 class RoestASR:
-    def __init__(self, model_type: str, device: str = 'cpu', batch_size=4, compute_type='int8', cpu_threads=10):
+    def __init__(self, model_type: str, backend: str, device: str = 'cpu', batch_size=4):
         self.batch_size = batch_size
         self.device = device
         self.model_type = model_type
-
-        if model_type == 'wav2vec2':
-            # To avoid certain external packages, it loads the processor and model by itself...
-            self.processor = AutoProcessor.from_pretrained('CoRal-project/roest-v3-wav2vec2-315m')
-            self.model = AutoModelForCTC.from_pretrained('CoRal-project/roest-v3-wav2vec2-315m')
-        elif model_type == 'whisper':
-            self.pipeline = pipeline(
-                task='automatic-speech-recognition',
-                model='CoRal-project/roest-v3-whisper-1.5b',
-                device=device
-            )
-        elif model_type == 'ct2':
-            self.model = WhisperModel(
-                model_size_or_path='pluttodk/roest-v3-whisper-1.5b-ct2',
-                device=device,
-                compute_type=compute_type,
-                cpu_threads=cpu_threads
-            )
-            self.pipeline = BatchedInferencePipeline(self.model)
+        self.backend = backend    
+    
+    def load(self, compute_type: str = 'int8', cpu_threads: int = 10):
+        if self.model_type == 'wav2vec2':
+            model_path = 'CoRal-project/roest-v3-wav2vec2-315m'
+        elif self.model_type == 'whisper':
+            model_path = 'CoRal-project/roest-v3-whisper-1.5b'
         else:
             raise ValueError('Unknown model type...')
+        
+        if not model_path:
+            raise ValueError('Missing model_type...')
+        
+        if self.backend == 'ct2':
+            self.engine = CT2(model_path=model_path, compute_type=compute_type, cpu_threads=cpu_threads)
+        elif self.backend == 'onnx':
+            self.engine = OnnxEngine(model_path=model_path)
+        elif self.backend == 'torch':
+            self.engine = PytorchEngine(model_path=model_path, model_type=self.model_type)
+        else:
+            self.engine = BaseEngine(model_path=model_path)
         
 
 
     def transcribe(self, audio_batch, metadata, return_timestamps=False, language='da'):
-        if self.model_type in ('whisper', 'wav2vec2'):
-
-            args ={}
-            if return_timestamps:
-                args['return_timestamps'] = 'word'
-            if not isinstance(audio_batch, (list, tuple)):
-                results = self.pipeline(audio_batch, **args)
-            else:
-                results = self.pipeline(audio_batch, batch_size=self.batch_size)
-            if return_timestamps:
-                return [{
-                    'text': result['text'],
-                    'words': result.get('chunks', None)
-                } for result in results]
-            return [{
-                'text': result['text']
-            } for result in results]
-        
-        elif self.model_type == 'ct2':
-            if not isinstance(audio_batch, (list, tuple)):
+        if not isinstance(audio_batch, (list, tuple)):
                 audio_batch = [audio_batch]
 
-            outputs = []
-            for i, sample in enumerate(audio_batch):
-                segments, _ = self.pipeline.transcribe(
-                    audio=sample,
-                    language=language,
-                    log_progress=True
-                )
-                outputs.append([{'segment_id': metadata[i]['segment_id'],'start': seg.start, 'end': seg.end, 'text': seg.text} for seg in segments])
-
-            return outputs
-
+        if self.model_type in ('whisper', 'wav2vec2'):
+            return self.engine.transcribe(audio_batch)
+        else:
+            raise ValueError('Unknown model_type...')
         
-
 
 class WhisperPipeline(BatchedInferencePipeline):
     """

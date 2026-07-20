@@ -7,7 +7,6 @@ from datasets import load_dataset, Audio, Dataset
 from torch.utils.data import IterableDataset
 from faster_whisper.vad import VadOptions, get_speech_timestamps
 import soundfile as sf
-from whisperx.schema import SingleSegment
 from multi_speaker_asr.utils.utils import profile, LOGGING_CONFIG
 from multi_speaker_asr.utils.vad import collect_audio_chunks, get_timestamps
 import logging
@@ -25,7 +24,7 @@ CWD = os.getcwd()
 
 class AudioDataset(IterableDataset):
     def __init__(self, metadata, mode: str = 'segments', transform = None):
-        self.metadata = Dataset.from_csv(path_or_paths=metadata, split='test').to_iterable_dataset()
+        self.metadata = metadata
         self.mode = mode
         self.transform = transform
 
@@ -38,8 +37,9 @@ class AudioDataset(IterableDataset):
             raise ValueError('Unknown mode value...')
         
     def __iter__segments(self):
+        iter = 0
         for sample in self.metadata:
-            if sample['segment_duration'] <= 1.0:
+            if 'segment_duration' in sample.keys() and sample['segment_duration'] <= 1.0:
                 # Skip audio segments that are too short...
                 continue
             
@@ -51,10 +51,11 @@ class AudioDataset(IterableDataset):
 
             yield {
                 'audio_id': sample['audio_id'],
-                'segment_id': sample['segment_id'],
+                'segment_id': iter if 'segment_id' not in sample.keys() else sample['segment_id'],
                 'text': sample['text'],
                 'audio': audio
             }
+            iter += 1
     
     def __iter__recordings(self):
         for sample in self.metadata:
@@ -82,15 +83,30 @@ class AudioDataset(IterableDataset):
         if not audio:
             raise ValueError('Missing audio file...')
         
-        wav, sr = librosa.load(path=audio, sr=target_sr)
-        if not start:
-            start = 0
-        if not end:
-            end = len(wav) / sr
+        if isinstance(audio, dict):
+            if 'bytes' in audio.keys():
+                audio = io.BytesIO(audio['bytes'])
+        audio, sr = sf.read(audio, dtype='float32')
+        
+        # Check for multiple channels and convert to mono
+        if audio.ndim > 1:
+            audio = audio.mean(axis=1)
+
+        if sr != target_sr:
+            audio = librosa.resample(
+                audio,
+                orig_sr=sr,
+                target_sr=target_sr,
+            )
+            audio = audio.astype("float32")
+    
+        if not start or not end:
+            return audio
+        
         start = int(start - offset)
         end = int(end - offset)
 
-        audio = wav[(start * sr) : (end * sr)]
+        audio = audio[(start * sr) : (end * sr)]
         return audio
     
 
@@ -388,7 +404,7 @@ class SegmentedData(AudioData):
         except Exception as e:
             self.logger.error('Failed in collator...')
 
-
+"""
 def cast(object: dict):
     return SingleSegment(
         start=object['start'],
@@ -396,7 +412,7 @@ def cast(object: dict):
         text=object['text'],
         avg_logprob=object['avg_logprob']
     )
-
+"""
 
 def clean_transcription(sentence: str):
     """

@@ -13,7 +13,7 @@ import argparse
 import logging
 import logging.config
 import timeit
-from multi_speaker_asr.data import cast, AudioData
+from multi_speaker_asr.data import AudioData
  
 
 

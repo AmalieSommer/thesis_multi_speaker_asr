@@ -1,7 +1,6 @@
 
 from pyannote.audio import Pipeline, Model, Inference
 from pyannote.audio.pipelines.utils.hook import ProgressHook
-from whisperx.diarize import IntervalTree
 from ..utils.utils import profile, LOGGING_CONFIG
 import logging
 import logging.config

@@ -1,4 +1,4 @@
-from multi_speaker_asr.data import cast, AudioData, SegmentedData, clean_transcription, AudioDataset
+from multi_speaker_asr.data import AudioData, SegmentedData, clean_transcription, AudioDataset
 from multi_speaker_asr.models.asr import WhisperPipeline, RoestASR
 from pyannote.audio.pipelines.utils.hook import ProgressHook
 from multi_speaker_asr.models.diarization import Diarize, assign_word_speakers, RollingClusters
@@ -16,7 +16,6 @@ import timeit
 import itertools
 from .utils.vad import collect_word_chunks
 from jiwer import wer, cer
-from whisperx.schema import SingleSegment
 import psutil, os
 from time import perf_counter, process_time
 import soundfile as sf
@@ -24,6 +23,7 @@ from scipy.spatial.distance import cdist
 import numpy as np
 import librosa
 from carbontracker.tracker import CarbonTracker
+from datasets import load_dataset, Dataset, Audio
 
 
 
@@ -36,10 +36,21 @@ proc = psutil.Process(os.getpid())
 
 
 def evaluate_inference(config, max_epochs=3):
-    dataset = AudioDataset(metadata=config['metadata'], mode=config['dataset_mode'])
+    if config['dataset_location'] == 'remote': # The dataset is loaded from remote, e.g. Huggingface
+        metadata = load_dataset('CoRal-project/coral-v3', 'conversation', split='test', streaming=True)
+        metadata = metadata.cast_column('audio', Audio(decode=False))
+        metadata = metadata.rename_column('id_conversation', 'audio_id')
+        metadata = metadata.rename_column('audio', 'segment')
+    elif config['dataset_location'] == 'local':
+        metadata = Dataset.from_csv(config['metadata']).to_iterable_dataset()
+    else:
+        raise ValueError('Unknown dataset_mode passed...')
+
+    dataset = AudioDataset(metadata=metadata, mode=config['dataset_mode'])
     loader = DataLoader(dataset=dataset, batch_size=config['batch_size'], shuffle=False, num_workers=1, collate_fn=dataset.collator)
 
-    model = RoestASR(model_type=config['model_type'], batch_size=config['batch_size'])
+    model = RoestASR(model_type=config['model_type'], batch_size=config['batch_size'], backend=config['backend_type'])
+    model.load()
     tracker = CarbonTracker(epochs=max_epochs)
     try:
         with torch.inference_mode():
@@ -63,7 +74,8 @@ def evaluate_inference(config, max_epochs=3):
                         )
                     logger.info('ASR... Epoch: %i, Walltime: %f CPU time: %f', epoch, asr_walltime, asr_cputime)
                     with open(config['asr_filepath'], 'a') as writer:
-                        writer.write(json.dumps(output) + '\n')
+                        results = [{'metadata': data, 'output': out} for data, out in zip(metadata, output)]
+                        writer.write(json.dumps(results) + '\n')
                         writer.flush()
                 tracker.epoch_end()
     except Exception as e:
@@ -541,7 +553,7 @@ def fetch_audio_chunk(audio_path, chunk_size, overlap, clip_offset=0, target_sr=
             f.seek(start + step_samples)
 
 
-
+"""
 def inference_full_pipeline(
         data_type: str,
         vad_filter: bool,
@@ -835,7 +847,7 @@ def align(pipeline, write_file, read_file, data, epoch):
                         batch_num += 1
                     prev_chunk_duration = segment_end
                    
-                    """
+
                         for start_idx, end_idx in pipeline.get_chunk_generator(words=words, offset=chunk_offset):
                             if start_idx is None or end_idx is None:
                                 continue
@@ -1019,6 +1031,8 @@ def inference_asr(
 
     return id_offset_map, id_segments_map
 
+
+"""
 @profile
 def align_transcripts(
         data_type: str,
@@ -1271,7 +1285,7 @@ def generate_final_transcript(
         writerQueue.put(None)
         write_process.join()
         read_process.join()
-
+"""
 
 
 """
