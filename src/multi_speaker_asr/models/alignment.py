@@ -1,4 +1,3 @@
-from whisperx.alignment import load_align_model, align
 from ..utils.utils import profile, LOGGING_CONFIG
 import logging
 import logging.config

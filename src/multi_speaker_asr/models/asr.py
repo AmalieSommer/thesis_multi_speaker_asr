@@ -1,23 +1,13 @@
-import itertools
-
 import numpy as np
 from faster_whisper import WhisperModel, BatchedInferencePipeline
 from faster_whisper.audio import pad_or_trim
-from faster_whisper.vad import VadOptions, get_speech_timestamps, collect_chunks
 from faster_whisper.tokenizer import Tokenizer
-from faster_whisper.utils import format_timestamp
 from faster_whisper.transcribe import Segment, TranscriptionInfo, TranscriptionOptions, get_suppressed_tokens
 from ..utils.vad import VAD
-
-from typing import Any, Generator, Iterable, List, Optional, Tuple, Union
+from typing import Any, Generator
 from ..utils.utils import profile, LOGGING_CONFIG
 import logging
 import logging.config
-import time
-import json
-import psutil
-import os
-from transformers import pipeline, AutoProcessor, AutoModelForCTC, AutoModelForSpeechSeq2Seq
 from .engines import BaseEngine, CT2, OnnxEngine, PytorchEngine
 
 logging.config.dictConfig(LOGGING_CONFIG)

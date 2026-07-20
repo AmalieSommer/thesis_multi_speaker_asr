@@ -1,17 +1,30 @@
 import torchaudio
 from silero_vad import load_silero_vad, get_speech_timestamps
+import os
+import pandas as pd
+import json
+import csv
+import librosa
+import soundfile as sf
+import torch
+import copy
+
+model = load_silero_vad()
 
 def split_long_audio(audio_path, max_duration_sec=10.0, sample_rate=16000):
     # 1. Load the VAD model and the audio file
-    model = load_silero_vad()
-    waveform, sr = torchaudio.load(audio_path)
+    waveform, sr = librosa.load(audio_path)
     
     # Ensure standard sample rate for Wav2Vec2/Silero VAD
     if sr != sample_rate:
-        resampler = torchaudio.transforms.Resample(sr, sample_rate)
-        waveform = resampler(waveform)
-    
+        waveform = librosa.resample(
+                waveform,
+                orig_sr=sr,
+                target_sr=sample_rate,
+            )
+
     # Silero expects a 1D tensor for single-channel processing
+    waveform = torch.tensor(waveform).unsqueeze(0)
     audio_1d = waveform.mean(dim=0) 
     total_duration = len(audio_1d) / sample_rate
     
@@ -74,7 +87,47 @@ def split_long_audio(audio_path, max_duration_sec=10.0, sample_rate=16000):
     return final_chunks
 
 # --- Quick Test Execution ---
-chunks = split_long_audio("/root/master_thesis/thesis_multi_speaker_asr/data/coral-v3-long-form-conversations/conv_1f2860dcc30248e710f1f39d128ea5ca.wav", max_duration_sec=10.0)
-for idx, c in enumerate(chunks):
-     print(f"Chunk {idx}: Shapes to {c['waveform'].shape}")
-     torchaudio.save(f"split_output_{idx}.wav", c['waveform'], 16000)
+segments_path = 'L:\\Auditdata\\Wrist Angel - Video\\Amalie Sommer\\repo\\thesis_multi_speaker_asr\\data\\audio\\segments\\audio\\'
+segments_dir = os.listdir(segments_path)
+
+data = {}
+with open('L:\\Auditdata\\Wrist Angel - Video\\Amalie Sommer\\repo\\thesis_multi_speaker_asr\\data\\audio\\segments\\metadata_new.csv', 'r', encoding='utf-8') as reader:
+    dict_reader = csv.DictReader(reader)
+    data = {row['segment_id']: row for row in dict_reader}
+
+new_csv = 'L:\\Auditdata\\Wrist Angel - Video\\Amalie Sommer\\repo\\thesis_multi_speaker_asr\\data\\audio\\segments\\metadata_2.csv'
+seg_dir = 'data\\audio\\segments\\audio'
+with open(new_csv, 'a', encoding='utf-8') as writer:
+    for audio in segments_dir:
+        id = audio.split('.', 1)[0]
+        info = data[id]
+        path = segments_path + audio
+        chunks = split_long_audio(path)
+        if len(chunks) == 1:
+            row = ",".join([str(item) for item in info.values()])
+            writer.write(json.dumps(row) + '\n')
+            writer.flush()
+        else:
+            for i, chunk in enumerate(chunks):
+                new_segment = copy.deepcopy(info)
+                id = info['segment_id']
+                new_segment['segment_id'] = id + f'_{i}'
+              
+                filepath = seg_dir + f'\\{id}_{i}.wav'
+                new_segment['segment'] = filepath
+                new_segment['text'] = '""' + info['text'] + '""'
+                wav = chunk['waveform'].squeeze(0).cpu().numpy()
+                duration = len(wav) / 16000
+                if duration < 1.0:
+                    continue
+                new_segment['segment_duration'] = duration
+                row = ",".join([str(item) for item in new_segment.values()])
+                writer.write(json.dumps(row) + '\n')
+                writer.flush()
+
+                print(f'Changed segment: {id}')
+                
+                sf.write(filepath, wav, 16000)
+
+                
+

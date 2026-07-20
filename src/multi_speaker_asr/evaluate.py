@@ -2,6 +2,7 @@ from multi_speaker_asr.data import AudioData, SegmentedData, clean_transcription
 from multi_speaker_asr.models.asr import WhisperPipeline, RoestASR
 from pyannote.audio.pipelines.utils.hook import ProgressHook
 from multi_speaker_asr.models.diarization import Diarize, assign_word_speakers, RollingClusters
+from datasets import Dataset
 from multi_speaker_asr.models.alignment import Wav2Vec2
 import torch
 from multi_speaker_asr.utils.utils import LOGGING_CONFIG, profile
@@ -23,7 +24,6 @@ from scipy.spatial.distance import cdist
 import numpy as np
 import librosa
 from carbontracker.tracker import CarbonTracker
-from datasets import load_dataset, Dataset, Audio
 
 
 
@@ -34,23 +34,19 @@ logger = logging.getLogger(name='Evaluate')
 proc = psutil.Process(os.getpid())
 
 
+def warmup(inference_fn, model, init_input, num_runs, cleanup=False):
+    metadata = Dataset.from_csv(init_input).to_iterable_dataset()
+    dataset = AudioDataset(metadata=metadata, mode='segments')
+    loader = DataLoader(dataset=dataset, batch_size=3, shuffle=False, num_workers=1, collate_fn=dataset.collator)
+    start_time = time.perf_counter()
+    _ = inference_fn(None, loader, model, num_runs, True)
+    return time.perf_counter() -start_time
+    
 
-def evaluate_inference(config, max_epochs=3):
-    if config['dataset_location'] == 'remote': # The dataset is loaded from remote, e.g. Huggingface
-        metadata = load_dataset('CoRal-project/coral-v3', 'conversation', split='test', streaming=True)
-        metadata = metadata.cast_column('audio', Audio(decode=False))
-        metadata = metadata.rename_column('id_conversation', 'audio_id')
-        metadata = metadata.rename_column('audio', 'segment')
-    elif config['dataset_location'] == 'local':
-        metadata = Dataset.from_csv(config['metadata']).to_iterable_dataset()
-    else:
-        raise ValueError('Unknown dataset_mode passed...')
 
-    dataset = AudioDataset(metadata=metadata, mode=config['dataset_mode'])
-    loader = DataLoader(dataset=dataset, batch_size=config['batch_size'], shuffle=False, num_workers=1, collate_fn=dataset.collator)
 
-    model = RoestASR(model_type=config['model_type'], batch_size=config['batch_size'], backend=config['backend_type'])
-    model.load()
+def evaluate_inference(output_filepath, loader, model, max_epochs=3, warmup=False):
+    
     tracker = CarbonTracker(epochs=max_epochs)
     try:
         with torch.inference_mode():
@@ -67,21 +63,29 @@ def evaluate_inference(config, max_epochs=3):
                     output = model.transcribe(audio_batch=audio_batch, metadata=metadata, return_timestamps=False)
                     asr_walltime = perf_counter() - asr_walltime_start
                     asr_cputime = process_time() - asr_cputime_start
+                    
+                    if warmup:
+                        continue
+                    
                     logger.info(
                             "ASR Module... Epoch: %i, RSS: %.2f GB",
                             epoch,
                             proc.memory_info().rss / (1024**3)
                         )
                     logger.info('ASR... Epoch: %i, Walltime: %f CPU time: %f', epoch, asr_walltime, asr_cputime)
-                    with open(config['asr_filepath'], 'a') as writer:
-                        results = [{'metadata': data, 'output': out} for data, out in zip(metadata, output)]
+                    with open(output_filepath, 'a') as writer:
+                        results = [{
+                            'metadata': data, 
+                            'output': out,
+                            'wer': wer(reference=clean_transcription(data['text']), hypothesis=clean_transcription(out)),
+                            'cer': cer(reference=clean_transcription(data['text']), hypothesis=clean_transcription(out))
+                            } for data, out in zip(metadata, output)]
                         writer.write(json.dumps(results) + '\n')
                         writer.flush()
                 tracker.epoch_end()
     except Exception as e:
         logger.error('Failed with error: %s', e)
     finally:
-        del dataset
         del loader
         del model
         gc.collect()

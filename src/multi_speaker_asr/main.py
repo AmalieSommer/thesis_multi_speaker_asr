@@ -3,7 +3,8 @@ import os
 from multi_speaker_asr.evaluate import (
     asr_inference,
     aligner_inference,
-    evaluate_inference
+    evaluate_inference,
+    warmup
     )
 import torch
 from tqdm import tqdm
@@ -13,7 +14,12 @@ import argparse
 import logging
 import logging.config
 import timeit
-from multi_speaker_asr.data import AudioData
+from multi_speaker_asr.data import AudioData, AudioDataset
+from datasets import load_dataset, Dataset, Audio
+from torch.utils.data import DataLoader
+from multi_speaker_asr.models.asr import RoestASR
+
+
  
 
 
@@ -72,9 +78,37 @@ def run_alignment(config):
         config['asr_output_filename']
     )
 
+
+def exp_1(config):
+    if config['dataset_location'] == 'remote': # The dataset is loaded from remote, e.g. Huggingface
+        metadata = load_dataset('CoRal-project/coral-v3', 'conversation', split='test', streaming=True)
+        metadata = metadata.cast_column('audio', Audio(decode=False))
+        metadata = metadata.rename_column('id_conversation', 'audio_id')
+        metadata = metadata.rename_column('audio', 'segment')
+    elif config['dataset_location'] == 'local':
+        metadata = Dataset.from_csv(config['metadata']).to_iterable_dataset()
+    else:
+        raise ValueError('Unknown dataset_mode passed...')
+
+    dataset = AudioDataset(metadata=metadata, mode=config['dataset_mode'])
+    loader = DataLoader(dataset=dataset, batch_size=config['batch_size'], shuffle=False, num_workers=1, collate_fn=dataset.collator)
+
+    model = RoestASR(model_type=config['model_type'], batch_size=config['batch_size'], backend=config['backend_type'])
+    model.load()
+    
+    # Initialize warmup before starting the actual tests:
+    warmup(
+        evaluate_inference,
+        model,
+        'L:\\Auditdata\\Wrist Angel - Video\\Amalie Sommer\\repo\\thesis_multi_speaker_asr\\data\\_audio_test_splt\\metadata.csv',
+        3,
+        False
+    )
+
+    evaluate_inference(output_filepath=config['asr_filepath'], loader=loader, model=model, warmup=False)
+
+
 if __name__=='__main__':
     config_file = load_config()
-    evaluate_inference(config=config_file)
+    exp_1(config=config_file)
     
-    #run_asr(config=config_file)
-    #run_alignment(config=config_file)
