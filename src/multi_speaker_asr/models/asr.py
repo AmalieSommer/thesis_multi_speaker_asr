@@ -11,7 +11,7 @@ from typing import Any, Generator
 from ..utils.utils import profile, LOGGING_CONFIG
 import logging
 import logging.config
-from .engines import BaseEngine, CT2, OnnxEngine, PytorchEngine
+from .engines import BaseEngine, CT2, OnnxEngine, PytorchEngine, WhisperConfig, AutoConfig
 from transformers import GenerationConfig
 from pathlib import Path
 
@@ -66,10 +66,10 @@ class RoestASR:
             if compute_type == 'int8':
                 weights_q = qint8
 
-            generation_config = GenerationConfig.from_pretrained(self.engine.model_path)
-            generation_config.language = self.engine.language
-            generation_config.task = self.engine.task
-            generation_config.save_pretrained(Path(str(self.engine.local_models_dir), 'generation_config.json'))
+            if self.model_type == 'whisper':
+                self.engine.model.generation_config.save_pretrained(save_directory=Path(str(self.engine.local_models_dir)), config_file_name='generation_config.json')
+                self.engine.model.config.save_pretrained(save_directory=Path(str(self.engine.local_models_dir)), config_file_name='config.json')
+                self.engine.processor.save_pretrained(save_directory=Path(str(self.engine.local_models_dir)))
             
             quantize(model=self.engine.model, weights=weights_q, activations=activations_q)
             freeze(model=self.engine.model)
