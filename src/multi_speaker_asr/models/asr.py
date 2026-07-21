@@ -1,7 +1,10 @@
 import numpy as np
+import json
 from faster_whisper import WhisperModel, BatchedInferencePipeline
 from faster_whisper.audio import pad_or_trim
 from faster_whisper.tokenizer import Tokenizer
+from optimum.quanto import quantize, qint8, qtype, freeze, quantization_map
+from safetensors.torch import save_file
 from faster_whisper.transcribe import Segment, TranscriptionInfo, TranscriptionOptions, get_suppressed_tokens
 from ..utils.vad import VAD
 from typing import Any, Generator
@@ -9,6 +12,8 @@ from ..utils.utils import profile, LOGGING_CONFIG
 import logging
 import logging.config
 from .engines import BaseEngine, CT2, OnnxEngine, PytorchEngine
+from transformers import GenerationConfig
+from pathlib import Path
 
 logging.config.dictConfig(LOGGING_CONFIG)
 logger = logging.getLogger(name='ASR')
@@ -20,11 +25,13 @@ class RoestASR:
         self.model_type = model_type
         self.backend = backend    
     
-    def load(self, compute_type: str = 'int8', cpu_threads: int = 6, quantization: bool = False):
+    def load(self, compute_type: str = 'int8', cpu_threads: int = 6, use_saved_model: bool = False, local_models_dir: str = None):
         if self.model_type == 'wav2vec2':
             model_path = 'CoRal-project/roest-v3-wav2vec2-315m'
         elif self.model_type == 'whisper':
             model_path = 'CoRal-project/roest-v3-whisper-1.5b'
+        elif use_saved_model:
+            model_path = local_models_dir
         else:
             raise ValueError('Unknown model type...')
         
@@ -36,11 +43,15 @@ class RoestASR:
         elif self.backend == 'onnx':
             self.engine = OnnxEngine(model_path=model_path)
         elif self.backend == 'torch':
-            self.engine = PytorchEngine(model_path=model_path, model_type=self.model_type, quantization=quantization, cpu_threads=cpu_threads)
+            self.engine = PytorchEngine(
+                model_path=model_path, 
+                use_saved_model=use_saved_model,
+                local_models_dir=local_models_dir,
+                model_type=self.model_type,
+                cpu_threads=cpu_threads
+                )
         else:
             self.engine = BaseEngine(model_path=model_path)
-        
-
 
     def transcribe(self, audio_batch, metadata, return_timestamps=False, language='da'):
         if not isinstance(audio_batch, (list, tuple)):
@@ -51,6 +62,25 @@ class RoestASR:
         else:
             raise ValueError('Unknown model_type...')
         
+    def saved_quantized_model(self, compute_type: str = 'int8', weights_q: qtype = None, activations_q: qtype = None):
+            if compute_type == 'int8':
+                weights_q = qint8
+
+            generation_config = GenerationConfig.from_pretrained(self.engine.model_path)
+            generation_config.language = self.engine.language
+            generation_config.task = self.engine.task
+            generation_config.save_pretrained(Path(str(self.engine.local_models_dir), 'generation_config.json'))
+            
+            quantize(model=self.engine.model, weights=weights_q, activations=activations_q)
+            freeze(model=self.engine.model)
+
+            save_file(self.engine.model.state_dict(), Path(str(self.engine.local_models_dir), 'model.safetensors'))
+            with open(Path(str(self.engine.local_models_dir), 'quantization_map.json'), 'w') as file:
+                json.dump(quantization_map(self.engine.model), file)
+
+
+
+
 
 class WhisperPipeline(BatchedInferencePipeline):
     """

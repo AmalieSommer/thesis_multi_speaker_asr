@@ -17,7 +17,7 @@ LOGGING_CONFIG = {
         'file': {
             'level': 'DEBUG',
             'class': 'logging.FileHandler',
-            'filename': 'src/hpc_results/experiment_1/accuracy_performance/wav2vec2/pipeline_performance.log',
+            'filename': 'pipeline_performance.log',
             'formatter': 'default',
         },
         'stdout': {
@@ -57,6 +57,11 @@ LOGGING_CONFIG = {
             'level': 'DEBUG',
             'propagate': True,
         },
+        'Engine': {
+            'handlers': ['file', 'stdout'],
+            'level': 'DEBUG',
+            'propagate': True,
+        }
     },
 }
 
