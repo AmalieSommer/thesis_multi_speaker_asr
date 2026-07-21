@@ -11,7 +11,7 @@ from typing import Any, Generator
 from ..utils.utils import profile, LOGGING_CONFIG
 import logging
 import logging.config
-from .engines import BaseEngine, CT2, OnnxEngine, PytorchEngine
+from .engines import BaseEngine, CT2, OnnxEngine, PytorchEngine, WhisperConfig, AutoConfig
 from transformers import GenerationConfig
 from pathlib import Path
 

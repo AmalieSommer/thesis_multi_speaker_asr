@@ -97,16 +97,19 @@ class PytorchEngine(BaseEngine):
                 if self.model_type == 'whisper':
                     config = WhisperConfig.from_pretrained(self.model_path)
                     model = WhisperForConditionalGeneration(config=config)
+                    model.generation_config = GenerationConfig.from_pretrained(Path(str(self.local_models_dir), 'generation_config.json'))
                 elif self.model_type == 'wav2vec2':
                     config = AutoConfig.from_pretrained(self.model_path)
                     model = AutoModelForCTC.from_config(config=config)
                 
-                model.generation_config = GenerationConfig.from_pretrained(Path(str(self.local_models_dir), 'generation_config.json'))
+                
                 requantize(model, state_dict, quantization_map, device=torch.device('cpu'))
         else:
             # Else load the standard model:          
             if self.model_type == 'whisper':
                 model = WhisperForConditionalGeneration.from_pretrained(**fun_args)
+                model.generation_config.language = 'da'
+                model.generation_config.task = 'transcribe'
             elif self.model_type == 'wav2vec2':
                 model = AutoModelForCTC.from_pretrained(**fun_args)
 
