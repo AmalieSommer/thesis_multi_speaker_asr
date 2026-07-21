@@ -1,10 +1,18 @@
 from optimum.onnxruntime import ORTModelForSpeechSeq2Seq
-from transformers import pipeline, AutoModelForSpeechSeq2Seq, Wav2Vec2Processor, AutoModelForCTC, AutoProcessor, WhisperForConditionalGeneration, BitsAndBytesConfig
+from transformers import pipeline, AutoModelForSpeechSeq2Seq, Wav2Vec2Processor, AutoModelForCTC, AutoProcessor, WhisperForConditionalGeneration, QuantoConfig, WhisperProcessor
 from faster_whisper import WhisperModel
 import numpy as np
 import torch
+from ..utils.utils import profile, LOGGING_CONFIG
+import logging
+import logging.config
+logging.config.dictConfig(LOGGING_CONFIG)
 
 class BaseEngine:
+
+    logger = logging.getLogger(name='Engine')
+
+
     def __init__(self, model_path: str, device: str = 'cpu', sr: int = 16000):
         self.model_path = model_path
         self.device = device
@@ -13,11 +21,16 @@ class BaseEngine:
         self.processor = self.load_processor()
         self.model = self.load_model()
 
+        model_memory = self.load_model.memory_stats[0]
+        self.logger.info('Type: %s. Memory Stats of Model...: Before load: %f, After load: %f, Delta: %f', model_memory['before'], model_memory['after'], model_memory['delta'])
+        processor_memory = self.load_processor.memory_stats[0]
+        self.logger.info('Type: %s. Memory Stats of Processor...: Before load: %f, After load: %f, Delta: %f', processor_memory['before'], processor_memory['after'], processor_memory['delta'])
 
+    @profile
     def load_processor(self):
         return AutoProcessor.from_pretrained(self.model_path)
 
-
+    @profile
     def load_model(self):
         return AutoModelForSpeechSeq2Seq.from_pretrained(self.model_path)
 
@@ -36,32 +49,37 @@ class BaseEngine:
     
 
 class PytorchEngine(BaseEngine):
-    def __init__(self, model_path, device = 'cpu', model_type: str = 'whisper'):
+    def __init__(self, model_path, device = 'cpu', model_type: str = 'whisper', quantization: bool = False):
         self.model_type = model_type
+        self.quantization = quantization
         super().__init__(model_path, device)
 
-    def load_model(self, quantized: bool = False):
+    @profile
+    def load_model(self):
+        fun_args = {'pretrained_model_name_or_path': self.model_path, 'device_map': self.device}
+        if self.quantization:
+            fun_args['quantization_config'] = QuantoConfig(weights="int8")
         if self.model_type == 'whisper':
-            quantization_config = BitsAndBytesConfig(load_in_8bit=quantized)
-            return WhisperForConditionalGeneration.from_pretrained(
-                pretrained_model_name_or_path=self.model_path,
-                quantization_config=quantization_config
-                )
+            return WhisperForConditionalGeneration.from_pretrained(**fun_args)
         elif self.model_type == 'wav2vec2':
-            return AutoModelForCTC.from_pretrained("CoRal-project/roest-v3-wav2vec2-315m")
-        
+            return AutoModelForCTC.from_pretrained(**fun_args)
+
+    @profile
     def load_processor(self):
-        if self.model_type == 'wav2vec2':
-            return Wav2Vec2Processor.from_pretrained("CoRal-project/roest-v3-wav2vec2-315m")
+        if self.model_type == 'whisper':
+            return WhisperProcessor.from_pretrained(self.model_path)
+        elif self.model_type == 'wav2vec2':
+            return Wav2Vec2Processor.from_pretrained(self.model_path)
         else: 
             return super().load_processor() 
 
     def transcribe(self, audio, language='da'):
         if self.model_type == 'whisper':
             # Run audio through processor to get features and generate token ids
-            input_features = self.processor(audio, sampling_rate=self.sr, return_tensors='pt', padding=True).input_features
-            pred_ids = self.model.generate(input_features)
-
+            forced_decoder_ids = self.processor.get_decoder_prompt_ids(language=language, task="transcribe")
+            inputs = self.processor(audio, sampling_rate=self.sr, return_tensors='pt', padding=True, return_attention_mask=True)
+            with torch.no_grad():
+                pred_ids = self.model.generate(inputs.input_features, attention_mask=inputs.attention_mask)
             # Decode token ids back to text
             transcription = self.processor.batch_decode(pred_ids, skip_special_tokens=True)
         elif self.model_type == 'wav2vec2':

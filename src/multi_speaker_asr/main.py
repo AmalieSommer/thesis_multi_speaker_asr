@@ -94,8 +94,8 @@ def exp_1(config):
     loader = DataLoader(dataset=dataset, batch_size=config['batch_size'], shuffle=False, num_workers=1, collate_fn=dataset.collator)
 
     model = RoestASR(model_type=config['model_type'], batch_size=config['batch_size'], backend=config['backend_type'])
-    model.load()
-    
+    model.load(quantization=config['quantization'])
+    """
     # Initialize warmup before starting the actual tests:
     warmup(
         evaluate_inference,
@@ -104,6 +104,7 @@ def exp_1(config):
         3,
         False
     )
+    """
 
     evaluate_inference(output_filepath=config['asr_filepath'], loader=loader, model=model, warmup=False)
 
