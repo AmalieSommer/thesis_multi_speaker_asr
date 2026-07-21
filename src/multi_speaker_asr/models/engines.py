@@ -47,8 +47,8 @@ class BaseEngine:
     
 
 class PytorchEngine(BaseEngine):
-    def __init__(self, model_path, device = 'cpu', model_type: str = 'whisper', quantization: bool = False):
-        
+    def __init__(self, model_path, device = 'cpu', model_type: str = 'whisper', quantization: bool = False, cpu_threads: int = 4):
+        torch.set_num_threads(cpu_threads) # To limit amount of context switching...
         self.model_type = model_type
         self.quantization = quantization
         super().__init__(model_path, device)

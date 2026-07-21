@@ -20,7 +20,7 @@ class RoestASR:
         self.model_type = model_type
         self.backend = backend    
     
-    def load(self, compute_type: str = 'int8', cpu_threads: int = 10, quantization: bool = False):
+    def load(self, compute_type: str = 'int8', cpu_threads: int = 6, quantization: bool = False):
         if self.model_type == 'wav2vec2':
             model_path = 'CoRal-project/roest-v3-wav2vec2-315m'
         elif self.model_type == 'whisper':
@@ -36,7 +36,7 @@ class RoestASR:
         elif self.backend == 'onnx':
             self.engine = OnnxEngine(model_path=model_path)
         elif self.backend == 'torch':
-            self.engine = PytorchEngine(model_path=model_path, model_type=self.model_type, quantization=quantization)
+            self.engine = PytorchEngine(model_path=model_path, model_type=self.model_type, quantization=quantization, cpu_threads=cpu_threads)
         else:
             self.engine = BaseEngine(model_path=model_path)
         
