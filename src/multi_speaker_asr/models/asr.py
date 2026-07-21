@@ -66,15 +66,13 @@ class RoestASR:
             if compute_type == 'int8':
                 weights_q = qint8
 
-            generation_config = GenerationConfig.from_pretrained(self.engine.model_path)
-            generation_config.language = self.engine.language
-            generation_config.task = self.engine.task
-            generation_config.save_pretrained(Path(str(self.engine.local_models_dir), 'generation_config.json'))
-            
             quantize(model=self.engine.model, weights=weights_q, activations=activations_q)
             freeze(model=self.engine.model)
 
-            save_file(self.engine.model.state_dict(), Path(str(self.engine.local_models_dir), 'model.safetensors'))
+            self.engine.model.save_pretrained(self.engine.local_models_dir)
+            self.engine.processor.save_pretrained(self.engine.local_models_dir)
+
+            #save_file(self.engine.model.state_dict(), Path(str(self.engine.local_models_dir), 'model.safetensors'))
             with open(Path(str(self.engine.local_models_dir), 'quantization_map.json'), 'w') as file:
                 json.dump(quantization_map(self.engine.model), file)
 
