@@ -11,7 +11,7 @@ import logging.config
 from .engines import BaseEngine, CT2, OnnxEngine, PytorchEngine
 
 logging.config.dictConfig(LOGGING_CONFIG)
-
+logger = logging.getLogger(name='ASR')
 
 class RoestASR:
     def __init__(self, model_type: str, backend: str, device: str = 'cpu', batch_size=4):

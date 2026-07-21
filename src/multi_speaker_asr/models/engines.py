@@ -6,25 +6,23 @@ import torch
 from ..utils.utils import profile, LOGGING_CONFIG
 import logging
 import logging.config
+
 logging.config.dictConfig(LOGGING_CONFIG)
+logger = logging.getLogger(name='Engine')
 
 class BaseEngine:
-
-    logger = logging.getLogger(name='Engine')
-
-
     def __init__(self, model_path: str, device: str = 'cpu', sr: int = 16000):
         self.model_path = model_path
         self.device = device
         self.sr = sr
 
         self.processor = self.load_processor()
-        self.model = self.load_model()
-
-        model_memory = self.load_model.memory_stats[0]
-        self.logger.info('Type: %s. Memory Stats of Model...: Before load: %f, After load: %f, Delta: %f', model_memory['before'], model_memory['after'], model_memory['delta'])
         processor_memory = self.load_processor.memory_stats[0]
-        self.logger.info('Type: %s. Memory Stats of Processor...: Before load: %f, After load: %f, Delta: %f', processor_memory['before'], processor_memory['after'], processor_memory['delta'])
+        logger.info('Type: %s. Memory Stats of Processor...: Before load: %f, After load: %f, Delta: %f', self.model_type, processor_memory['before'], processor_memory['after'], processor_memory['delta'])
+
+        self.model = self.load_model()
+        model_memory = self.load_model.memory_stats[0]
+        logger.info('Type: %s. Memory Stats of Model...: Before load: %f, After load: %f, Delta: %f', self.model_type, model_memory['before'], model_memory['after'], model_memory['delta'])
 
     @profile
     def load_processor(self):
@@ -50,9 +48,11 @@ class BaseEngine:
 
 class PytorchEngine(BaseEngine):
     def __init__(self, model_path, device = 'cpu', model_type: str = 'whisper', quantization: bool = False):
+        
         self.model_type = model_type
         self.quantization = quantization
         super().__init__(model_path, device)
+
 
     @profile
     def load_model(self):
@@ -76,10 +76,14 @@ class PytorchEngine(BaseEngine):
     def transcribe(self, audio, language='da'):
         if self.model_type == 'whisper':
             # Run audio through processor to get features and generate token ids
-            forced_decoder_ids = self.processor.get_decoder_prompt_ids(language=language, task="transcribe")
-            inputs = self.processor(audio, sampling_rate=self.sr, return_tensors='pt', padding=True, return_attention_mask=True)
+            inputs = self.processor(audio, sampling_rate=self.sr, return_tensors='pt', return_attention_mask=True)
             with torch.no_grad():
-                pred_ids = self.model.generate(inputs.input_features, attention_mask=inputs.attention_mask)
+                pred_ids = self.model.generate(
+                    inputs.input_features, 
+                    attention_mask=inputs.attention_mask,
+                    task='transcribe',
+                    language=language
+                    )
             # Decode token ids back to text
             transcription = self.processor.batch_decode(pred_ids, skip_special_tokens=True)
         elif self.model_type == 'wav2vec2':

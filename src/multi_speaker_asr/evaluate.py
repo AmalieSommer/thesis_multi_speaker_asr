@@ -85,10 +85,7 @@ def evaluate_inference(output_filepath, loader, model, max_epochs=3, warmup=Fals
                 tracker.epoch_end()
     except Exception as e:
         logger.error('Failed with error: %s', e)
-    finally:
-        del loader
-        del model
-        gc.collect()
+    
 
 
 
