@@ -17,7 +17,7 @@ LOGGING_CONFIG = {
         'file': {
             'level': 'DEBUG',
             'class': 'logging.FileHandler',
-            'filename': 'data\\results\\cpu_threads_10\\run_3pipeline_performance.log',
+            'filename': 'src/hpc_results/experiment_1/accuracy_performance/wav2vec2/pipeline_performance.log',
             'formatter': 'default',
         },
         'stdout': {
