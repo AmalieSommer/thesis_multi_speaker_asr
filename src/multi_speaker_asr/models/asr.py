@@ -1,17 +1,26 @@
 import numpy as np
+import json
 from faster_whisper import WhisperModel, BatchedInferencePipeline
 from faster_whisper.audio import pad_or_trim
 from faster_whisper.tokenizer import Tokenizer
+from optimum.quanto import quantize, qint8, qtype, freeze, quantization_map
+from safetensors.torch import save_file
 from faster_whisper.transcribe import Segment, TranscriptionInfo, TranscriptionOptions, get_suppressed_tokens
 from ..utils.vad import VAD
 from typing import Any, Generator
-from ..utils.utils import profile, LOGGING_CONFIG
+from ..utils.utils import profile, LOGGING_CONFIG, save_asr_results
+import torch
 import logging
 import logging.config
 from .engines import BaseEngine, CT2, OnnxEngine, PytorchEngine
+from transformers import Wav2Vec2ProcessorWithLM
+from pathlib import Path
+import os
+import pickle
+from safetensors.torch import save_file
 
 logging.config.dictConfig(LOGGING_CONFIG)
-
+logger = logging.getLogger(name='ASR')
 
 class RoestASR:
     def __init__(self, model_type: str, backend: str, device: str = 'cpu', batch_size=4):
@@ -20,11 +29,13 @@ class RoestASR:
         self.model_type = model_type
         self.backend = backend    
     
-    def load(self, compute_type: str = 'int8', cpu_threads: int = 10):
+    def load(self, compute_type: str = 'int8', cpu_threads: int = 6, use_saved_model: bool = False, local_models_dir: str = None):
         if self.model_type == 'wav2vec2':
             model_path = 'CoRal-project/roest-v3-wav2vec2-315m'
         elif self.model_type == 'whisper':
             model_path = 'CoRal-project/roest-v3-whisper-1.5b'
+        elif use_saved_model:
+            model_path = local_models_dir
         else:
             raise ValueError('Unknown model type...')
         
@@ -36,21 +47,47 @@ class RoestASR:
         elif self.backend == 'onnx':
             self.engine = OnnxEngine(model_path=model_path)
         elif self.backend == 'torch':
-            self.engine = PytorchEngine(model_path=model_path, model_type=self.model_type)
+            self.engine = PytorchEngine(
+                model_path=model_path, 
+                use_saved_model=use_saved_model,
+                local_models_dir=local_models_dir,
+                model_type=self.model_type,
+                cpu_threads=cpu_threads,
+                compute_type=compute_type
+                )
         else:
             self.engine = BaseEngine(model_path=model_path)
-        
-
 
     def transcribe(self, audio_batch, metadata, return_timestamps=False, language='da'):
         if not isinstance(audio_batch, (list, tuple)):
                 audio_batch = [audio_batch]
 
-        if self.model_type in ('whisper', 'wav2vec2'):
-            return self.engine.transcribe(audio_batch)
+        if self.model_type == 'whisper':
+            return self.engine.transcribe(audio_batch, language)
+        elif self.model_type == 'wav2vec2':
+            return self.engine.transcribe(audio_batch, language)
+            
         else:
             raise ValueError('Unknown model_type...')
+
         
+    def save_quantized_model(self, compute_type: str = 'int8', weights_q: qtype = None):
+
+        quantize(model=self.engine.model, weights=weights_q)
+        freeze(model=self.engine.model)
+
+        dir_path = os.path.join(self.engine.local_models_dir, compute_type)
+        if not os.path.exists(dir_path):
+            os.makedirs(dir_path)
+        
+        #torch.save(self.engine.model.state_dict(), os.path.join(dir_path, 'model.safetensors'))
+        #save_file(self.engine.model.state_dict(), os.path.join(dir_path, 'model.safetensors'))
+        with open(os.path.join(dir_path, 'quantization_map.json'), 'w') as f:
+            json.dump(quantization_map(self.engine.model), f)
+
+        self.engine.model.save_pretrained(dir_path)
+        self.engine.processor.save_pretrained(dir_path)
+
 
 class WhisperPipeline(BatchedInferencePipeline):
     """

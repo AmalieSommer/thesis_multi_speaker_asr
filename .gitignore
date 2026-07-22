@@ -6,11 +6,11 @@ mozdata/
 *.sh
 *.out
 *.err
-*.ipynb
 *.prof
 
+src/multi_speaker_asr/models/saved_models
+src/hpc_results
 /notebooks
-/src/hpc_results
 
 /pyproject.toml
 /uv.lock

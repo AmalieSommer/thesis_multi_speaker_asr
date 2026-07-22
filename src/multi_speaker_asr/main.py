@@ -18,6 +18,7 @@ from multi_speaker_asr.data import AudioData, AudioDataset
 from datasets import load_dataset, Dataset, Audio
 from torch.utils.data import DataLoader
 from multi_speaker_asr.models.asr import RoestASR
+from optimum.quanto import qint8, qint4, qint2
 
 
  
@@ -93,22 +94,27 @@ def exp_1(config):
     dataset = AudioDataset(metadata=metadata, mode=config['dataset_mode'])
     loader = DataLoader(dataset=dataset, batch_size=config['batch_size'], shuffle=False, num_workers=1, collate_fn=dataset.collator)
 
-    model = RoestASR(model_type=config['model_type'], batch_size=config['batch_size'], backend=config['backend_type'])
-    model.load()
-    
-    # Initialize warmup before starting the actual tests:
-    warmup(
-        evaluate_inference,
-        model,
-        'L:\\Auditdata\\Wrist Angel - Video\\Amalie Sommer\\repo\\thesis_multi_speaker_asr\\data\\_audio_test_splt\\metadata.csv',
-        3,
-        False
-    )
+    print(torch.__config__.show())
 
+    model = RoestASR(model_type=config['model_type'], batch_size=config['batch_size'], backend=config['backend_type'])
+    model.load(use_saved_model=config['use_saved_model'], compute_type=config['computetype'], local_models_dir=config['local_models_dir'])
+   
     evaluate_inference(output_filepath=config['asr_filepath'], loader=loader, model=model, warmup=False)
+
+
+
+def build_quantized_model(config):
+    model = RoestASR(model_type=config['model_type'], batch_size=config['batch_size'], backend=config['backend_type'])
+    model.load(local_models_dir=config['local_models_dir'], compute_type=config['computetype'])
+    model.save_quantized_model(compute_type=config['computetype'], weights_q=qint4)
+
 
 
 if __name__=='__main__':
     config_file = load_config()
-    exp_1(config=config_file)
+    if config_file['build_model']:
+        build_quantized_model(config=config_file)
+    else:
+        exp_1(config=config_file)
     
+    print('Finished...!')

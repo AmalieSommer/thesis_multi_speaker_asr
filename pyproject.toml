@@ -36,9 +36,12 @@ dependencies = [
     "jiwer",
     "pyannote-audio",
     "datasets",
-    "pyctcdecode>=0.5.0",
+    "whisperx",
     "optimum-onnx[onnxruntime]>=0.1.0",
+    "pyctcdecode>=0.5.0",
     "silero-vad>=6.2.1",
+    "optimum-quanto>=0.2.7",
+    "accelerate>=1.14.0",
 ]
 
 [dependency-groups]
