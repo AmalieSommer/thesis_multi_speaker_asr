@@ -51,7 +51,8 @@ class RoestASR:
                 use_saved_model=use_saved_model,
                 local_models_dir=local_models_dir,
                 model_type=self.model_type,
-                cpu_threads=cpu_threads
+                cpu_threads=cpu_threads,
+                compute_type=compute_type
                 )
         else:
             self.engine = BaseEngine(model_path=model_path)
@@ -70,17 +71,19 @@ class RoestASR:
 
         
     def save_quantized_model(self, compute_type: str = 'int8', weights_q: qtype = None):
-        if compute_type == 'int8':
-            weights_q = qint8
 
         quantize(model=self.engine.model, weights=weights_q)
         freeze(model=self.engine.model)
 
-        with open(os.path.join(self.engine.local_models_dir, 'quantization_map.json'), 'w') as f:
+        dir_path = os.path.join(self.engine.local_models_dir, compute_type)
+        if not os.path.exists(dir_path):
+            os.makedirs(dir_path)
+            
+        with open(os.path.join(dir_path, 'quantization_map.json'), 'w') as f:
             json.dump(quantization_map(self.engine.model), f)
 
-        self.engine.model.save_pretrained(self.engine.local_models_dir)
-        self.engine.processor.save_pretrained(self.engine.local_models_dir)
+        self.engine.model.save_pretrained(dir_path)
+        self.engine.processor.save_pretrained(dir_path)
 
 
 class WhisperPipeline(BatchedInferencePipeline):

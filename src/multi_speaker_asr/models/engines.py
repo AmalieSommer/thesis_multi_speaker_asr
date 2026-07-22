@@ -72,10 +72,12 @@ class PytorchEngine(BaseEngine):
             model_type: str = 'whisper', 
             use_saved_model: bool = False,
             local_models_dir: str = None,
-            cpu_threads: int = 4
+            cpu_threads: int = 4,
+            compute_type: str = 'float32'
             ):
         torch.set_num_threads(cpu_threads) # To limit amount of context switching...
         self.model_type = model_type
+        self.compute_type = compute_type
         self.use_saved_model = use_saved_model
         self.local_models_dir = local_models_dir
         super().__init__(model_path, device)
@@ -94,8 +96,9 @@ class PytorchEngine(BaseEngine):
                 config = AutoConfig.from_pretrained(self.local_models_dir)
                 model = AutoModelForCTC.from_config(config=config)
 
-            state_dict = load_file(os.path.join(self.local_models_dir, 'model.safetensors'))
-            with open(os.path.join(self.local_models_dir, 'quantization_map.json'), 'r') as f:
+            dir_path = os.path.join(self.local_models_dir,self.compute_type)
+            state_dict = load_file(os.path.join(dir_path, 'model.safetensors'))
+            with open(os.path.join(dir_path, 'quantization_map.json'), 'r') as f:
                 quantization_map = json.load(f)
             requantize(model=model, state_dict=state_dict, quantization_map=quantization_map, device=self.device)
         else:
