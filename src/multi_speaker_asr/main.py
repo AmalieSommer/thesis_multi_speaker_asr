@@ -4,7 +4,8 @@ from multi_speaker_asr.evaluate import (
     asr_inference,
     aligner_inference,
     evaluate_inference,
-    warmup
+    warmup,
+    diarize_inference
     )
 import torch
 from tqdm import tqdm
@@ -102,11 +103,19 @@ def exp_1(config):
     evaluate_inference(output_filepath=config['asr_filepath'], loader=loader, model=model, warmup=False)
 
 
+def exp_2(config: yaml):
+    if config['dataset_location'] == 'local':
+        metadata = Dataset.from_csv(config['metadata']).to_iterable_dataset()
+    dataset = AudioDataset(metadata=metadata, mode=config['dataset_mode'])
+    loader = DataLoader(dataset=dataset, batch_size=config['batch_size'], shuffle=False, num_workers=1, collate_fn=dataset.collator)
+
+    diarize_inference(data=loader, clip_timestamps=True, write_file=config['filepath'])
+
 
 def build_quantized_model(config):
     model = RoestASR(model_type=config['model_type'], batch_size=config['batch_size'], backend=config['backend_type'])
     model.load(local_models_dir=config['local_models_dir'], compute_type=config['computetype'])
-    model.save_quantized_model(compute_type=config['computetype'], weights_q=qint4)
+    model.save_quantized_model(compute_type=config['computetype'], weights_q=qint8)
 
 
 
@@ -115,6 +124,6 @@ if __name__=='__main__':
     if config_file['build_model']:
         build_quantized_model(config=config_file)
     else:
-        exp_1(config=config_file)
+        exp_2(config=config_file)
     
     print('Finished...!')

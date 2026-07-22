@@ -1,4 +1,4 @@
-from multi_speaker_asr.data import AudioData, SegmentedData, AudioDataset
+from multi_speaker_asr.data import AudioDataset, Audio, AudioData
 from multi_speaker_asr.models.asr import WhisperPipeline, RoestASR
 from pyannote.audio.pipelines.utils.hook import ProgressHook
 from multi_speaker_asr.models.diarization import Diarize, assign_word_speakers, RollingClusters
@@ -402,12 +402,11 @@ def aligner_inference(
 
 
 def diarize_inference(
-        id_to_audio: dict,
+        data: AudioDataset,
         vad_filter: bool = False,
         clip_timestamps: bool = False,
         model='CoRal-project/roest-v3-wav2vec2-315m', 
         write_file='align_output_longer_int8.jsonl',
-        read_file='asr_output_longer_int8.jsonl',
         max_speakers=5
     ):
 
@@ -417,20 +416,17 @@ def diarize_inference(
         pipeline.load()
         
         with torch.inference_mode():
-            for epoch in range(MAX_EPOCHS):
-                tracker = CarbonTracker(MAX_EPOCHS)
-                tracker.epoch_start()
-                iter = 0
-                batch_num = 0
-                with open(write_file, 'a') as writer, open(read_file, 'r') as reader:
-                    for line in reader:
-                        sample = json.loads(line)
-                        audio_path = id_to_audio.get(sample['audio_id'])
-                        if not audio_path:
-                            continue
+            with open(write_file, 'w') as writer:
+                for epoch in range(MAX_EPOCHS):
+                    tracker = CarbonTracker(MAX_EPOCHS)
+                    tracker.epoch_start()
+                    iter = 0
+                    batch_num = 0
+                    for sample in data:
+                        audio = sample[0]
+                        metadata = sample[1]
 
-                        audio_segments = sample['segments']
-                        for segment in audio_segments:
+                        for segment in metadata:
                             # Split into subsegments of size 5 seconds with a small overlap of e.g. 0.5-1 second.
                             chunk_size = 30
                             overlap = 0.5
@@ -439,7 +435,7 @@ def diarize_inference(
                             clip_end = segment['end']
 
                             
-                            for chunk_offset, audio_chunk in fetch_audio_chunk(audio_path=sample['audio'], chunk_size=chunk_size, overlap=overlap, clip_offset=clip_start):
+                            for chunk_offset, audio_chunk in fetch_audio_chunk(audio_path=audio['audio'], chunk_size=chunk_size, overlap=overlap, clip_offset=clip_start):
                                 chunk_offset -= clip_start
                                 if chunk_offset >= (clip_end - clip_start):
                                     break

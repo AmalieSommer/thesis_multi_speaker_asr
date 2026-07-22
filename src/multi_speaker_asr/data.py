@@ -58,7 +58,7 @@ class AudioDataset(IterableDataset):
     
     def __iter__recordings(self):
         for sample in self.metadata:
-            if sample['segment_duration'] <= 1.0:
+            if 'segment_duration' in sample.keys() and sample['segment_duration'] <= 1.0:
                 # Skip audio segments that are too short...
                 continue
 
@@ -114,7 +114,9 @@ class AudioDataset(IterableDataset):
         metadata = [{
             'audio_id': b['audio_id'],
             'segment_id': b['segment_id'],
-            'text': b['text']
+            'text': b['text'],
+            'start': b['start'],
+            'end': b['end']
         } for b in batch]
         return audio_batch, metadata
 

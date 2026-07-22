@@ -32,7 +32,7 @@ class Diarize:
     def load(self, type='pyannote/speaker-diarization-3.0'):
         self.model = Pipeline.from_pretrained(
             type, 
-            token=HF_TOKEN
+            use_auth_token=HF_TOKEN
             )
         self.model.embedding_batch_size = 1
         
