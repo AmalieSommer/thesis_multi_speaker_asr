@@ -104,7 +104,7 @@ def exp_1(config):
 def build_quantized_model(config):
     model = RoestASR(model_type=config['model_type'], batch_size=config['batch_size'], backend=config['backend_type'])
     model.load(local_models_dir=config['local_models_dir'])
-    model.save_quantized_model(compute_type=config['computetype'])
+    model.save_quantized_model(compute_type=config['computetype'], weights_q=qint8)
 
 
 if __name__=='__main__':
