@@ -17,6 +17,7 @@ from transformers import Wav2Vec2ProcessorWithLM
 from pathlib import Path
 import os
 import pickle
+from safetensors.torch import save_file
 
 logging.config.dictConfig(LOGGING_CONFIG)
 logger = logging.getLogger(name='ASR')
@@ -78,7 +79,9 @@ class RoestASR:
         dir_path = os.path.join(self.engine.local_models_dir, compute_type)
         if not os.path.exists(dir_path):
             os.makedirs(dir_path)
-            
+        
+        #torch.save(self.engine.model.state_dict(), os.path.join(dir_path, 'model.safetensors'))
+        #save_file(self.engine.model.state_dict(), os.path.join(dir_path, 'model.safetensors'))
         with open(os.path.join(dir_path, 'quantization_map.json'), 'w') as f:
             json.dump(quantization_map(self.engine.model), f)
 
