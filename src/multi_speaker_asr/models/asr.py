@@ -8,12 +8,15 @@ from safetensors.torch import save_file
 from faster_whisper.transcribe import Segment, TranscriptionInfo, TranscriptionOptions, get_suppressed_tokens
 from ..utils.vad import VAD
 from typing import Any, Generator
-from ..utils.utils import profile, LOGGING_CONFIG
+from ..utils.utils import profile, LOGGING_CONFIG, save_asr_results
+import torch
 import logging
 import logging.config
-from .engines import BaseEngine, CT2, OnnxEngine, PytorchEngine, WhisperConfig, AutoConfig
-from transformers import GenerationConfig
+from .engines import BaseEngine, CT2, OnnxEngine, PytorchEngine
+from transformers import Wav2Vec2ProcessorWithLM
 from pathlib import Path
+import os
+import pickle
 
 logging.config.dictConfig(LOGGING_CONFIG)
 logger = logging.getLogger(name='ASR')
@@ -57,27 +60,27 @@ class RoestASR:
         if not isinstance(audio_batch, (list, tuple)):
                 audio_batch = [audio_batch]
 
-        if self.model_type in ('whisper', 'wav2vec2'):
+        if self.model_type == 'whisper':
             return self.engine.transcribe(audio_batch, language)
+        elif self.model_type == 'wav2vec2':
+            return self.engine.transcribe(audio_batch, language)
+            
         else:
             raise ValueError('Unknown model_type...')
+
         
-    def saved_quantized_model(self, compute_type: str = 'int8', weights_q: qtype = None, activations_q: qtype = None):
-            if compute_type == 'int8':
-                weights_q = qint8
+    def save_quantized_model(self, compute_type: str = 'int8', weights_q: qtype = None):
+        if compute_type == 'int8':
+            weights_q = qint8
 
-            quantize(model=self.engine.model, weights=weights_q, activations=activations_q)
-            freeze(model=self.engine.model)
+        quantize(model=self.engine.model, weights=weights_q)
+        freeze(model=self.engine.model)
 
-            self.engine.model.save_pretrained(self.engine.local_models_dir)
-            self.engine.processor.save_pretrained(self.engine.local_models_dir)
+        with open(os.path.join(self.engine.local_models_dir, 'quantization_map.json'), 'w') as f:
+            json.dump(quantization_map(self.engine.model), f)
 
-            #save_file(self.engine.model.state_dict(), Path(str(self.engine.local_models_dir), 'model.safetensors'))
-            with open(Path(str(self.engine.local_models_dir), 'quantization_map.json'), 'w') as file:
-                json.dump(quantization_map(self.engine.model), file)
-
-
-
+        self.engine.model.save_pretrained(self.engine.local_models_dir)
+        self.engine.processor.save_pretrained(self.engine.local_models_dir)
 
 
 class WhisperPipeline(BatchedInferencePipeline):

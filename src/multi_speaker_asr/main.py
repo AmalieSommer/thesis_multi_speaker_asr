@@ -100,15 +100,16 @@ def exp_1(config):
     evaluate_inference(output_filepath=config['asr_filepath'], loader=loader, model=model, warmup=False)
 
 
+
 def build_quantized_model(config):
     model = RoestASR(model_type=config['model_type'], batch_size=config['batch_size'], backend=config['backend_type'])
     model.load(local_models_dir=config['local_models_dir'])
-    model.saved_quantized_model(compute_type=config['computetype'])
+    model.save_quantized_model(compute_type=config['computetype'])
 
 
 if __name__=='__main__':
     config_file = load_config()
-    build_quantized_model(config=config_file)
+    #build_quantized_model(config=config_file)
     exp_1(config=config_file)
     print('Finished...!')
     

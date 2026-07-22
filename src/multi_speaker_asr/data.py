@@ -2,12 +2,11 @@ import os
 import librosa
 import re
 import io
-from num2words import num2words
 from datasets import load_dataset, Audio, Dataset
 from torch.utils.data import IterableDataset
 from faster_whisper.vad import VadOptions, get_speech_timestamps
 import soundfile as sf
-from multi_speaker_asr.utils.utils import profile, LOGGING_CONFIG
+from multi_speaker_asr.utils.utils import LOGGING_CONFIG
 from multi_speaker_asr.utils.vad import collect_audio_chunks, get_timestamps
 import logging
 import logging.config
@@ -145,7 +144,6 @@ class AudioData(IterableDataset):
         
         
 
-    @profile
     def load(self, path):
         """
         Loads a dataset either from local or online resource.
@@ -268,7 +266,6 @@ class SegmentedData(AudioData):
         self.target_sr = target_sr
         self.max_segment_duration = max_segment_duration
         
-    @profile
     def load(self, path: str = 'CoRal-project/coral-v3', name: str = 'conversation', split: str = 'test'):
         # If the path is from an online resource, then load it using datasets built-in function:
             self.ds = load_dataset(
@@ -414,29 +411,7 @@ def cast(object: dict):
     )
 """
 
-def clean_transcription(sentence: str):
-    """
-    Function to preprocess the ground truth and predicted transcripts before computing the performance using WER, CER etc...
-    Should standardize the text to lowercase, no punctuations or special characters.
-    It should also map all occurrences of numbers to textual representations using library function.
-    """
-    sentence = str.lower(sentence)
-    sentence = re.sub(r'-(?!\d)', '', sentence)             # Remove - that are not followed by a number
-    sentence = re.sub(r'(?<!\d)\.|\.?(?!\d)', '', sentence) # Remove . that are not enclosed by two numbers
-    sentence = re.sub(r'[^\w\s.-]', '', sentence)           # Remove all punctuation except for the - and .
-    sentence = re.sub(' +', ' ', sentence)                  # Replacing all duplicate spaces with single space.
-    
-    sentence_copy = str(sentence)
 
-    for s in sentence.split():
-        try: 
-            num = float(s)
-            word_rep = str(num2words(number=num))
-            sentence_copy = sentence_copy.replace(s, word_rep)
-        except ValueError as e:
-            continue
-
-    return sentence_copy
 
 
 

@@ -8,9 +8,10 @@ from transformers import (
     WhisperForConditionalGeneration, 
     WhisperProcessor, 
     WhisperConfig, 
-    AutoConfig,
-    GenerationConfig
+    AutoConfig
     )
+import os
+from pyctcdecode import build_ctcdecoder
 from optimum.quanto import requantize
 from safetensors.torch import save_file, load_file
 from faster_whisper import WhisperModel
@@ -82,34 +83,26 @@ class PytorchEngine(BaseEngine):
 
     @profile
     def load_model(self):
-        fun_args = {'pretrained_model_name_or_path': self.model_path, 'device_map': self.device}
         if self.use_saved_model:
-
             if self.local_models_dir is None:
                 raise ValueError('Missing path to local model...')
             
-            # Reload quantized model:
-            state_dict = load_file(Path(str(self.local_models_dir), 'model.safetensors'))
-            with open(Path(str(self.local_models_dir), 'quantization_map.json'), 'r') as file:
-                quantization_map = json.load(file)
-            
-            with torch.device('meta'):
-                if self.model_type == 'whisper':
-                    config = WhisperConfig.from_pretrained(self.model_path)
-                    model = WhisperForConditionalGeneration(config=config)
-                    model.generation_config = GenerationConfig.from_pretrained(Path(str(self.local_models_dir), 'generation_config.json'))
-                elif self.model_type == 'wav2vec2':
-                    config = AutoConfig.from_pretrained(self.model_path)
-                    model = AutoModelForCTC.from_config(config=config)
-                
-                
-                requantize(model, state_dict, quantization_map, device=torch.device('cpu'))
+            if self.model_type == 'whisper':
+                config = WhisperConfig.from_pretrained(self.local_models_dir)
+                model = WhisperForConditionalGeneration(config=config)
+            elif self.model_type == 'wav2vec2':
+                config = AutoConfig.from_pretrained(self.local_models_dir)
+                model = AutoModelForCTC.from_config(config=config)
+
+            state_dict = load_file(os.path.join(self.local_models_dir, 'model.safetensors'))
+            with open(os.path.join(self.local_models_dir, 'quantization_map.json'), 'r') as f:
+                quantization_map = json.load(f)
+            requantize(model=model, state_dict=state_dict, quantization_map=quantization_map, device=self.device)
         else:
+            fun_args = {'pretrained_model_name_or_path': self.model_path, 'device_map': self.device}
             # Else load the standard model:          
             if self.model_type == 'whisper':
                 model = WhisperForConditionalGeneration.from_pretrained(**fun_args)
-                model.generation_config.language = 'da'
-                model.generation_config.task = 'transcribe'
             elif self.model_type == 'wav2vec2':
                 model = AutoModelForCTC.from_pretrained(**fun_args)
 
@@ -118,12 +111,27 @@ class PytorchEngine(BaseEngine):
         
     @profile
     def load_processor(self):
+        if self.use_saved_model:
+            if self.local_models_dir is None:
+                raise ValueError('Missing path to local processor...')
+            path = self.local_models_dir
+        else:
+            path = self.model_path
+
         if self.model_type == 'whisper':
-            return WhisperProcessor.from_pretrained(self.model_path)
+            return WhisperProcessor.from_pretrained(path)
         elif self.model_type == 'wav2vec2':
-            return Wav2Vec2Processor.from_pretrained(self.model_path)
+            processor = Wav2Vec2Processor.from_pretrained(path)
+            print(processor.tokenizer.get_vocab())
+            vocab = processor.tokenizer.get_vocab()
+            sorted_vocab = [k for k, _ in sorted(vocab.items(), key=lambda x: x[1])]
+            self.ctc_decoder = build_ctcdecoder(
+                labels=sorted_vocab
+            )
+            return processor
         else: 
-            return super().load_processor() 
+            return super().load_processor()
+            
 
 
     def transcribe(self, audio, language='da'):
@@ -144,13 +152,14 @@ class PytorchEngine(BaseEngine):
             input_features = self.processor(audio, sampling_rate=self.sr, return_tensors='pt', padding=True)
             with torch.no_grad():
                 logits = self.model(input_features.input_values).logits
-            pred_ids = torch.argmax(logits, dim=-1)
-
-            # Decode token ids back to text
-            transcription = self.processor.batch_decode(pred_ids)
+            texts = []
+            for logit in logits:
+                logit = logit.cpu().numpy()
+                text = self.ctc_decoder.decode(logits=logit)
+                texts.append(text)
+            transcription = texts
         else:
             raise ValueError('Unknown model type...')
-        
         return transcription
 
 

@@ -4,6 +4,11 @@ from difflib import SequenceMatcher
 import re
 import psutil
 import os
+from num2words import num2words
+from jiwer import wer, cer
+import json
+import pickle
+
 
 LOGGING_CONFIG = {
     'version': 1,
@@ -122,3 +127,50 @@ def compute_ember(pred_emb, target_emb):
     seq = SequenceMatcher(None, a=pred_emb, b=target_emb)
     substitutions = seq.get_opcodes()
     return substitutions
+
+
+def clean_transcription(sentence: str):
+    """
+    Function to preprocess the ground truth and predicted transcripts before computing the performance using WER, CER etc...
+    Should standardize the text to lowercase, no punctuations or special characters.
+    It should also map all occurrences of numbers to textual representations using library function.
+    """
+    sentence = str.lower(sentence)
+    sentence = re.sub(r'-(?!\d)', '', sentence)             # Remove - that are not followed by a number
+    sentence = re.sub(r'(?<!\d)\.|\.?(?!\d)', '', sentence) # Remove . that are not enclosed by two numbers
+    sentence = re.sub(r'[^\w\s.-]', '', sentence)           # Remove all punctuation except for the - and .
+    sentence = re.sub(' +', ' ', sentence)                  # Replacing all duplicate spaces with single space.
+    
+    sentence_copy = str(sentence)
+
+    for s in sentence.split():
+        try: 
+            num = float(s)
+            word_rep = str(num2words(number=num))
+            sentence_copy = sentence_copy.replace(s, word_rep)
+        except ValueError as e:
+            continue
+
+    return sentence_copy
+
+
+def save_asr_results(asr_output, asr_metadata, output_file):
+    with open(output_file, 'a') as writer:
+        results = [{
+            'metadata': data, 
+            'output': out,
+            'wer': wer(reference=clean_transcription(data['text']), hypothesis=clean_transcription(out)),
+            'cer': cer(reference=clean_transcription(data['text']), hypothesis=clean_transcription(out))
+            } for data, out in zip(asr_metadata, asr_output)]
+        writer.write(json.dumps(results) + '\n')
+        writer.flush()
+
+
+def save_logits(output, metadata, filepath):
+    file = os.path.join(filepath, 'logits.pkl')
+    with open(file, 'ab') as f:
+        logits = {
+            "logits": output.cpu(),
+            "metadata": metadata,
+        }
+        pickle.dump(logits, f)

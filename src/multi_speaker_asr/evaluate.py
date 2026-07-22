@@ -1,11 +1,11 @@
-from multi_speaker_asr.data import AudioData, SegmentedData, clean_transcription, AudioDataset
+from multi_speaker_asr.data import AudioData, SegmentedData, AudioDataset
 from multi_speaker_asr.models.asr import WhisperPipeline, RoestASR
 from pyannote.audio.pipelines.utils.hook import ProgressHook
 from multi_speaker_asr.models.diarization import Diarize, assign_word_speakers, RollingClusters
 from datasets import Dataset
 from multi_speaker_asr.models.alignment import Wav2Vec2
 import torch
-from multi_speaker_asr.utils.utils import LOGGING_CONFIG, profile
+from multi_speaker_asr.utils.utils import LOGGING_CONFIG, profile, save_asr_results, save_logits
 import gc
 import time
 import logging
@@ -16,7 +16,6 @@ from torch.utils.data import DataLoader
 import timeit
 import itertools
 from .utils.vad import collect_word_chunks
-from jiwer import wer, cer
 import psutil, os
 from time import perf_counter, process_time
 import soundfile as sf
@@ -24,6 +23,9 @@ from scipy.spatial.distance import cdist
 import numpy as np
 import librosa
 from carbontracker.tracker import CarbonTracker
+from pathlib import Path
+
+
 
 
 
@@ -45,12 +47,14 @@ def warmup(inference_fn, model, init_input, num_runs, cleanup=False):
 
 
 
-def evaluate_inference(output_filepath, loader, model, max_epochs=3, warmup=False):
+def evaluate_inference(output_filepath: str, loader: DataLoader, model: RoestASR, max_epochs=3, warmup=False):
     
+    logits_dir = os.path.join(os.getcwd(), 'data')
     tracker = CarbonTracker(epochs=max_epochs)
     try:
         with torch.inference_mode():
             for epoch in range(max_epochs):
+                epoch_results = [] # Used to store logits if running inference of the wav2vec2 model
                 tracker.epoch_start()
                 for batch in loader:
                     if not batch:
@@ -63,29 +67,28 @@ def evaluate_inference(output_filepath, loader, model, max_epochs=3, warmup=Fals
                     output = model.transcribe(audio_batch=audio_batch, metadata=metadata, return_timestamps=False)
                     asr_walltime = perf_counter() - asr_walltime_start
                     asr_cputime = process_time() - asr_cputime_start
-                    
-                    if warmup:
-                        continue
-                    
+
                     logger.info(
                             "ASR Module... Epoch: %i, RSS: %.2f GB",
                             epoch,
                             proc.memory_info().rss / (1024**3)
                         )
                     logger.info('ASR... Epoch: %i, Walltime: %f CPU time: %f', epoch, asr_walltime, asr_cputime)
-                    with open(output_filepath, 'a') as writer:
-                        results = [{
-                            'metadata': data, 
-                            'output': out,
-                            'wer': wer(reference=clean_transcription(data['text']), hypothesis=clean_transcription(out)),
-                            'cer': cer(reference=clean_transcription(data['text']), hypothesis=clean_transcription(out))
-                            } for data, out in zip(metadata, output)]
-                        writer.write(json.dumps(results) + '\n')
-                        writer.flush()
+                    save_asr_results(output, metadata, output_filepath)
+
                 tracker.epoch_end()
     except Exception as e:
         logger.error('Failed with error: %s', e)
+    finally:
+        del loader
+        del model
+        gc.collect()
+
+        
     
+
+
+
 
 
 
