@@ -13,7 +13,7 @@ from transformers import (
 import os
 from pyctcdecode import build_ctcdecoder
 from optimum.quanto import requantize
-from safetensors.torch import save_file, load_file
+from safetensors.torch import load_file
 from faster_whisper import WhisperModel
 import numpy as np
 import torch
@@ -22,6 +22,7 @@ from ..utils.utils import profile, LOGGING_CONFIG
 import logging
 import logging.config
 from pathlib import Path
+from accelerate import init_empty_weights
 
 logging.config.dictConfig(LOGGING_CONFIG)
 logger = logging.getLogger(name='Engine')
@@ -84,21 +85,22 @@ class PytorchEngine(BaseEngine):
 
 
     @profile
-    def load_model(self):
+    def load_model(self):    
         if self.use_saved_model:
             if self.local_models_dir is None:
                 raise ValueError('Missing path to local model...')
-            
-            if self.model_type == 'whisper':
-                config = WhisperConfig.from_pretrained(self.local_models_dir)
-                model = WhisperForConditionalGeneration(config=config)
-            elif self.model_type == 'wav2vec2':
-                config = AutoConfig.from_pretrained(self.local_models_dir)
-                model = AutoModelForCTC.from_config(config=config)
+            path = os.path.join(self.local_models_dir, self.compute_type)
 
-            dir_path = os.path.join(self.local_models_dir,self.compute_type)
-            state_dict = load_file(os.path.join(dir_path, 'model.safetensors'))
-            with open(os.path.join(dir_path, 'quantization_map.json'), 'r') as f:
+            with init_empty_weights():
+                if self.model_type == 'whisper':
+                    config = WhisperConfig.from_pretrained(path)
+                    model = WhisperForConditionalGeneration(config=config)
+                elif self.model_type == 'wav2vec2':
+                    config = AutoConfig.from_pretrained(path)
+                    model = AutoModelForCTC.from_config(config=config)
+
+            state_dict = load_file(os.path.join(path, 'model.safetensors'))
+            with open(os.path.join(path, 'quantization_map.json'), 'r') as f:
                 quantization_map = json.load(f)
             requantize(model=model, state_dict=state_dict, quantization_map=quantization_map, device=self.device)
         else:
@@ -117,7 +119,7 @@ class PytorchEngine(BaseEngine):
         if self.use_saved_model:
             if self.local_models_dir is None:
                 raise ValueError('Missing path to local processor...')
-            path = self.local_models_dir
+            path = os.path.join(self.local_models_dir, self.compute_type)
         else:
             path = self.model_path
 
