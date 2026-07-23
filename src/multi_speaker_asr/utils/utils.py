@@ -159,8 +159,8 @@ def save_asr_results(asr_output, asr_metadata, output_file):
         results = [{
             'metadata': data, 
             'output': out,
-            'wer': wer(reference=clean_transcription(data['text']), hypothesis=clean_transcription(out)),
-            'cer': cer(reference=clean_transcription(data['text']), hypothesis=clean_transcription(out))
+            'wer': wer(reference=clean_transcription(data['text']), hypothesis=clean_transcription(out['text'])),
+            'cer': cer(reference=clean_transcription(data['text']), hypothesis=clean_transcription(out['text']))
             } for data, out in zip(asr_metadata, asr_output)]
         writer.write(json.dumps(results) + '\n')
         writer.flush()
