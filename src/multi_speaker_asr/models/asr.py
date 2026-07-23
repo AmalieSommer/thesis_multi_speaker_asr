@@ -45,7 +45,15 @@ class RoestASR:
         if self.backend == 'ct2':
             self.engine = CT2(model_path=model_path, compute_type=compute_type, cpu_threads=cpu_threads)
         elif self.backend == 'onnx':
-            self.engine = OnnxEngine(model_path=model_path)
+            self.engine = OnnxEngine(
+                model_path=model_path,
+                model_type=self.model_type,
+                device=self.device,
+                use_saved_model=use_saved_model,
+                local_models_dir=local_models_dir,
+                cpu_threads=cpu_threads,
+                compute_type=compute_type,
+                )
         elif self.backend == 'torch':
             self.engine = PytorchEngine(
                 model_path=model_path, 
