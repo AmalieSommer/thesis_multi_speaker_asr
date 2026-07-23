@@ -124,6 +124,6 @@ if __name__=='__main__':
     if config_file['build_model']:
         build_quantized_model(config=config_file)
     else:
-        exp_2(config=config_file)
+        exp_1(config=config_file)
     
     print('Finished...!')

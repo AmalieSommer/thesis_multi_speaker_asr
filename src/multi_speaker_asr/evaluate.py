@@ -64,7 +64,7 @@ def evaluate_inference(output_filepath: str, loader: DataLoader, model: RoestASR
                     metadata = batch[1]
                     asr_walltime_start = time.perf_counter()
                     asr_cputime_start = time.process_time()
-                    output = model.transcribe(audio_batch=audio_batch, metadata=metadata, return_timestamps=False)
+                    output = model.transcribe(audio_batch=audio_batch, return_timestamps=False)
                     asr_walltime = perf_counter() - asr_walltime_start
                     asr_cputime = process_time() - asr_cputime_start
 

@@ -23,6 +23,8 @@ import logging
 import logging.config
 from pathlib import Path
 from accelerate import init_empty_weights
+from pywhispercpp.model import Model
+
 
 logging.config.dictConfig(LOGGING_CONFIG)
 logger = logging.getLogger(name='Engine')
@@ -172,6 +174,7 @@ class OnnxEngine(BaseEngine):
     def __init__(self, model_path, device = 'cpu'):
         super().__init__(model_path, device)
 
+    @profile
     def load_model(self):
         return ORTModelForSpeechSeq2Seq.from_pretrained(model_id=self.model_path)
 
@@ -182,6 +185,7 @@ class CT2(BaseEngine):
         self.cpu_threads = cpu_threads
         super().__init__(model_path, device)
 
+    @profile
     def load_model(self):
         self.model = WhisperModel(
             model_size_or_path=self.model_path, 
@@ -205,3 +209,70 @@ class CT2(BaseEngine):
 
         return outputs
 
+
+class WhisperCPP(BaseEngine):
+    def __init__(
+            self, 
+            model_path, 
+            model_type: str = 'whisper', 
+            device = 'cpu', 
+            sr = 16000, 
+            language = 'da', 
+            task = 'transcribe',
+            use_saved_model: bool = False,
+            local_models_dir: str = None,
+            cpu_threads: int = 4,
+            compute_type: str = 'float32'
+            ):
+        self.use_saved_model = use_saved_model
+        self.local_models_dir = local_models_dir
+        self.cpu_threads = cpu_threads
+        self.compute_type = compute_type
+
+        if model_type != 'whisper':
+            raise ValueError('Model_type must be a whisper model when using the Whisper.cpp engine...')
+
+        self.model_type = model_type
+        super().__init__(model_path, device, sr, language, task)
+
+    @profile
+    def load_model(self):
+        if self.compute_type == 'fp32':
+            model_name = 'ggml-roest-v3-model.bin'
+        elif self.compute_type == 'int8':
+            model_name = 'ggml-roest-v3-q8_0.bin'
+        elif self.compute_type == 'int5':
+            model_name = 'ggml-roest-v3-q5_0.bin'
+        elif self.compute_type == 'int4':
+            model_name = 'ggml-roest-v3-q4_0.bin'
+        else:
+            raise ValueError(f'Compute_type {self.compute_type} is not supported... The supported configurations are: fp32, int4, int5 and int8...')
+
+        return Model(
+            model=model_name,
+            models_dir=os.path.join(self.local_models_dir, 'whisper.cpp'),
+            print_realtime=False, 
+            print_progress=True,
+            no_timestamps=False
+        )
+
+    @profile
+    def load_processor(self):
+        pass
+        
+    def transcribe(self, audio, language='da'):
+        if not isinstance(audio, (list, tuple)):
+            return self.model.transcribe(audio)
+
+        # A batch of multiple audio files have been passed, and must be processed sequentially, because current Whisper.cpp does not support batched inference
+        batch = []
+        for a in audio:
+            res = self.model.transcribe(a, extract_probability=True)
+            for item in res:
+                batch.append({
+                    'start': item.t0,
+                    'end': item.t1,
+                    'text': item.text,
+                    'probability': item.probability
+                })
+        return batch

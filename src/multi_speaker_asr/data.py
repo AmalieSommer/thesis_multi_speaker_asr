@@ -22,10 +22,11 @@ CWD = os.getcwd()
 
 
 class AudioDataset(IterableDataset):
-    def __init__(self, metadata, mode: str = 'segments', transform = None):
+    def __init__(self, metadata, mode: str = 'segments', transform = None, target_sr: int = 16000):
         self.metadata = metadata
         self.mode = mode
         self.transform = transform
+        self.target_sr = target_sr
 
     def __iter__(self):
         if self.mode == 'segments':
@@ -115,8 +116,8 @@ class AudioDataset(IterableDataset):
             'audio_id': b['audio_id'],
             'segment_id': b['segment_id'],
             'text': b['text'],
-            'start': b['start'],
-            'end': b['end']
+            'start': 0 if 'start' not in b.keys() else b['start'],
+            'end': len(b['audio']) / self.target_sr if 'end' not in b.keys() else b['end']
         } for b in batch]
         return audio_batch, metadata
 
