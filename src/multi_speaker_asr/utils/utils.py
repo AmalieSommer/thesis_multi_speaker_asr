@@ -165,24 +165,22 @@ def save_asr_results(asr_output, asr_metadata, output_file):
         for data in asr_metadata:
             ref_text = data['text']
             transcripts = [asr_output[batch_info['ref_indices']] for batch_info in data['audio_batch_info']]
-            words = []
-            for info, transcript in zip(data['audio_batch_info'], transcripts):
-                words.append([{'word': word['word'], 'start': word['start'] + info['start'], 'end': word['end'] + info['start']} for word in transcript])
-            segment = ' '.join([word['word'] for row in words for word in row])
+            for transcript in transcripts:
 
-            wer_ = wer(reference=clean_transcription(ref_text), hypothesis=clean_transcription(segment))
-            cer_ = cer(reference=clean_transcription(ref_text), hypothesis=clean_transcription(segment))
+                for seg in transcript:
+                    wer_ = wer(reference=clean_transcription(ref_text), hypothesis=clean_transcription(seg['text']))
+                    cer_ = cer(reference=clean_transcription(ref_text), hypothesis=clean_transcription(seg['text']))
 
-            results.append({
-                'audio_id': data['audio_id'],
-                'segment_id': data['segment_id'],
-                'ref': ref_text,
-                'seg_start': data['start'],
-                'seg_end': data['end'],
-                'wer': wer_,
-                'cer': cer_,      
-                'hyp': segment
-            })
+                    results.append({
+                        'audio_id': data['audio_id'],
+                        'segment_id': data['segment_id'],
+                        'ref': ref_text,
+                        'seg_start': data['start'],
+                        'seg_end': data['end'],
+                        'wer': wer_,
+                        'cer': cer_,      
+                        'hyp': seg['text']
+                    })
         writer.write(json.dumps(results) + '\n')
         writer.flush()
 
