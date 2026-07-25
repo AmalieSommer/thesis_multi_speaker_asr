@@ -8,7 +8,8 @@ from transformers import (
     WhisperForConditionalGeneration, 
     WhisperProcessor, 
     WhisperConfig, 
-    AutoConfig
+    AutoConfig,
+    WhisperTimeStampLogitsProcessor
     )
 import os
 from pyctcdecode import build_ctcdecoder
@@ -32,6 +33,7 @@ logger = logging.getLogger(name='Engine')
 
 class BaseEngine:
     def __init__(self, model_path: str, device: str = 'cpu', sr: int = 16000, language: str = 'da', task: str = 'transcribe'):
+        
         self.model_path = model_path
         self.device = device
         self.sr = sr
@@ -92,7 +94,7 @@ class PytorchEngine(BaseEngine):
             cpu_threads: int = 4,
             compute_type: str = 'float32'
             ):
-        torch.set_num_threads(cpu_threads) # To limit amount of context switching...
+        
         self.model_type = model_type
         self.compute_type = compute_type
         self.use_saved_model = use_saved_model
@@ -123,9 +125,25 @@ class PytorchEngine(BaseEngine):
             fun_args = {'pretrained_model_name_or_path': self.model_path, 'device_map': self.device}
             # Else load the standard model:          
             if self.model_type == 'whisper':
-                model = WhisperForConditionalGeneration.from_pretrained(**fun_args)
+                logger.debug('Model Path: %s', self.model_path)
+                model = pipeline(
+                                    task='automatic-speech-recognition',
+                                    model=self.model_path,
+                                    return_timestamps='word',
+                                    language='da',
+                                    dtype=torch.float16
+                                )
+                #model = WhisperForConditionalGeneration.from_pretrained(**fun_args)
             elif self.model_type == 'wav2vec2':
-                model = AutoModelForCTC.from_pretrained(**fun_args)
+                logger.debug('Model Path: %s', self.model_path)
+                model = pipeline(
+                                    task='automatic-speech-recognition',
+                                    model=self.model_path,
+                                    return_timestamps='word',
+                                    language='da',
+                                    dtype=torch.float16
+                                )
+                #model = AutoModelForCTC.from_pretrained(**fun_args)
 
         return model
     
@@ -154,75 +172,82 @@ class PytorchEngine(BaseEngine):
             return super().load_processor()
             
 
-
     def transcribe(self, audio, language='da', return_word_timestamps: bool = True):
         if self.model_type == 'whisper':
             # Run audio through processor to get features and generate token ids
             inputs = self.processor(audio, sampling_rate=self.sr, return_tensors='pt', return_attention_mask=True)
             with torch.no_grad():
                 if return_word_timestamps:
-                    transcription = pipeline(
-                                    task='automatic-speech-recognition',
-                                    model=self.model,
-                                    return_timestamps='word'
-                                )
+                    output = self.model(audio)
+                    transcription = [[{
+                        'word': item['text'],
+                        'start': item['timestamp'][0],
+                        'end': item['timestamp'][1]
+                    } for item in dict_obj['chunks']] for dict_obj in output]
+                    logger.debug('Model output: %s', transcription)
                 else:
                     pred_ids = self.model.generate(
                         inputs.input_features, 
-                        attention_mask=inputs.attention_mask,
-                        task='transcribe',
-                        language=language
+                        attention_mask=inputs.attention_mask
                         )
-                # Decode token ids back to text
-                transcription = self.processor.batch_decode(pred_ids, skip_special_tokens=True)
+                    # Decode token ids back to text
+                    transcription = self.processor.batch_decode(pred_ids, skip_special_tokens=True)
         elif self.model_type == 'wav2vec2':
             # Run audio through processor to get features and generate token ids
             id_to_token = {v: k for k, v in self.processor.tokenizer.get_vocab().items()}
             input_features = self.processor(audio, sampling_rate=self.sr, return_tensors='pt', padding=True)
             with torch.no_grad():
-                logits = self.model(input_features.input_values).logits
-         
-            texts = []
-            for i, logit in enumerate(logits):
-                text = self.ctc_decoder.decode(logits=logit.cpu().numpy())
-                target_ids = self.processor.tokenizer(
-                    text,
-                    add_special_tokens=False
-                ).input_ids
-                log_probs = logit.log_softmax(dim=-1)
-                alignment_tokens = torchaudio.functional.forced_align(
-                    log_probs.unsqueeze(0),
-                    torch.tensor(target_ids).unsqueeze(0)
-                )
-                token_ids = alignment_tokens[0].cpu().squeeze(0).tolist()
-                tokens = [id_to_token[token] for token in token_ids]
-                token_spans = self.get_token_spans(tokens=tokens)
+                if return_word_timestamps:
+                    output = self.model(audio)
+                    transcription = [[{
+                        'word': item['text'],
+                        'start': item['timestamp'][0],
+                        'end': item['timestamp'][1]
+                    } for item in dict_obj['chunks']] for dict_obj in output]
+                    logger.debug('Model output: %s', transcription)
+                else:
+                    logits = self.model(input_features.input_values).logits
+                    texts = []
+                    for i, logit in enumerate(logits):
+                        text = self.ctc_decoder.decode(logits=logit.cpu().numpy())
+                        target_ids = self.processor.tokenizer(
+                            text,
+                            add_special_tokens=False
+                        ).input_ids
+                        log_probs = logit.log_softmax(dim=-1)
+                        alignment_tokens = torchaudio.functional.forced_align(
+                            log_probs.unsqueeze(0),
+                            torch.tensor(target_ids).unsqueeze(0)
+                        )
+                        token_ids = alignment_tokens[0].cpu().squeeze(0).tolist()
+                        tokens = [id_to_token[token] for token in token_ids]
+                        token_spans = self.get_token_spans(tokens=tokens)
 
-                words = []
-                current = []
-                for token, start, end in token_spans:
-                    if token == '|':
+                        words = []
+                        current = []
+                        for token, start, end in token_spans:
+                            if token == '|':
+                                if current:
+                                    words.append(current)
+                                    current = []
+                            else:
+                                current.append((token, start, end))
                         if current:
                             words.append(current)
-                            current = []
-                    else:
-                        current.append((token, start, end))
-                if current:
-                    words.append(current)
 
-                seconds_per_frame = (len(audio[i]) / self.sr) / logit.shape[0]
-                word_based_timestamps = []
-                for word in words:
-                    word_text = ''.join(c[0] for c in word)
-                    start_frame = word[0][1] 
-                    end_frame = word[-1][2]
-                    word_based_timestamps.append({
-                        'word': word_text,
-                        'start': start_frame * seconds_per_frame,
-                        'end': end_frame * seconds_per_frame
-                    })
-                texts.append(word_based_timestamps)
-            transcription = texts
+                        seconds_per_frame = (len(audio[i]) / self.sr) / logit.shape[0]
+                        word_based_timestamps = []
+                        for word in words:
+                            word_text = ''.join(c[0] for c in word)
+                            start_frame = word[0][1] 
+                            end_frame = word[-1][2]
+                            word_based_timestamps.append({
+                                'word': word_text,
+                                'start': start_frame * seconds_per_frame,
+                                'end': end_frame * seconds_per_frame
+                            })
+                        texts.append(word_based_timestamps)
+                    transcription = texts
         else:
             raise ValueError('Unknown model type...')
         return transcription

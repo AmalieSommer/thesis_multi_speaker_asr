@@ -22,7 +22,7 @@ LOGGING_CONFIG = {
         'file': {
             'level': 'DEBUG',
             'class': 'logging.FileHandler',
-            'filename': 'pipeline_performance.log',
+            'filename': '/zhome/28/9/151118/thesis/thesis_multi_speaker_asr/results/torch_engine/fp16_wav2vec2/performance_wav2vec2_torch.log',
             'formatter': 'default',
         },
         'stdout': {
@@ -32,6 +32,11 @@ LOGGING_CONFIG = {
         },
     },
     'loggers': {
+        'ASR': {
+            'handlers': ['file', 'stdout'],
+            'level': 'DEBUG',
+            'propagate': True,
+                },
         'Evaluate': {
             'handlers': ['file', 'stdout'],
             'level': 'DEBUG',
@@ -179,8 +184,8 @@ def save_asr_results(asr_output, asr_metadata, output_file):
                 'cer': cer_,      
                 'hyp': segment
             })
-            writer.write(json.dumps(results) + '\n')
-            writer.flush()
+        writer.write(json.dumps(results) + '\n')
+        writer.flush()
         """
         results = [{
             'metadata': data, 

@@ -76,7 +76,7 @@ class RoestASR:
         else:
             self.engine = BaseEngine(model_path=model_path)
 
-    def transcribe(self, audio_batch, return_word_timestamps=False, language='da', max_batch_duration: int = 30):
+    def transcribe(self, audio_batch, word_timestamps, language='da', max_batch_duration: int = 30):
         if not isinstance(audio_batch, (list, tuple)):
                 audio_batch = [audio_batch]
 
@@ -86,15 +86,17 @@ class RoestASR:
         batches = []
         for audio in audio_batch:
             if (current_batch_duration + (len(audio) / sr)) > max_batch_duration:
-                batch_results.append(self.engine.transcribe(batches, language, return_word_timestamps))
+                batch_results.append(self.engine.transcribe(audio=batches, language=language, return_word_timestamps=word_timestamps))
                 current_batch_duration = len(audio) / sr
                 batches = [audio]
             else:
                 current_batch_duration += len(audio) / sr
                 batches.append(audio)
-        batch_results.append(self.engine.transcribe(batches, language, return_word_timestamps))
+        batch_results.append(self.engine.transcribe(batches, language, word_timestamps))
+
 
         results = [[{'word': w['word'], 'start': w['start'], 'end': w['end']} for w in row if w['end'] <= 10] for batch in batch_results for row in batch]
+        logger.debug('In RoestASR... Result formatted: %s', results)
         return results
 
         if self.model_type == 'whisper':

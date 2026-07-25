@@ -47,14 +47,13 @@ def warmup(inference_fn, model, init_input, num_runs, cleanup=False):
 
 
 
-def evaluate_inference(output_filepath: str, loader: DataLoader, model: RoestASR, max_epochs=3, warmup=False):
+def evaluate_inference(output_filepath: str, loader: DataLoader, model: RoestASR, max_epochs=3, warmup=False, word_timestamps=True):
     
     logits_dir = os.path.join(os.getcwd(), 'data')
     tracker = CarbonTracker(epochs=max_epochs)
     try:
         with torch.inference_mode():
             for epoch in range(max_epochs):
-                epoch_results = [] # Used to store logits if running inference of the wav2vec2 model
                 tracker.epoch_start()
                 for batch in loader:
                     if not batch:
@@ -64,7 +63,7 @@ def evaluate_inference(output_filepath: str, loader: DataLoader, model: RoestASR
                     metadata = batch[1]
                     asr_walltime_start = time.perf_counter()
                     asr_cputime_start = time.process_time()
-                    output = model.transcribe(audio_batch=audio_batch, return_word_timestamps=True)
+                    output = model.transcribe(audio_batch=audio_batch, word_timestamps=word_timestamps)
                     asr_walltime = perf_counter() - asr_walltime_start
                     asr_cputime = process_time() - asr_cputime_start
 

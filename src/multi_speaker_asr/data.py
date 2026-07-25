@@ -141,14 +141,14 @@ class AudioDataset(IterableDataset):
     
 
     def collator(self, batch):
-        # Verify the duration of the audio samples dont exceed 10 seconds
+        # Verify the duration of the audio samples dont exceed XX seconds
         audio_batch = []
         metadata_batch = []
         for b in batch:
             start = 0 if 'start' not in b.keys() else b['start']
             end = len(b['audio']) / self.target_sr if 'end' not in b.keys() else b['end']
             duration = end - start
-            if duration > 10:
+            if duration > 15:
                 output = self.stream_audio(
                     audio_arr=b['audio'],
                     chunk_size=15,

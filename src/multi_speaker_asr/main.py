@@ -95,12 +95,10 @@ def exp_1(config):
     dataset = AudioDataset(metadata=metadata, mode=config['dataset_mode'])
     loader = DataLoader(dataset=dataset, batch_size=config['batch_size'], shuffle=False, num_workers=1, collate_fn=dataset.collator)
 
-    print(torch.__config__.show())
-
     model = RoestASR(model_type=config['model_type'], batch_size=config['batch_size'], backend=config['backend_type'])
     model.load(use_saved_model=config['use_saved_model'], compute_type=config['computetype'], local_models_dir=config['local_models_dir'])
    
-    evaluate_inference(output_filepath=config['asr_filepath'], loader=loader, model=model, warmup=False)
+    evaluate_inference(output_filepath=config['asr_filepath'], loader=loader, model=model, warmup=False, word_timestamps=config['word_timestamps'])
 
 
 def exp_2(config: yaml):
