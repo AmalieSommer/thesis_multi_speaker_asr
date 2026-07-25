@@ -100,11 +100,12 @@ def evaluate_inference(output_filepath: str, loader: DataLoader, model: RoestASR
                                 })
                                 
                         results.append(sample_words)
-                    save_asr_results(output, metadata, output_filepath)
+                    save_asr_results(results, metadata, output_filepath)
 
                 tracker.epoch_end()
     except Exception as e:
-        logger.error('Failed with error: %s', e)
+        raise RuntimeError(e)
+        #logger.error('Failed with error: %s', e)
     finally:
         del loader
         del model
