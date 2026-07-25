@@ -104,7 +104,8 @@ def evaluate_inference(output_filepath: str, loader: DataLoader, model: RoestASR
 
                 tracker.epoch_end()
     except Exception as e:
-        logger.error('Failed with error: %s', e)
+        raise RuntimeError(e)
+        #logger.error('Failed with error: %s', e)
     finally:
         del loader
         del model

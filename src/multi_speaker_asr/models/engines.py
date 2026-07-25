@@ -224,11 +224,14 @@ class OnnxEngine(BaseEngine):
             if self.compute_type == 'fp32':
                 model = ORTModelForSpeechSeq2Seq.from_pretrained(
                             model_id='AmalieSommer/roest-v3-whisper-1.5b-onnx',
-                            subfolder='roest-v3-whisper-1.5b',
                             encoder_file_name='encoder_model.onnx',
                             decoder_file_name='decoder_model.onnx',
                             decoder_with_past_file_name="decoder_with_past_model.onnx",
                         )
+                print(type(model))
+                print(type(self.processor))
+                print(type(model.config))
+                print(type(model.generation_config))
             elif self.compute_type == 'int8':
                 model = ORTModelForSpeechSeq2Seq.from_pretrained(
                             model_id='AmalieSommer/roest-v3-whisper-1.5b-onnx-qint8',
@@ -236,11 +239,16 @@ class OnnxEngine(BaseEngine):
                             decoder_file_name='decoder_model_quantized.onnx',
                             decoder_with_past_file_name="decoder_with_past_model_quantized.onnx",
                         )
+                print(type(model))
+                print(type(self.processor))
+                print(type(model.config))
+                print(type(model.generation_config))
             return pipeline(
                     task='automatic-speech-recognition',
                     model=model,
-                    return_timestamps='word',
-                    language='da'
+                    tokenizer=self.processor.tokenizer,
+                    feature_extractor=self.processor.feature_extractor,
+                    return_timestamps='word'
                 )
         elif self.model_type == 'wav2vec2':
             if self.compute_type == 'fp32':
@@ -248,17 +256,14 @@ class OnnxEngine(BaseEngine):
                             model_id='AmalieSommer/roest-v3-wav2vec2-315m-onnx',
                             subfolder='roest-v3-wav2vec2-315m',
                         )
-                #model = ORTModelForCTC.from_pretrained('AmalieSommer/roest-v3-wav2vec2-315m-onnx', subfolder='roest-v3-wav2vec2-315m')
             elif self.compute_type == 'int8':
                 model = ORTModelForCTC.from_pretrained(
                             model_id='AmalieSommer/roest-v3-wav2vec2-315m-onnx-qint8'
                         )
-                #model = ORTModelForCTC.from_pretrained('AmalieSommer/roest-v3-wav2vec2-315m-onnx', subfolder='roest-v3-wav2vec2-315m-8bit')
             return pipeline(
                 task='automatic-speech-recognition',
                 model=model,
-                return_timestamps='word',
-                language='da'
+                return_timestamps='word'
             )
         else:
             raise ValueError('Model type was not recognized...')
@@ -269,43 +274,34 @@ class OnnxEngine(BaseEngine):
     @profile
     def load_processor(self):
         if self.model_type == 'whisper':
-            return WhisperProcessor.from_pretrained('AmalieSommer/roest-v3-whisper-1.5b-onnx', subfolder='roest-v3-whisper-1.5b')
+            if self.compute_type == 'fp32':
+                return WhisperProcessor.from_pretrained(
+                    pretrained_model_name_or_path='AmalieSommer/roest-v3-whisper-1.5b-onnx'
+                )
+            elif self.compute_type == 'int8':
+                return WhisperProcessor.from_pretrained(
+                    pretrained_model_name_or_path='AmalieSommer/roest-v3-whisper-1.5b-onnx-qint8'
+                )
         elif self.model_type == 'wav2vec2':
-            processor = Wav2Vec2Processor.from_pretrained('AmalieSommer/roest-v3-wav2vec2-315m-onnx', subfolder='roest-v3-wav2vec2-315m')
-            print(processor.tokenizer.get_vocab())
-            vocab = processor.tokenizer.get_vocab()
-            sorted_vocab = [k for k, _ in sorted(vocab.items(), key=lambda x: x[1])]
-            self.ctc_decoder = build_ctcdecoder(
-                labels=sorted_vocab
-            )
-            return processor
+            return Wav2Vec2Processor.from_pretrained('AmalieSommer/roest-v3-wav2vec2-315m-onnx', subfolder='roest-v3-wav2vec2-315m')
         else: 
             return super().load_processor()
 
 
     def transcribe(self, audio, language: str = 'da', return_word_timestamps: bool = False):
         if self.model_type == 'whisper':
-            # Run audio through processor to get features and generate token ids
-            #inputs = self.processor(audio, sampling_rate=self.sr, return_tensors='pt', return_attention_mask=True)
             with torch.no_grad():
+                
                 output = self.model(audio)
                 transcription = [[{
                     'word': item['text'],
                     'start': item['timestamp'][0],
                     'end': item['timestamp'][1]
                 } for item in dict_obj['chunks']] for dict_obj in output]
+                
                 logger.debug('Model output: %s', transcription)
-                """
-                pred_ids = self.model.generate(
-                    inputs.input_features, 
-                    attention_mask=inputs.attention_mask
-                    )
-            # Decode token ids back to text
-            transcription = self.processor.batch_decode(pred_ids, skip_special_tokens=True)
-            """
+          
         elif self.model_type == 'wav2vec2':
-            # Run audio through processor to get features and generate token ids
-            input_features = self.processor(audio, sampling_rate=self.sr, return_tensors='pt', padding=True)
             with torch.no_grad():
                 output = self.model(audio)
                 transcription = [[{
@@ -314,15 +310,6 @@ class OnnxEngine(BaseEngine):
                     'end': item['timestamp'][1]
                 } for item in dict_obj['chunks']] for dict_obj in output]
                 logger.debug('Model output: %s', transcription)
-            """
-                logits = self.model(input_features.input_values).logits
-            texts = []
-            for logit in logits:
-                logit = logit.cpu().numpy()
-                text = self.ctc_decoder.decode(logits=logit)
-                texts.append({'text': text})
-            transcription = texts
-            """
         else:
             raise ValueError('Unknown model type...')
         return transcription
