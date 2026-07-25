@@ -196,27 +196,28 @@ class OnnxEngine(BaseEngine):
 
     @profile
     def load_model(self):
-        path_dir = os.path.join(self.local_models_dir, 'onnx')
         if self.model_type == 'whisper':
             if self.compute_type == 'fp32':
-                file_path = os.path.join(path_dir, 'roest-v3-whisper-1.5b')
+                return ORTModelForSpeechSeq2Seq.from_pretrained('AmalieSommer/roest-v3-whisper-1.5b-onnx', subfolder='roest-v3-whisper-1.5b')
             elif self.compute_type == 'int8':
-                file_path = os.path.join(path_dir, 'roest-v3-whisper-1.5b') # Must be updated to match a generated int8 model
-            return ORTModelForSpeechSeq2Seq.from_pretrained(model_id=file_path)
+                return ORTModelForSpeechSeq2Seq.from_pretrained('AmalieSommer/roest-v3-whisper-1.5b-onnx', subfolder='roest-v3-whisper-1.5b-quantized-8bit')
         elif self.model_type == 'wav2vec2':
             if self.compute_type == 'fp32':
-                file_path = os.path.join(path_dir, 'fp32')
+                return ORTModelForCTC.from_pretrained('AmalieSommer/roest-v3-wav2vec2-315m-onnx', subfolder='roest-v3-wav2vec2-315m')
             elif self.compute_type == 'int8':
-                file_path = os.path.join(path_dir, 'fp32') # Must be updated to match a generated int8 model
-        return ORTModelForCTC.from_pretrained(file_path)
+                return ORTModelForCTC.from_pretrained('AmalieSommer/roest-v3-wav2vec2-315m-onnx', subfolder='roest-v3-wav2vec2-315m-8bit')
+        else:
+            raise ValueError('Model type was not recognized...')
+
+        
 
 
     @profile
     def load_processor(self):
         if self.model_type == 'whisper':
-            return WhisperProcessor.from_pretrained(self.model_path)
+            return WhisperProcessor.from_pretrained('AmalieSommer/roest-v3-whisper-1.5b-onnx', subfolder='roest-v3-whisper-1.5b')
         elif self.model_type == 'wav2vec2':
-            processor = Wav2Vec2Processor.from_pretrained(self.model_path)
+            processor = Wav2Vec2Processor.from_pretrained('AmalieSommer/roest-v3-wav2vec2-315m-onnx', subfolder='roest-v3-wav2vec2-315m')
             print(processor.tokenizer.get_vocab())
             vocab = processor.tokenizer.get_vocab()
             sorted_vocab = [k for k, _ in sorted(vocab.items(), key=lambda x: x[1])]
