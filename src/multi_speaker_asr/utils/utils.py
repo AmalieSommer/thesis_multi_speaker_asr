@@ -22,7 +22,7 @@ LOGGING_CONFIG = {
         'file': {
             'level': 'DEBUG',
             'class': 'logging.FileHandler',
-            'filename': '/zhome/28/9/151118/thesis/thesis_multi_speaker_asr/results/torch_engine/fp16/performance_whisper.log',
+            'filename': '/zhome/28/9/151118/thesis/thesis_multi_speaker_asr/results/torch_engine/fp32/performance_wav2vec.log',
             'formatter': 'default',
         },
         'stdout': {
