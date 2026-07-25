@@ -76,14 +76,31 @@ class RoestASR:
         else:
             self.engine = BaseEngine(model_path=model_path)
 
-    def transcribe(self, audio_batch, return_timestamps=False, language='da'):
+    def transcribe(self, audio_batch, return_word_timestamps=False, language='da', max_batch_duration: int = 30):
         if not isinstance(audio_batch, (list, tuple)):
                 audio_batch = [audio_batch]
 
+        sr = self.engine.sr
+        current_batch_duration = 0
+        batch_results = []
+        batches = []
+        for audio in audio_batch:
+            if (current_batch_duration + (len(audio) / sr)) > max_batch_duration:
+                batch_results.append(self.engine.transcribe(batches, language, return_word_timestamps))
+                current_batch_duration = len(audio) / sr
+                batches = [audio]
+            else:
+                current_batch_duration += len(audio) / sr
+                batches.append(audio)
+        batch_results.append(self.engine.transcribe(batches, language, return_word_timestamps))
+
+        results = [[{'word': w['word'], 'start': w['start'], 'end': w['end']} for w in row if w['end'] <= 10] for batch in batch_results for row in batch]
+        return results
+
         if self.model_type == 'whisper':
-            return self.engine.transcribe(audio_batch, language)
+            return self.engine.transcribe(audio_batch, language, return_word_timestamps)
         elif self.model_type == 'wav2vec2':
-            return self.engine.transcribe(audio_batch, language)
+            return self.engine.transcribe(audio_batch, language, return_word_timestamps)
             
         else:
             raise ValueError('Unknown model_type...')
@@ -98,8 +115,6 @@ class RoestASR:
         if not os.path.exists(dir_path):
             os.makedirs(dir_path)
         
-        #torch.save(self.engine.model.state_dict(), os.path.join(dir_path, 'model.safetensors'))
-        #save_file(self.engine.model.state_dict(), os.path.join(dir_path, 'model.safetensors'))
         with open(os.path.join(dir_path, 'quantization_map.json'), 'w') as f:
             json.dump(quantization_map(self.engine.model), f)
 

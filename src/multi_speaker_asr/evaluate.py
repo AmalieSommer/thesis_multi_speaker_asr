@@ -64,9 +64,11 @@ def evaluate_inference(output_filepath: str, loader: DataLoader, model: RoestASR
                     metadata = batch[1]
                     asr_walltime_start = time.perf_counter()
                     asr_cputime_start = time.process_time()
-                    output = model.transcribe(audio_batch=audio_batch, return_timestamps=False)
+                    output = model.transcribe(audio_batch=audio_batch, return_word_timestamps=True)
                     asr_walltime = perf_counter() - asr_walltime_start
                     asr_cputime = process_time() - asr_cputime_start
+
+                    # Process output... Combine word timestamps to single segments, and remove duplicates from overlapping audio
 
                     logger.info(
                             "ASR Module... Epoch: %i, RSS: %.2f GB",
@@ -83,14 +85,6 @@ def evaluate_inference(output_filepath: str, loader: DataLoader, model: RoestASR
         del loader
         del model
         gc.collect()
-
-        
-    
-
-
-
-
-
 
 
 def fetch_dataloader(
@@ -507,6 +501,7 @@ def diarize_inference(
         pipeline.unload()
         del pipeline
         gc.collect()
+
 
 
 

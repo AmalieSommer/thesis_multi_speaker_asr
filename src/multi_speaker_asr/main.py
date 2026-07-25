@@ -107,7 +107,7 @@ def exp_2(config: yaml):
     if config['dataset_location'] == 'local':
         metadata = Dataset.from_csv(config['metadata']).to_iterable_dataset()
     dataset = AudioDataset(metadata=metadata, mode=config['dataset_mode'])
-    loader = DataLoader(dataset=dataset, batch_size=config['batch_size'], shuffle=False, num_workers=1, collate_fn=dataset.collator)
+    loader = DataLoader(dataset=dataset, batch_size=config['batch_size'], shuffle=False, num_workers=0, collate_fn=dataset.collator)
 
     diarize_inference(data=loader, clip_timestamps=True, write_file=config['filepath'])
 
