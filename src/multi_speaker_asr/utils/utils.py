@@ -22,7 +22,7 @@ LOGGING_CONFIG = {
         'file': {
             'level': 'DEBUG',
             'class': 'logging.FileHandler',
-            'filename': '/zhome/28/9/151118/thesis/thesis_multi_speaker_asr/results/torch_engine/fp16_wav2vec2/performance_wav2vec2_torch.log',
+            'filename': '/zhome/28/9/151118/thesis/thesis_multi_speaker_asr/results/torch_engine/fp16/performance_whisper.log',
             'formatter': 'default',
         },
         'stdout': {
@@ -169,7 +169,6 @@ def save_asr_results(asr_output, asr_metadata, output_file):
             for info, transcript in zip(data['audio_batch_info'], transcripts):
                 words.append([{'word': word['word'], 'start': word['start'] + info['start'], 'end': word['end'] + info['start']} for word in transcript])
             segment = ' '.join([word['word'] for row in words for word in row])
-            #print('Segment: %s, Start: %i, End: %i', segment, words[0]['start'], words[-1]['end'])
 
             wer_ = wer(reference=clean_transcription(ref_text), hypothesis=clean_transcription(segment))
             cer_ = cer(reference=clean_transcription(ref_text), hypothesis=clean_transcription(segment))
@@ -186,16 +185,7 @@ def save_asr_results(asr_output, asr_metadata, output_file):
             })
         writer.write(json.dumps(results) + '\n')
         writer.flush()
-        """
-        results = [{
-            'metadata': data, 
-            'output': out,
-            'wer': wer(reference=clean_transcription(data['text']), hypothesis=clean_transcription(out['text'])),
-            'cer': cer(reference=clean_transcription(data['text']), hypothesis=clean_transcription(out['text']))
-            } for data, out in zip(asr_metadata, asr_output)]
-        writer.write(json.dumps(results) + '\n')
-        writer.flush()
-        """
+
 
 def save_logits(output, metadata, filepath):
     file = os.path.join(filepath, 'logits.pkl')

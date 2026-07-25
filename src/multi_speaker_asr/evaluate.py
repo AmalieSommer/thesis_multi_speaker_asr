@@ -49,7 +49,6 @@ def warmup(inference_fn, model, init_input, num_runs, cleanup=False):
 
 def evaluate_inference(output_filepath: str, loader: DataLoader, model: RoestASR, max_epochs=3, warmup=False, word_timestamps=True):
     
-    logits_dir = os.path.join(os.getcwd(), 'data')
     tracker = CarbonTracker(epochs=max_epochs)
     try:
         with torch.inference_mode():
@@ -61,13 +60,12 @@ def evaluate_inference(output_filepath: str, loader: DataLoader, model: RoestASR
 
                     audio_batch = batch[0]
                     metadata = batch[1]
+                    chunk_length = batch[2]
                     asr_walltime_start = time.perf_counter()
                     asr_cputime_start = time.process_time()
-                    output = model.transcribe(audio_batch=audio_batch, word_timestamps=word_timestamps)
+                    output = model.transcribe(audio_batch=audio_batch, word_timestamps=word_timestamps, chunk_length=chunk_length)
                     asr_walltime = perf_counter() - asr_walltime_start
                     asr_cputime = process_time() - asr_cputime_start
-
-                    # Process output... Combine word timestamps to single segments, and remove duplicates from overlapping audio
 
                     logger.info(
                             "ASR Module... Epoch: %i, RSS: %.2f GB",
@@ -75,6 +73,33 @@ def evaluate_inference(output_filepath: str, loader: DataLoader, model: RoestASR
                             proc.memory_info().rss / (1024**3)
                         )
                     logger.info('ASR... Epoch: %i, Walltime: %f CPU time: %f', epoch, asr_walltime, asr_cputime)
+
+                    results = []
+    
+                    for meta in metadata:
+                        sample_words = []
+                        
+                        for info in meta['audio_batch_info']:
+                            ref_idx = info['ref_indices']
+                            chunk_words = output[ref_idx]
+                            
+                            overlap = info['overlap']     # e.g. 5.0
+                            offset = info['start']        # e.g. 25.0 (absolute start of this chunk)
+                            
+                            for w in chunk_words:
+                                # If this is a streamed follow-up chunk (overlap > 0),
+                                # drop words predicted in the duplicate first 5 seconds
+                                if overlap > 0 and w['start'] < overlap:
+                                    continue
+                                
+                                # Shift to absolute timeline coordinates
+                                sample_words.append({
+                                    'word': w['word'],
+                                    'start': round(w['start'] + offset, 2),
+                                    'end': round(w['end'] + offset, 2)
+                                })
+                                
+                        results.append(sample_words)
                     save_asr_results(output, metadata, output_filepath)
 
                 tracker.epoch_end()

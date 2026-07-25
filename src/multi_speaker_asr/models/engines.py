@@ -122,20 +122,16 @@ class PytorchEngine(BaseEngine):
                 quantization_map = json.load(f)
             requantize(model=model, state_dict=state_dict, quantization_map=quantization_map, device=self.device)
         else:
-            fun_args = {'pretrained_model_name_or_path': self.model_path, 'device_map': self.device}
             # Else load the standard model:          
             if self.model_type == 'whisper':
-                logger.debug('Model Path: %s', self.model_path)
                 model = pipeline(
                                     task='automatic-speech-recognition',
                                     model=self.model_path,
                                     return_timestamps='word',
                                     language='da',
-                                    dtype=torch.float16
+                                    dtype=torch.float32
                                 )
-                #model = WhisperForConditionalGeneration.from_pretrained(**fun_args)
             elif self.model_type == 'wav2vec2':
-                logger.debug('Model Path: %s', self.model_path)
                 model = pipeline(
                                     task='automatic-speech-recognition',
                                     model=self.model_path,
@@ -143,8 +139,6 @@ class PytorchEngine(BaseEngine):
                                     language='da',
                                     dtype=torch.float16
                                 )
-                #model = AutoModelForCTC.from_pretrained(**fun_args)
-
         return model
     
         
@@ -184,18 +178,8 @@ class PytorchEngine(BaseEngine):
                         'start': item['timestamp'][0],
                         'end': item['timestamp'][1]
                     } for item in dict_obj['chunks']] for dict_obj in output]
-                    logger.debug('Model output: %s', transcription)
-                else:
-                    pred_ids = self.model.generate(
-                        inputs.input_features, 
-                        attention_mask=inputs.attention_mask
-                        )
-                    # Decode token ids back to text
-                    transcription = self.processor.batch_decode(pred_ids, skip_special_tokens=True)
         elif self.model_type == 'wav2vec2':
             # Run audio through processor to get features and generate token ids
-            id_to_token = {v: k for k, v in self.processor.tokenizer.get_vocab().items()}
-            input_features = self.processor(audio, sampling_rate=self.sr, return_tensors='pt', padding=True)
             with torch.no_grad():
                 if return_word_timestamps:
                     output = self.model(audio)
@@ -203,69 +187,11 @@ class PytorchEngine(BaseEngine):
                         'word': item['text'],
                         'start': item['timestamp'][0],
                         'end': item['timestamp'][1]
-                    } for item in dict_obj['chunks']] for dict_obj in output]
-                    logger.debug('Model output: %s', transcription)
-                else:
-                    logits = self.model(input_features.input_values).logits
-                    texts = []
-                    for i, logit in enumerate(logits):
-                        text = self.ctc_decoder.decode(logits=logit.cpu().numpy())
-                        target_ids = self.processor.tokenizer(
-                            text,
-                            add_special_tokens=False
-                        ).input_ids
-                        log_probs = logit.log_softmax(dim=-1)
-                        alignment_tokens = torchaudio.functional.forced_align(
-                            log_probs.unsqueeze(0),
-                            torch.tensor(target_ids).unsqueeze(0)
-                        )
-                        token_ids = alignment_tokens[0].cpu().squeeze(0).tolist()
-                        tokens = [id_to_token[token] for token in token_ids]
-                        token_spans = self.get_token_spans(tokens=tokens)
-
-                        words = []
-                        current = []
-                        for token, start, end in token_spans:
-                            if token == '|':
-                                if current:
-                                    words.append(current)
-                                    current = []
-                            else:
-                                current.append((token, start, end))
-                        if current:
-                            words.append(current)
-
-                        seconds_per_frame = (len(audio[i]) / self.sr) / logit.shape[0]
-                        word_based_timestamps = []
-                        for word in words:
-                            word_text = ''.join(c[0] for c in word)
-                            start_frame = word[0][1] 
-                            end_frame = word[-1][2]
-                            word_based_timestamps.append({
-                                'word': word_text,
-                                'start': start_frame * seconds_per_frame,
-                                'end': end_frame * seconds_per_frame
-                            })
-                        texts.append(word_based_timestamps)
-                    transcription = texts
+                    } for item in dict_obj['chunks']] for dict_obj in output]                
         else:
             raise ValueError('Unknown model type...')
         return transcription
 
-    def get_token_spans(self, tokens: list, blank_id: str = '_'):
-        spans = []
-        start = 0
-        prev = tokens[0]
-
-        for i, token in enumerate(tokens[1:], 1):
-            if token != prev:
-                if prev != blank_id:
-                    spans.append((prev, start, i - 1))
-                start = i
-                prev = token
-        if prev != blank_id:
-            spans.append((prev, start, len(token) - 1))
-        return spans
 
 class OnnxEngine(BaseEngine):
     def __init__(
@@ -291,18 +217,49 @@ class OnnxEngine(BaseEngine):
         self.compute_type = compute_type
         super().__init__(model_path, device)
 
+
     @profile
     def load_model(self):
         if self.model_type == 'whisper':
             if self.compute_type == 'fp32':
-                return ORTModelForSpeechSeq2Seq.from_pretrained('AmalieSommer/roest-v3-whisper-1.5b-onnx', subfolder='roest-v3-whisper-1.5b')
+                model = ORTModelForSpeechSeq2Seq.from_pretrained(
+                            model_id='AmalieSommer/roest-v3-whisper-1.5b-onnx',
+                            subfolder='roest-v3-whisper-1.5b',
+                            encoder_file_name='encoder_model.onnx',
+                            decoder_file_name='decoder_model.onnx',
+                            decoder_with_past_file_name="decoder_with_past_model.onnx",
+                        )
             elif self.compute_type == 'int8':
-                return ORTModelForSpeechSeq2Seq.from_pretrained('AmalieSommer/roest-v3-whisper-1.5b-onnx', subfolder='roest-v3-whisper-1.5b-quantized-8bit')
+                model = ORTModelForSpeechSeq2Seq.from_pretrained(
+                            model_id='AmalieSommer/roest-v3-whisper-1.5b-onnx-qint8',
+                            encoder_file_name='encoder_model_quantized.onnx',
+                            decoder_file_name='decoder_model_quantized.onnx',
+                            decoder_with_past_file_name="decoder_with_past_model_quantized.onnx",
+                        )
+            return pipeline(
+                    task='automatic-speech-recognition',
+                    model=model,
+                    return_timestamps='word',
+                    language='da'
+                )
         elif self.model_type == 'wav2vec2':
             if self.compute_type == 'fp32':
-                return ORTModelForCTC.from_pretrained('AmalieSommer/roest-v3-wav2vec2-315m-onnx', subfolder='roest-v3-wav2vec2-315m')
+                model = ORTModelForCTC.from_pretrained(
+                            model_id='AmalieSommer/roest-v3-wav2vec2-315m-onnx',
+                            subfolder='roest-v3-wav2vec2-315m',
+                        )
+                #model = ORTModelForCTC.from_pretrained('AmalieSommer/roest-v3-wav2vec2-315m-onnx', subfolder='roest-v3-wav2vec2-315m')
             elif self.compute_type == 'int8':
-                return ORTModelForCTC.from_pretrained('AmalieSommer/roest-v3-wav2vec2-315m-onnx', subfolder='roest-v3-wav2vec2-315m-8bit')
+                model = ORTModelForCTC.from_pretrained(
+                            model_id='AmalieSommer/roest-v3-wav2vec2-315m-onnx-qint8'
+                        )
+                #model = ORTModelForCTC.from_pretrained('AmalieSommer/roest-v3-wav2vec2-315m-onnx', subfolder='roest-v3-wav2vec2-315m-8bit')
+            return pipeline(
+                task='automatic-speech-recognition',
+                model=model,
+                return_timestamps='word',
+                language='da'
+            )
         else:
             raise ValueError('Model type was not recognized...')
 
@@ -329,18 +286,35 @@ class OnnxEngine(BaseEngine):
     def transcribe(self, audio, language: str = 'da', return_word_timestamps: bool = False):
         if self.model_type == 'whisper':
             # Run audio through processor to get features and generate token ids
-            inputs = self.processor(audio, sampling_rate=self.sr, return_tensors='pt', return_attention_mask=True)
+            #inputs = self.processor(audio, sampling_rate=self.sr, return_tensors='pt', return_attention_mask=True)
             with torch.no_grad():
+                output = self.model(audio)
+                transcription = [[{
+                    'word': item['text'],
+                    'start': item['timestamp'][0],
+                    'end': item['timestamp'][1]
+                } for item in dict_obj['chunks']] for dict_obj in output]
+                logger.debug('Model output: %s', transcription)
+                """
                 pred_ids = self.model.generate(
                     inputs.input_features, 
                     attention_mask=inputs.attention_mask
                     )
             # Decode token ids back to text
             transcription = self.processor.batch_decode(pred_ids, skip_special_tokens=True)
+            """
         elif self.model_type == 'wav2vec2':
             # Run audio through processor to get features and generate token ids
             input_features = self.processor(audio, sampling_rate=self.sr, return_tensors='pt', padding=True)
             with torch.no_grad():
+                output = self.model(audio)
+                transcription = [[{
+                    'word': item['text'],
+                    'start': item['timestamp'][0],
+                    'end': item['timestamp'][1]
+                } for item in dict_obj['chunks']] for dict_obj in output]
+                logger.debug('Model output: %s', transcription)
+            """
                 logits = self.model(input_features.input_values).logits
             texts = []
             for logit in logits:
@@ -348,6 +322,7 @@ class OnnxEngine(BaseEngine):
                 text = self.ctc_decoder.decode(logits=logit)
                 texts.append({'text': text})
             transcription = texts
+            """
         else:
             raise ValueError('Unknown model type...')
         return transcription

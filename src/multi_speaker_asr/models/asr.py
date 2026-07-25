@@ -76,36 +76,30 @@ class RoestASR:
         else:
             self.engine = BaseEngine(model_path=model_path)
 
-    def transcribe(self, audio_batch, word_timestamps, language='da', max_batch_duration: int = 30):
+    def transcribe(self, audio_batch, word_timestamps, language='da', chunk_length: int = 5):
         if not isinstance(audio_batch, (list, tuple)):
                 audio_batch = [audio_batch]
 
-        sr = self.engine.sr
-        current_batch_duration = 0
-        batch_results = []
-        batches = []
-        for audio in audio_batch:
-            if (current_batch_duration + (len(audio) / sr)) > max_batch_duration:
-                batch_results.append(self.engine.transcribe(audio=batches, language=language, return_word_timestamps=word_timestamps))
-                current_batch_duration = len(audio) / sr
-                batches = [audio]
-            else:
-                current_batch_duration += len(audio) / sr
-                batches.append(audio)
-        batch_results.append(self.engine.transcribe(batches, language, word_timestamps))
-
-
-        results = [[{'word': w['word'], 'start': w['start'], 'end': w['end']} for w in row if w['end'] <= 10] for batch in batch_results for row in batch]
-        logger.debug('In RoestASR... Result formatted: %s', results)
-        return results
-
         if self.model_type == 'whisper':
-            return self.engine.transcribe(audio_batch, language, return_word_timestamps)
+            return self.engine.transcribe(audio_batch, language, word_timestamps)
         elif self.model_type == 'wav2vec2':
-            return self.engine.transcribe(audio_batch, language, return_word_timestamps)
+            return self.engine.transcribe(audio_batch, language, word_timestamps)
             
         else:
             raise ValueError('Unknown model_type...')
+        
+        results = []
+        for sample in output:
+            duration = sample[-1]['end'] - sample[0]['start']
+            if duration > 30:
+                results.append([{'word': w['word'], 'start': w['start'], 'end': w['end']} for w in sample if w['end'] <= chunk_length])
+            else:
+                results.append(sample)
+        return results
+
+        
+
+        
 
         
     def save_quantized_model(self, compute_type: str = 'int8', weights_q: qtype = None):
