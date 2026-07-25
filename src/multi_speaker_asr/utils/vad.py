@@ -5,9 +5,8 @@ import numpy as np
 from ..utils.utils import profile, LOGGING_CONFIG
 import logging
 import logging.config
+
 logging.config.dictConfig(LOGGING_CONFIG)
-
-
 logger = logging.getLogger(name='AudioData')
 
 

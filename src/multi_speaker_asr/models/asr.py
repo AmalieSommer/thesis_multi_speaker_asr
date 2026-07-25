@@ -76,26 +76,18 @@ class RoestASR:
         else:
             self.engine = BaseEngine(model_path=model_path)
 
-    def transcribe(self, audio_batch, word_timestamps, language='da', chunk_length: int = 5):
+    def transcribe(self, audio_batch, language='da'):
         if not isinstance(audio_batch, (list, tuple)):
                 audio_batch = [audio_batch]
 
         if self.model_type == 'whisper':
-            return self.engine.transcribe(audio_batch, language, word_timestamps)
+            return self.engine.transcribe(audio_batch, language)
         elif self.model_type == 'wav2vec2':
-            return self.engine.transcribe(audio_batch, language, word_timestamps)
+            return self.engine.transcribe(audio_batch, language)
             
         else:
             raise ValueError('Unknown model_type...')
-        
-        results = []
-        for sample in output:
-            duration = sample[-1]['end'] - sample[0]['start']
-            if duration > 30:
-                results.append([{'word': w['word'], 'start': w['start'], 'end': w['end']} for w in sample if w['end'] <= chunk_length])
-            else:
-                results.append(sample)
-        return results
+    
 
         
 

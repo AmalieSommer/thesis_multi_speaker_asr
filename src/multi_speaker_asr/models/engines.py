@@ -57,7 +57,7 @@ class BaseEngine:
         return AutoModelForSpeechSeq2Seq.from_pretrained(self.model_path)
 
 
-    def transcribe(self, audio, return_word_timestamps: bool = False):
+    def transcribe(self, audio):
         if not isinstance(audio, np.array):
             raise TypeError('Audio must be a numpy array')
         
@@ -68,18 +68,6 @@ class BaseEngine:
         # Decode token ids back to text
         transcription = self.processor.batch_decode(pred_ids, skip_special_tokens=True)
         return transcription
-
-    def return_word_timestamps(self, word_offsets, segment_duration, logits):
-        frames = logits.shape[1]
-        sec_per_frame = segment_duration / frames
-
-        word_timestamps = []
-        for word in word_offsets:
-            word_timestamps.append({
-                'start': word['start_offset'] * sec_per_frame,
-                'end': word['end_offset'] * sec_per_frame
-            })
-        return word_timestamps
 
     
 
@@ -127,7 +115,7 @@ class PytorchEngine(BaseEngine):
                 model = pipeline(
                                     task='automatic-speech-recognition',
                                     model=self.model_path,
-                                    return_timestamps='word',
+                                    return_timestamps=True,
                                     language='da',
                                     dtype=torch.float32
                                 )
@@ -135,7 +123,7 @@ class PytorchEngine(BaseEngine):
                 model = pipeline(
                                     task='automatic-speech-recognition',
                                     model=self.model_path,
-                                    return_timestamps='word',
+                                    return_timestamps=True,
                                     language='da',
                                     dtype=torch.float16
                                 )
@@ -166,28 +154,18 @@ class PytorchEngine(BaseEngine):
             return super().load_processor()
             
 
-    def transcribe(self, audio, language='da', return_word_timestamps: bool = True):
+    def transcribe(self, audio, language='da'):
         if self.model_type == 'whisper':
             # Run audio through processor to get features and generate token ids
             inputs = self.processor(audio, sampling_rate=self.sr, return_tensors='pt', return_attention_mask=True)
             with torch.no_grad():
-                if return_word_timestamps:
-                    output = self.model(audio)
-                    transcription = [[{
-                        'word': item['text'],
-                        'start': item['timestamp'][0],
-                        'end': item['timestamp'][1]
-                    } for item in dict_obj['chunks']] for dict_obj in output]
+                output = self.model(audio)
+                return output
         elif self.model_type == 'wav2vec2':
             # Run audio through processor to get features and generate token ids
             with torch.no_grad():
-                if return_word_timestamps:
-                    output = self.model(audio)
-                    transcription = [[{
-                        'word': item['text'],
-                        'start': item['timestamp'][0],
-                        'end': item['timestamp'][1]
-                    } for item in dict_obj['chunks']] for dict_obj in output]                
+                output = self.model(audio)
+                return output           
         else:
             raise ValueError('Unknown model type...')
         return transcription
@@ -228,10 +206,6 @@ class OnnxEngine(BaseEngine):
                             decoder_file_name='decoder_model.onnx',
                             decoder_with_past_file_name="decoder_with_past_model.onnx",
                         )
-                print(type(model))
-                print(type(self.processor))
-                print(type(model.config))
-                print(type(model.generation_config))
             elif self.compute_type == 'int8':
                 model = ORTModelForSpeechSeq2Seq.from_pretrained(
                             model_id='AmalieSommer/roest-v3-whisper-1.5b-onnx-qint8',
@@ -239,22 +213,21 @@ class OnnxEngine(BaseEngine):
                             decoder_file_name='decoder_model_quantized.onnx',
                             decoder_with_past_file_name="decoder_with_past_model_quantized.onnx",
                         )
-                print(type(model))
-                print(type(self.processor))
-                print(type(model.config))
-                print(type(model.generation_config))
+            self.processor.feature_extractor.return_attention_mask = True
             return pipeline(
                     task='automatic-speech-recognition',
                     model=model,
                     tokenizer=self.processor.tokenizer,
                     feature_extractor=self.processor.feature_extractor,
-                    return_timestamps='word'
+                    return_timestamps=True,
+                    generate_kwargs={
+                        "language": "da"
+                    }
                 )
         elif self.model_type == 'wav2vec2':
             if self.compute_type == 'fp32':
                 model = ORTModelForCTC.from_pretrained(
-                            model_id='AmalieSommer/roest-v3-wav2vec2-315m-onnx',
-                            subfolder='roest-v3-wav2vec2-315m',
+                            model_id='AmalieSommer/roest-v3-wav2vec2-315m-onnx'
                         )
             elif self.compute_type == 'int8':
                 model = ORTModelForCTC.from_pretrained(
@@ -263,7 +236,7 @@ class OnnxEngine(BaseEngine):
             return pipeline(
                 task='automatic-speech-recognition',
                 model=model,
-                return_timestamps='word'
+                return_timestamps=True
             )
         else:
             raise ValueError('Model type was not recognized...')
@@ -282,33 +255,39 @@ class OnnxEngine(BaseEngine):
                 return WhisperProcessor.from_pretrained(
                     pretrained_model_name_or_path='AmalieSommer/roest-v3-whisper-1.5b-onnx-qint8'
                 )
+            
         elif self.model_type == 'wav2vec2':
-            return Wav2Vec2Processor.from_pretrained('AmalieSommer/roest-v3-wav2vec2-315m-onnx', subfolder='roest-v3-wav2vec2-315m')
+            return Wav2Vec2Processor.from_pretrained('AmalieSommer/roest-v3-wav2vec2-315m-onnx')
         else: 
             return super().load_processor()
 
 
-    def transcribe(self, audio, language: str = 'da', return_word_timestamps: bool = False):
+    def transcribe(self, audio, language: str = 'da'):
+        transcription = []
         if self.model_type == 'whisper':
             with torch.no_grad():
-                
                 output = self.model(audio)
-                transcription = [[{
-                    'word': item['text'],
-                    'start': item['timestamp'][0],
-                    'end': item['timestamp'][1]
-                } for item in dict_obj['chunks']] for dict_obj in output]
+
+                for i, segment in enumerate(output):
+                    end = len(audio[i]) / self.sr
+                    transcription.append([{
+                        'start': item['timestamp'][0],
+                        'end': end if item['timestamp'][1] == None else item['timestamp'][1],
+                        'text': item['text']
+                    } for item in segment['chunks']])
                 
                 logger.debug('Model output: %s', transcription)
           
         elif self.model_type == 'wav2vec2':
             with torch.no_grad():
                 output = self.model(audio)
-                transcription = [[{
-                    'word': item['text'],
-                    'start': item['timestamp'][0],
-                    'end': item['timestamp'][1]
-                } for item in dict_obj['chunks']] for dict_obj in output]
+                for i, segment in enumerate(output):
+                    end = len(audio[i]) / self.sr
+                    transcription.append([{
+                        'start': item[0],
+                        'end': end if item[1] == None else item[1],
+                        'text': item['text']
+                    } for item in segment['chunks']])           
                 logger.debug('Model output: %s', transcription)
         else:
             raise ValueError('Unknown model type...')
@@ -330,7 +309,7 @@ class CT2(BaseEngine):
             cpu_threads=self.cpu_threads
         )
 
-    def transcribe(self, audio, language: str = 'da', return_word_timestamps: bool = False):
+    def transcribe(self, audio, language: str = 'da'):
         if not isinstance(audio, list):
             audio = [audio]
 
@@ -396,7 +375,7 @@ class WhisperCPP(BaseEngine):
     def load_processor(self):
         pass
         
-    def transcribe(self, audio, language='da', return_word_timestamps: bool = False):
+    def transcribe(self, audio, language='da'):
         if not isinstance(audio, (list, tuple)):
             return self.model.transcribe(audio)
 
