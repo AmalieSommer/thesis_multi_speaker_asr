@@ -22,10 +22,11 @@ CWD = os.getcwd()
 
 
 class AudioDataset(IterableDataset):
-    def __init__(self, metadata, mode: str = 'segments', transform = None):
+    def __init__(self, metadata, mode: str = 'segments', transform = None, target_sr: int = 16000):
         self.metadata = metadata
         self.mode = mode
         self.transform = transform
+        self.target_sr = target_sr
 
     def __iter__(self):
         if self.mode == 'segments':
@@ -58,7 +59,7 @@ class AudioDataset(IterableDataset):
     
     def __iter__recordings(self):
         for sample in self.metadata:
-            if sample['segment_duration'] <= 1.0:
+            if 'segment_duration' in sample.keys() and sample['segment_duration'] <= 1.0:
                 # Skip audio segments that are too short...
                 continue
 
@@ -107,16 +108,91 @@ class AudioDataset(IterableDataset):
 
         audio = audio[(start * sr) : (end * sr)]
         return audio
+
+    def stream_audio(self, audio_arr, chunk_size: int, overlap: int, offset: int = 0, target_sr: int = 16000):
+            if overlap >= chunk_size:
+                raise ValueError("overlap must be smaller than chunk_size")
+    
+            chunk_samples = int(chunk_size * target_sr)
+            step_samples = int((chunk_size - overlap) * target_sr)
+            start = int(offset * target_sr)
+    
+            chunks = []
+            while True:
+                chunk = audio_arr[start : int(start + chunk_samples)]
+                if len(chunk) == 0:
+                    break
+                if len(chunk) < chunk_samples:
+                    break
+    
+                chunks.append({
+                    'start': start / target_sr,
+                    'overlap': overlap,
+                    'audio_chunk': chunk 
+                })
+                start = start + step_samples
+
+            chunks.append({
+                        'start': start / target_sr,
+                        'overlap': overlap,
+                        'audio_chunk': chunk
+                    })
+            return chunks
     
 
     def collator(self, batch):
+        # Verify the duration of the audio samples dont exceed 10 seconds
+        audio_batch = []
+        metadata_batch = []
+        for b in batch:
+            start = 0 if 'start' not in b.keys() else b['start']
+            end = len(b['audio']) / self.target_sr if 'end' not in b.keys() else b['end']
+            duration = end - start
+            if duration > 10:
+                output = self.stream_audio(
+                    audio_arr=b['audio'],
+                    chunk_size=15,
+                    overlap=5,
+                    offset=start
+                    )
+                start_index = len(audio_batch)
+                end_index = start_index + len(output)
+                ref = list(range(start_index, end_index))
+                audio_ref = [{
+                    'ref_indices': ref_index,
+                    'overlap': out['overlap'],
+                    'start': out['start']
+                } for ref_index, out in zip(ref, output)]
+                audio_batch.extend([out['audio_chunk'] for out in output])
+            else:
+                audio_ref = [{
+                    'ref_indices': len(audio_batch),
+                    'overlap': 0,
+                    'start': start
+                }]
+                audio_batch.extend([b['audio']])
+            metadata_batch.append({
+                'audio_id': b['audio_id'],
+                'segment_id': b['segment_id'],
+                'audio_batch_info': audio_ref,
+                'text': b['text'],
+                'start': start,
+                'end': end
+            })
+        return audio_batch, metadata_batch
+        """
         audio_batch = [b['audio'] for b in batch]
         metadata = [{
             'audio_id': b['audio_id'],
             'segment_id': b['segment_id'],
-            'text': b['text']
+            'text': b['text'],
+            'start': 0 if 'start' not in b.keys() else b['start'],
+            'end': len(b['audio']) / self.target_sr if 'end' not in b.keys() else b['end']
         } for b in batch]
         return audio_batch, metadata
+        """
+
+    
 
 
 class AudioData(IterableDataset):

@@ -10,7 +10,6 @@ mozdata/
 
 src/multi_speaker_asr/models/saved_models
 src/hpc_results
-/notebooks
 
 /pyproject.toml
 /uv.lock
