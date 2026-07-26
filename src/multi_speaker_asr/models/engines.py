@@ -145,7 +145,6 @@ class PytorchEngine(BaseEngine):
             return WhisperProcessor.from_pretrained(path)
         elif self.model_type == 'wav2vec2':
             processor = Wav2Vec2Processor.from_pretrained(path)
-            print(processor.tokenizer.get_vocab())
             vocab = processor.tokenizer.get_vocab()
             sorted_vocab = [k for k, _ in sorted(vocab.items(), key=lambda x: x[1])]
             self.ctc_decoder = build_ctcdecoder(
@@ -159,27 +158,15 @@ class PytorchEngine(BaseEngine):
     def transcribe(self, audio, language='da'):
         if self.model_type == 'whisper':
             # Run audio through processor to get features and generate token ids
-            inputs = self.processor(audio, sampling_rate=self.sr, return_tensors='pt', return_attention_mask=True)
             with torch.no_grad():
                 output = self.model(audio)
-                return output
         elif self.model_type == 'wav2vec2':
             # Run audio through processor to get features and generate token ids
             with torch.no_grad():
                 output = self.model(audio)
-                return output           
         else:
             raise ValueError('Unknown model type...')
-        segments = [
-                {
-                    "text": r["text"],
-                    "start": r["chunks"][0]["timestamp"][0],
-                    "end": r["chunks"][-1]["timestamp"][1],
-                }
-                for r in output
-                if r["chunks"]
-            ]
-        return segments
+        return [item['text'] for item in output]
 
 
 class OnnxEngine(BaseEngine):
