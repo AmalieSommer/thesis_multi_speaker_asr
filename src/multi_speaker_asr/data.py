@@ -5,6 +5,7 @@ import io
 from datasets import load_dataset, Audio, Dataset
 from torch.utils.data import IterableDataset
 from faster_whisper.vad import VadOptions, get_speech_timestamps
+from faster_whisper.audio import decode_audio, pad_or_trim
 import soundfile as sf
 from multi_speaker_asr.utils.utils import LOGGING_CONFIG
 from multi_speaker_asr.utils.vad import collect_audio_chunks, get_timestamps
@@ -176,6 +177,8 @@ class AudioDataset(IterableDataset):
                     'start': start
                 }]
                 audio_batch.extend([item['audio']])
+
+            audio_batch = [pad_or_trim(audio) for audio in audio_batch]
             metadata_batch.append({
                 'audio_id': item['audio_id'],
                 'segment_id': item['segment_id'],

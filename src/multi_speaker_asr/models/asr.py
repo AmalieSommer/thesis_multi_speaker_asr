@@ -43,7 +43,12 @@ class RoestASR:
             raise ValueError('Missing model_type...')
         
         if self.backend == 'ct2':
-            self.engine = CT2(model_path=model_path, compute_type=compute_type, cpu_threads=cpu_threads)
+            self.engine = CT2(
+                model_path='pluttodk/roest-v3-whisper-1.5b-ct2',
+                model_type=self.model_type, 
+                compute_type=compute_type, 
+                cpu_threads=cpu_threads
+                )
         elif self.backend == 'onnx':
             self.engine = OnnxEngine(
                 model_path=model_path,

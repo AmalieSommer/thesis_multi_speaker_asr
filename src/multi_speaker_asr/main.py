@@ -98,7 +98,7 @@ def exp_1(config):
     model = RoestASR(model_type=config['model_type'], batch_size=config['batch_size'], backend=config['backend_type'])
     model.load(use_saved_model=config['use_saved_model'], compute_type=config['computetype'], local_models_dir=config['local_models_dir'])
    
-    evaluate_inference(output_filepath=config['asr_filepath'], loader=loader, model=model, warmup=False, word_timestamps=config['word_timestamps'])
+    evaluate_inference(output_filepath=config['asr_filepath'], loader=loader, model=model, warmup=False)
 
 
 def exp_2(config: yaml):

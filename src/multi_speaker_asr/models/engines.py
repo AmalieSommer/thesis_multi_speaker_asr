@@ -123,9 +123,9 @@ class PytorchEngine(BaseEngine):
                 model = pipeline(
                                     task='automatic-speech-recognition',
                                     model=self.model_path,
-                                    return_timestamps=True,
+                                    return_timestamps='word',
                                     language='da',
-                                    dtype=torch.float16
+                                    dtype=torch.float32
                                 )
         return model
     
@@ -168,7 +168,16 @@ class PytorchEngine(BaseEngine):
                 return output           
         else:
             raise ValueError('Unknown model type...')
-        return transcription
+        segments = [
+                {
+                    "text": r["text"],
+                    "start": r["chunks"][0]["timestamp"][0],
+                    "end": r["chunks"][-1]["timestamp"][1],
+                }
+                for r in output
+                if r["chunks"]
+            ]
+        return segments
 
 
 class OnnxEngine(BaseEngine):
@@ -295,34 +304,55 @@ class OnnxEngine(BaseEngine):
 
 
 class CT2(BaseEngine):
-    def __init__(self, model_path, device = 'cpu', compute_type: str = 'fp32', cpu_threads: int = 6):
-        self.compute_type = compute_type
+    def __init__(self, model_path, model_type, device = 'cpu', compute_type: str = 'fp32', cpu_threads: int = 6):
+        self.compute_type = 'float32' if compute_type == 'fp32' else 'int8'
         self.cpu_threads = cpu_threads
+        self.model_type = model_type
         super().__init__(model_path, device)
+
 
     @profile
     def load_model(self):
         self.model = WhisperModel(
-            model_size_or_path=self.model_path, 
+            model_size_or_path='pluttodk/roest-v3-whisper-1.5b-ct2', 
             device=self.device,
             compute_type=self.compute_type,
             cpu_threads=self.cpu_threads
         )
 
-    def transcribe(self, audio, language: str = 'da'):
-        if not isinstance(audio, list):
-            audio = [audio]
+    @profile
+    def load_processor(self):
+        pass
 
-        outputs = []
-        for i, sample in enumerate(audio):
-            segments, _ = self.pipeline.transcribe(
-                audio=sample,
-                language=language,
-                log_progress=True
-            )
-            outputs.append([{'start': seg.start, 'end': seg.end, 'text': seg.text} for seg in segments])
+    def transcribe(self, audio_batch, language: str = 'da'):
+        if not isinstance(audio_batch, list):
+            audio_batch = [audio_batch]
 
-        return outputs
+        features_list = []
+        for audio in audio_batch:
+            features_list.append(self.model.feature_extractor(audio))
+        batched_features = np.stack(features_list)
+        
+        prompt = self.model.get_prompt(
+            language=language,
+            task="transcribe",
+            without_timestamps=True
+        )
+        prompts = [prompt] * len(audio)
+        
+        encoder_output = self.model.model.encode(batched_features)
+        results = self.model.model.generate(
+            encoder_output,
+            prompts,
+            beam_size=5
+        )
+        
+        transcriptions = []
+        for result in results:
+            text = self.model.tokenizer.decode(result.sequences_ids[0])
+            transcriptions.append(text.strip())
+            
+        return transcriptions
 
 
 class WhisperCPP(BaseEngine):

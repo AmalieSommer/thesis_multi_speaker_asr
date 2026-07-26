@@ -47,7 +47,7 @@ def warmup(inference_fn, model, init_input, num_runs, cleanup=False):
 
 
 
-def evaluate_inference(output_filepath: str, loader: DataLoader, model: RoestASR, max_epochs=3, warmup=False, word_timestamps=True):
+def evaluate_inference(output_filepath: str, loader: DataLoader, model: RoestASR, max_epochs=3, warmup=False):
     
     tracker = CarbonTracker(epochs=max_epochs)
     try:
