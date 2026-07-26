@@ -16,6 +16,7 @@ from torch.utils.data import DataLoader
 import timeit
 import itertools
 from .utils.vad import collect_word_chunks
+from .utils.utils import clean_transcription
 import psutil, os
 from time import perf_counter, process_time
 import soundfile as sf
@@ -24,6 +25,7 @@ import numpy as np
 import librosa
 from carbontracker.tracker import CarbonTracker
 from pathlib import Path
+from jiwer import wer, cer
 
 
 
@@ -51,30 +53,49 @@ def evaluate_inference(output_filepath: str, loader: DataLoader, model: RoestASR
     
     tracker = CarbonTracker(epochs=max_epochs)
     try:
-        with torch.inference_mode():
-            for epoch in range(max_epochs):
-                tracker.epoch_start()
-                for batch in loader:
-                    if not batch:
-                        continue
+        with open(output_filepath, 'a') as writer:
+            with torch.inference_mode():
+                for epoch in range(max_epochs):
+                    tracker.epoch_start()
+                    for batch in loader:
+                        if not batch:
+                            continue
 
-                    audio_batch = batch[0]
-                    metadata = batch[1]
-                    asr_walltime_start = time.perf_counter()
-                    asr_cputime_start = time.process_time()
-                    output = model.transcribe(audio_batch=audio_batch)
-                    asr_walltime = perf_counter() - asr_walltime_start
-                    asr_cputime = process_time() - asr_cputime_start
+                        audio_batch = batch[0]
+                        metadata = batch[1]
+                        asr_walltime_start = time.perf_counter()
+                        asr_cputime_start = time.process_time()
+                        output = model.transcribe(audio_batch=audio_batch)
+                        asr_walltime = perf_counter() - asr_walltime_start
+                        asr_cputime = process_time() - asr_cputime_start
 
-                    logger.info(
-                            "ASR Module... Epoch: %i, RSS: %.2f GB",
-                            epoch,
-                            proc.memory_info().rss / (1024**3)
-                        )
-                    logger.info('ASR... Epoch: %i, Walltime: %f CPU time: %f', epoch, asr_walltime, asr_cputime)
-                    save_asr_results(output, metadata, output_filepath)
-
-                tracker.epoch_end()
+                        logger.info(
+                                "ASR Module... Epoch: %i, RSS: %.2f GB",
+                                epoch,
+                                proc.memory_info().rss / (1024**3)
+                            )
+                        logger.info('ASR... Epoch: %i, Walltime: %f CPU time: %f', epoch, asr_walltime, asr_cputime)
+                        results = []
+                        for data in metadata:
+                            ref_text = data['text']
+                            transcript = [output[batch_info['ref_indices']] for batch_info in data['audio_batch_info']]
+                            for text in transcript:
+                                wer_ = wer(reference=clean_transcription(ref_text), hypothesis=clean_transcription(text))
+                                cer_ = cer(reference=clean_transcription(ref_text), hypothesis=clean_transcription(text))
+        
+                            results.append({
+                                'audio_id': data['audio_id'],
+                                'segment_id': data['segment_id'],
+                                'ref': ref_text,
+                                'seg_start': data['start'],
+                                'seg_end': data['end'],
+                                'wer': wer_,
+                                'cer': cer_,      
+                                'hyp': text
+                            })
+                        writer.write(json.dumps(results) + '\n')
+                        writer.flush()
+                    tracker.epoch_end()
     except Exception as e:
         raise RuntimeError(e)
         #logger.error('Failed with error: %s', e)
