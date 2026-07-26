@@ -9,14 +9,18 @@ from transformers import (
     WhisperProcessor, 
     WhisperConfig, 
     AutoConfig,
-    WhisperTimeStampLogitsProcessor
+    WhisperTimeStampLogitsProcessor,
+    AutoTokenizer
     )
+from faster_whisper.tokenizer import Tokenizer
+import tokenizers
 import os
 from pyctcdecode import build_ctcdecoder
 import torchaudio
 from optimum.quanto import requantize
 from safetensors.torch import load_file
 from faster_whisper import WhisperModel
+from faster_whisper.audio import decode_audio, pad_or_trim
 import numpy as np
 import torch
 import json
@@ -115,7 +119,6 @@ class PytorchEngine(BaseEngine):
                 model = pipeline(
                                     task='automatic-speech-recognition',
                                     model=self.model_path,
-                                    return_timestamps=True,
                                     language='da',
                                     dtype=torch.float32
                                 )
@@ -123,7 +126,6 @@ class PytorchEngine(BaseEngine):
                 model = pipeline(
                                     task='automatic-speech-recognition',
                                     model=self.model_path,
-                                    return_timestamps='word',
                                     language='da',
                                     dtype=torch.float32
                                 )
@@ -313,7 +315,7 @@ class CT2(BaseEngine):
 
     @profile
     def load_model(self):
-        self.model = WhisperModel(
+        return WhisperModel(
             model_size_or_path='pluttodk/roest-v3-whisper-1.5b-ct2', 
             device=self.device,
             compute_type=self.compute_type,
@@ -322,35 +324,49 @@ class CT2(BaseEngine):
 
     @profile
     def load_processor(self):
-        pass
+        processor = WhisperProcessor.from_pretrained('pluttodk/roest-v3-whisper-1.5b-ct2')
+        return processor
 
-    def transcribe(self, audio_batch, language: str = 'da'):
+
+    def transcribe(self, audio_batch, language: str = 'da', task: str = 'transcribe', chunk_length: int = 30):
         if not isinstance(audio_batch, list):
             audio_batch = [audio_batch]
 
         features_list = []
+        previous_tokens = []
         for audio in audio_batch:
-            features_list.append(self.model.feature_extractor(audio))
+            feature = self.model.feature_extractor(audio, chunk_length=chunk_length)
+            features_list.append(pad_or_trim(feature))
         batched_features = np.stack(features_list)
+
+        tokenizer = Tokenizer(
+                    self.model.hf_tokenizer,
+                    self.model.model.is_multilingual,
+                    task=task,
+                    language=language,
+                )
         
         prompt = self.model.get_prompt(
-            language=language,
-            task="transcribe",
+            tokenizer=tokenizer,
+            previous_tokens=previous_tokens,
             without_timestamps=True
         )
-        prompts = [prompt] * len(audio)
+        prompts = [prompt] * len(audio_batch)
         
-        encoder_output = self.model.model.encode(batched_features)
+        
+        encoder_output = self.model.encode(batched_features)
         results = self.model.model.generate(
             encoder_output,
-            prompts,
-            beam_size=5
+            prompts
         )
         
         transcriptions = []
         for result in results:
-            text = self.model.tokenizer.decode(result.sequences_ids[0])
-            transcriptions.append(text.strip())
+            tokens = result.sequences_ids[0]
+            text = tokenizer.decode(tokens).strip()
+            transcriptions.append(text)
+
+            
             
         return transcriptions
 

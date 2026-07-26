@@ -178,7 +178,7 @@ class AudioDataset(IterableDataset):
                 }]
                 audio_batch.extend([item['audio']])
 
-            audio_batch = [pad_or_trim(audio) for audio in audio_batch]
+            #audio_batch = [pad_or_trim(audio, length=self.max_duration * self.target_sr) for audio in audio_batch]
             metadata_batch.append({
                 'audio_id': item['audio_id'],
                 'segment_id': item['segment_id'],
