@@ -30,7 +30,8 @@ from optimum.quanto import qint8, qint4, qint2
 logging.config.dictConfig(LOGGING_CONFIG)
 logger = logging.getLogger(name='Main')
 
-
+torch.set_num_threads(6)
+torch.set_num_interop_threads(6)
 
 load_dotenv()
 HF_TOKEN = os.getenv('HF_TOKEN')
