@@ -94,7 +94,7 @@ def exp_1(config):
         raise ValueError('Unknown dataset_mode passed...')
 
     dataset = AudioDataset(metadata=metadata, mode=config['dataset_mode'])
-    loader = DataLoader(dataset=dataset, batch_size=config['batch_size'], shuffle=False, num_workers=1, collate_fn=dataset.collator)
+    loader = DataLoader(dataset=dataset, batch_size=config['batch_size'], shuffle=False, num_workers=0, collate_fn=dataset.collator)
 
     model = RoestASR(model_type=config['model_type'], batch_size=config['batch_size'], backend=config['backend_type'])
     model.load(use_saved_model=config['use_saved_model'], compute_type=config['computetype'], local_models_dir=config['local_models_dir'])

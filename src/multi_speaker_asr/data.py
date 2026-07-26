@@ -33,8 +33,6 @@ class AudioDataset(IterableDataset):
         self.target_sr = target_sr
         self.max_duration = max_segment_duration
 
-        self.vad_model = load_silero_vad()
-
     def __iter__(self):
         if self.mode == 'segments':
             yield from self.__iter__segments()
@@ -46,7 +44,7 @@ class AudioDataset(IterableDataset):
     def __iter__segments(self):
         iter = 0
         for sample in self.metadata:
-            if 'segment_duration' in sample.keys() and sample['segment_duration'] <= 1.0:
+            if 'segment_duration' in sample.keys() and sample['segment_duration'] < 1.0:
                 # Skip audio segments that are too short...
                 continue
             
@@ -150,9 +148,9 @@ class AudioDataset(IterableDataset):
         # Verify the duration of the audio samples dont exceed XX seconds
         audio_batch = []
         metadata_batch = []
-        chunk_overlap = 5   #Just adding a small context window...
+        sample_to_segment = {}
 
-        for item in batch:
+        for i, item in enumerate(batch):
             start = 0 if 'start' not in item.keys() else item['start']
             end = len(item['audio']) / self.target_sr if 'end' not in item.keys() else item['end']
             duration = end - start
@@ -160,7 +158,20 @@ class AudioDataset(IterableDataset):
                 output = self.search_cutoff_points(
                     audio_np=item['audio'],
                 )
-
+            else:
+                output = [item['audio']]
+        
+            sample_to_segment[i] = list(range(len(audio_batch), (len(audio_batch) + len(output))))
+            audio_batch.extend([item for item in output])
+            metadata_batch.append({
+                'audio_id': item['audio_id'],
+                'segment_id': item['segment_id'],
+                'text': item['text'],
+                'start': start,
+                'end': end
+            })
+        return audio_batch, metadata_batch, sample_to_segment
+        """
                 # Create a mapping from the index of the audio sample to the original audio id.
                 start_index = len(audio_batch)
                 end_index = start_index + len(output)
@@ -188,15 +199,18 @@ class AudioDataset(IterableDataset):
                 'end': end
             })
         return audio_batch, metadata_batch
-
+        """
         
 
-    def search_cutoff_points(self, audio_np, sr=16000, max_sec=30, search_window_sec=5, lookahead_sec=2):
+    def search_cutoff_points(self, audio_np, sr=16000, max_sec=30, search_window_sec=5, lookahead_sec=2, grace_sec: float = 0.5, min_remainder_sec: int = 10):
         max_samples = int(max_sec * sr)
+        grace_samples = int(grace_sec * sr)
+        min_remainder = int(min_remainder_sec * sr)
+
         chunks = []
-        
-        current_start = 0
         total_length = len(audio_np)
+        current_start = 0
+        vad_model = load_silero_vad()
         
         while current_start < total_length:
             theoretical_end = current_start + max_samples
@@ -205,13 +219,13 @@ class AudioDataset(IterableDataset):
                 chunks.append(audio_np[current_start:])
                 break
                 
-            search_start = theoretical_end - int(search_window_sec * sr)
+            search_start = max(current_start, theoretical_end - int(search_window_sec * sr))
             search_end = min(total_length, theoretical_end + int(lookahead_sec * sr))
             
             # Extract the search window for Silero VAD
             window_slice = audio_np[search_start:search_end]
             window_tensor = torch.from_numpy(window_slice).float()
-            speech_intervals = get_speech_timestamps(window_tensor, self.vad_model, sampling_rate=sr)
+            speech_intervals = get_speech_timestamps(window_tensor, vad_model, sampling_rate=sr)
             
             cut_index = theoretical_end # Default fallback: hard cut at max_sec
             
@@ -219,23 +233,48 @@ class AudioDataset(IterableDataset):
                 # If no speech in the window, cut safely at the start of the window
                 cut_index = search_start
             else:
-                for i in range(len(speech_intervals)):
-                    speech_end = search_start + speech_intervals[i]['end']
-                    
-                    if speech_end < theoretical_end:
-                        if i + 1 < len(speech_intervals):
-                            next_speech_start = search_start + speech_intervals[i+1]['start']
-                            if next_speech_start <= theoretical_end + int(lookahead_sec * sr):
-                                cut_index = (speech_end + next_speech_start) // 2
-                        else:
-                            cut_index = speech_end + int(0.1 * sr) # 100ms breathing room
-                            
-            # Append the chunk from current_start to the calculated cut_index
-            chunks.append(audio_np[current_start:cut_index])
-            
-            # Advance the pointer to the cut index for the next iteration
-            current_start = cut_index
-            
+                candidates = []
+
+                for i, segment in enumerate(speech_intervals):
+                    segment_start = search_start + segment['start']
+                    segment_end = search_start + segment['end']
+
+                    if i + 1 < len(speech_intervals):
+                        gap_end = search_start + speech_intervals[i+1]['start']
+                    else:
+                        gap_end = search_end
+                    mid_point = (segment_end + gap_end) // 2
+
+                    candidates.append({
+                        'speech_end': segment_end,
+                        'mid_point': mid_point
+                    })
+
+                candidate_found = False
+                for candidate in candidates:
+                    if theoretical_end <= candidate['speech_end'] <= theoretical_end + grace_samples:
+                        cut_index = candidate['mid_point']
+                        candidate_found = True
+                        break
+
+                if not candidate_found:
+                    before = [
+                        candidate for candidate in candidates
+                        if candidate['speech_end'] <= theoretical_end
+                    ]
+                    if before:
+                        cut_index = before[-1]['mid_point']
+                    else:
+                        cut_index = theoretical_end
+
+            remaining = total_length - cut_index
+
+            if remaining < min_remainder:
+                chunks.append(audio_np[current_start:])
+                break
+            else:
+                chunks.append(audio_np[current_start:cut_index])
+                current_start = cut_index
         return chunks
 
         

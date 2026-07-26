@@ -63,6 +63,8 @@ def evaluate_inference(output_filepath: str, loader: DataLoader, model: RoestASR
 
                         audio_batch = batch[0]
                         metadata = batch[1]
+                        reference_map = batch[2]
+
                         asr_walltime_start = time.perf_counter()
                         asr_cputime_start = time.process_time()
                         output = model.transcribe(audio_batch=audio_batch)
@@ -76,17 +78,20 @@ def evaluate_inference(output_filepath: str, loader: DataLoader, model: RoestASR
                             )
                         logger.info('ASR... Epoch: %i, Walltime: %f CPU time: %f', epoch, asr_walltime, asr_cputime)
                         results = []
-                        for data in metadata:
-                            ref_text = data['text']
-                            transcript = [output[batch_info['ref_indices']] for batch_info in data['audio_batch_info']]
-                            for text in transcript:
-                                wer_ = wer(reference=clean_transcription(ref_text), hypothesis=clean_transcription(text))
-                                cer_ = cer(reference=clean_transcription(ref_text), hypothesis=clean_transcription(text))
-        
+                        for i, data in enumerate(metadata):
+                            ref = data['text']
+                            idx = reference_map.get(i, None)
+                            if idx is None:
+                                continue
+                            #transcript = [output[batch_info['ref_indices']] for batch_info in data['audio_batch_info']]
+                            text = ' '.join([output[id] for id in idx])
+                            wer_ = wer(reference=clean_transcription(ref), hypothesis=clean_transcription(text))
+                            cer_ = cer(reference=clean_transcription(ref), hypothesis=clean_transcription(text))
+    
                             results.append({
                                 'audio_id': data['audio_id'],
                                 'segment_id': data['segment_id'],
-                                'ref': ref_text,
+                                'ref': ref,
                                 'seg_start': data['start'],
                                 'seg_end': data['end'],
                                 'wer': wer_,

@@ -1,0 +1,1256 @@
+2026-07-26 16:21:28,235 - Engine - INFO - Type: wav2vec2. Memory Stats of Processor...: Before load: 614.043648, After load: 617.426944, Delta: 3.383296
+2026-07-26 16:21:29,352 - Engine - INFO - Type: wav2vec2. Memory Stats of Model...: Before load: 617.426944, After load: 1885.335552, Delta: 1267.908608
+2026-07-26 16:21:58,883 - Evaluate - INFO - ASR Module... Epoch: 0, RSS: 4.02 GB
+2026-07-26 16:21:58,887 - Evaluate - INFO - ASR... Epoch: 0, Walltime: 26.458346 CPU time: 157.078125
+2026-07-26 16:22:29,970 - Evaluate - INFO - ASR Module... Epoch: 0, RSS: 4.07 GB
+2026-07-26 16:22:29,974 - Evaluate - INFO - ASR... Epoch: 0, Walltime: 30.491455 CPU time: 180.453125
+2026-07-26 16:22:34,827 - Evaluate - INFO - ASR Module... Epoch: 0, RSS: 4.06 GB
+2026-07-26 16:22:34,831 - Evaluate - INFO - ASR... Epoch: 0, Walltime: 4.694781 CPU time: 27.765625
+2026-07-26 16:22:43,368 - Evaluate - INFO - ASR Module... Epoch: 0, RSS: 4.03 GB
+2026-07-26 16:22:43,376 - Evaluate - INFO - ASR... Epoch: 0, Walltime: 8.345875 CPU time: 49.578125
+2026-07-26 16:22:49,292 - Evaluate - INFO - ASR Module... Epoch: 0, RSS: 4.06 GB
+2026-07-26 16:22:49,296 - Evaluate - INFO - ASR... Epoch: 0, Walltime: 5.716047 CPU time: 33.750000
+2026-07-26 16:23:12,714 - Evaluate - INFO - ASR Module... Epoch: 0, RSS: 4.09 GB
+2026-07-26 16:23:12,718 - Evaluate - INFO - ASR... Epoch: 0, Walltime: 22.908373 CPU time: 136.078125
+2026-07-26 16:23:36,391 - Evaluate - INFO - ASR Module... Epoch: 0, RSS: 4.08 GB
+2026-07-26 16:23:36,397 - Evaluate - INFO - ASR... Epoch: 0, Walltime: 23.201951 CPU time: 137.984375
+2026-07-26 16:23:55,212 - Evaluate - INFO - ASR Module... Epoch: 0, RSS: 4.11 GB
+2026-07-26 16:23:55,220 - Evaluate - INFO - ASR... Epoch: 0, Walltime: 18.328275 CPU time: 108.828125
+2026-07-26 16:24:02,967 - Evaluate - INFO - ASR Module... Epoch: 0, RSS: 4.12 GB
+2026-07-26 16:24:02,972 - Evaluate - INFO - ASR... Epoch: 0, Walltime: 7.473498 CPU time: 43.859375
+2026-07-26 16:24:21,486 - Evaluate - INFO - ASR Module... Epoch: 0, RSS: 4.11 GB
+2026-07-26 16:24:21,490 - Evaluate - INFO - ASR... Epoch: 0, Walltime: 18.261681 CPU time: 108.171875
+2026-07-26 16:24:42,550 - Evaluate - INFO - ASR Module... Epoch: 0, RSS: 4.10 GB
+2026-07-26 16:24:42,555 - Evaluate - INFO - ASR... Epoch: 0, Walltime: 20.489936 CPU time: 121.609375
+2026-07-26 16:24:53,937 - Evaluate - INFO - ASR Module... Epoch: 0, RSS: 4.12 GB
+2026-07-26 16:24:53,943 - Evaluate - INFO - ASR... Epoch: 0, Walltime: 11.138441 CPU time: 65.281250
+2026-07-26 16:25:17,131 - Evaluate - INFO - ASR Module... Epoch: 0, RSS: 4.12 GB
+2026-07-26 16:25:17,137 - Evaluate - INFO - ASR... Epoch: 0, Walltime: 22.727059 CPU time: 135.031250
+2026-07-26 16:25:25,009 - Evaluate - INFO - ASR Module... Epoch: 0, RSS: 4.12 GB
+2026-07-26 16:25:25,013 - Evaluate - INFO - ASR... Epoch: 0, Walltime: 7.598865 CPU time: 45.031250
+2026-07-26 16:25:34,507 - Evaluate - INFO - ASR Module... Epoch: 0, RSS: 4.11 GB
+2026-07-26 16:25:34,512 - Evaluate - INFO - ASR... Epoch: 0, Walltime: 9.264104 CPU time: 54.859375
+2026-07-26 16:25:46,108 - Evaluate - INFO - ASR Module... Epoch: 0, RSS: 4.15 GB
+2026-07-26 16:25:46,114 - Evaluate - INFO - ASR... Epoch: 0, Walltime: 11.363784 CPU time: 67.250000
+2026-07-26 16:26:02,240 - Evaluate - INFO - ASR Module... Epoch: 0, RSS: 4.15 GB
+2026-07-26 16:26:02,247 - Evaluate - INFO - ASR... Epoch: 0, Walltime: 15.858393 CPU time: 93.703125
+2026-07-26 16:26:13,123 - Evaluate - INFO - ASR Module... Epoch: 0, RSS: 4.16 GB
+2026-07-26 16:26:13,127 - Evaluate - INFO - ASR... Epoch: 0, Walltime: 10.580156 CPU time: 61.937500
+2026-07-26 16:26:21,990 - Evaluate - INFO - ASR Module... Epoch: 0, RSS: 4.14 GB
+2026-07-26 16:26:21,994 - Evaluate - INFO - ASR... Epoch: 0, Walltime: 8.544023 CPU time: 50.625000
+2026-07-26 16:26:32,505 - Evaluate - INFO - ASR Module... Epoch: 0, RSS: 4.14 GB
+2026-07-26 16:26:32,509 - Evaluate - INFO - ASR... Epoch: 0, Walltime: 10.281576 CPU time: 60.828125
+2026-07-26 16:26:39,970 - Evaluate - INFO - ASR Module... Epoch: 0, RSS: 4.15 GB
+2026-07-26 16:26:39,975 - Evaluate - INFO - ASR... Epoch: 0, Walltime: 7.195756 CPU time: 42.453125
+2026-07-26 16:26:48,589 - Evaluate - INFO - ASR Module... Epoch: 0, RSS: 4.13 GB
+2026-07-26 16:26:48,593 - Evaluate - INFO - ASR... Epoch: 0, Walltime: 8.408644 CPU time: 49.656250
+2026-07-26 16:26:57,545 - Evaluate - INFO - ASR Module... Epoch: 0, RSS: 4.13 GB
+2026-07-26 16:26:57,550 - Evaluate - INFO - ASR... Epoch: 0, Walltime: 8.750902 CPU time: 51.671875
+2026-07-26 16:27:19,869 - Evaluate - INFO - ASR Module... Epoch: 0, RSS: 4.13 GB
+2026-07-26 16:27:19,874 - Evaluate - INFO - ASR... Epoch: 0, Walltime: 22.085949 CPU time: 131.203125
+2026-07-26 16:27:27,264 - Evaluate - INFO - ASR Module... Epoch: 0, RSS: 4.13 GB
+2026-07-26 16:27:27,269 - Evaluate - INFO - ASR... Epoch: 0, Walltime: 7.167509 CPU time: 42.296875
+2026-07-26 16:27:40,551 - Evaluate - INFO - ASR Module... Epoch: 0, RSS: 4.14 GB
+2026-07-26 16:27:40,555 - Evaluate - INFO - ASR... Epoch: 0, Walltime: 13.048674 CPU time: 77.062500
+2026-07-26 16:27:49,799 - Evaluate - INFO - ASR Module... Epoch: 0, RSS: 4.13 GB
+2026-07-26 16:27:49,808 - Evaluate - INFO - ASR... Epoch: 0, Walltime: 9.061818 CPU time: 53.546875
+2026-07-26 16:28:03,143 - Evaluate - INFO - ASR Module... Epoch: 0, RSS: 4.13 GB
+2026-07-26 16:28:03,148 - Evaluate - INFO - ASR... Epoch: 0, Walltime: 13.066611 CPU time: 77.484375
+2026-07-26 16:28:26,617 - Evaluate - INFO - ASR Module... Epoch: 0, RSS: 4.17 GB
+2026-07-26 16:28:26,623 - Evaluate - INFO - ASR... Epoch: 0, Walltime: 23.178627 CPU time: 137.734375
+2026-07-26 16:28:33,710 - Evaluate - INFO - ASR Module... Epoch: 0, RSS: 4.16 GB
+2026-07-26 16:28:33,715 - Evaluate - INFO - ASR... Epoch: 0, Walltime: 6.848917 CPU time: 40.609375
+2026-07-26 16:28:45,378 - Evaluate - INFO - ASR Module... Epoch: 0, RSS: 4.13 GB
+2026-07-26 16:28:45,383 - Evaluate - INFO - ASR... Epoch: 0, Walltime: 11.425038 CPU time: 67.796875
+2026-07-26 16:28:59,712 - Evaluate - INFO - ASR Module... Epoch: 0, RSS: 4.18 GB
+2026-07-26 16:28:59,717 - Evaluate - INFO - ASR... Epoch: 0, Walltime: 14.075425 CPU time: 83.500000
+2026-07-26 16:29:08,026 - Evaluate - INFO - ASR Module... Epoch: 0, RSS: 4.16 GB
+2026-07-26 16:29:08,030 - Evaluate - INFO - ASR... Epoch: 0, Walltime: 8.075651 CPU time: 47.859375
+2026-07-26 16:29:17,268 - Evaluate - INFO - ASR Module... Epoch: 0, RSS: 4.18 GB
+2026-07-26 16:29:17,272 - Evaluate - INFO - ASR... Epoch: 0, Walltime: 9.013774 CPU time: 53.359375
+2026-07-26 16:29:27,845 - Evaluate - INFO - ASR Module... Epoch: 0, RSS: 4.16 GB
+2026-07-26 16:29:27,852 - Evaluate - INFO - ASR... Epoch: 0, Walltime: 10.339755 CPU time: 61.062500
+2026-07-26 16:29:54,331 - Evaluate - INFO - ASR Module... Epoch: 0, RSS: 4.17 GB
+2026-07-26 16:29:54,336 - Evaluate - INFO - ASR... Epoch: 0, Walltime: 25.928786 CPU time: 154.125000
+2026-07-26 16:30:04,593 - Evaluate - INFO - ASR Module... Epoch: 0, RSS: 4.15 GB
+2026-07-26 16:30:04,597 - Evaluate - INFO - ASR... Epoch: 0, Walltime: 9.982890 CPU time: 58.593750
+2026-07-26 16:30:25,297 - Evaluate - INFO - ASR Module... Epoch: 0, RSS: 4.15 GB
+2026-07-26 16:30:25,305 - Evaluate - INFO - ASR... Epoch: 0, Walltime: 20.180228 CPU time: 119.781250
+2026-07-26 16:30:36,587 - Evaluate - INFO - ASR Module... Epoch: 0, RSS: 4.16 GB
+2026-07-26 16:30:36,591 - Evaluate - INFO - ASR... Epoch: 0, Walltime: 11.051232 CPU time: 65.406250
+2026-07-26 16:30:54,258 - Evaluate - INFO - ASR Module... Epoch: 0, RSS: 4.17 GB
+2026-07-26 16:30:54,262 - Evaluate - INFO - ASR... Epoch: 0, Walltime: 17.420434 CPU time: 103.578125
+2026-07-26 16:31:05,048 - Evaluate - INFO - ASR Module... Epoch: 0, RSS: 4.19 GB
+2026-07-26 16:31:05,053 - Evaluate - INFO - ASR... Epoch: 0, Walltime: 10.528240 CPU time: 62.000000
+2026-07-26 16:31:24,083 - Evaluate - INFO - ASR Module... Epoch: 0, RSS: 4.16 GB
+2026-07-26 16:31:24,088 - Evaluate - INFO - ASR... Epoch: 0, Walltime: 18.784205 CPU time: 111.031250
+2026-07-26 16:31:46,167 - Evaluate - INFO - ASR Module... Epoch: 0, RSS: 4.16 GB
+2026-07-26 16:31:46,174 - Evaluate - INFO - ASR... Epoch: 0, Walltime: 21.483786 CPU time: 126.921875
+2026-07-26 16:31:59,235 - Evaluate - INFO - ASR Module... Epoch: 0, RSS: 4.19 GB
+2026-07-26 16:31:59,239 - Evaluate - INFO - ASR... Epoch: 0, Walltime: 12.822180 CPU time: 76.031250
+2026-07-26 16:32:14,851 - Evaluate - INFO - ASR Module... Epoch: 0, RSS: 4.16 GB
+2026-07-26 16:32:14,855 - Evaluate - INFO - ASR... Epoch: 0, Walltime: 15.364315 CPU time: 91.140625
+2026-07-26 16:32:27,498 - Evaluate - INFO - ASR Module... Epoch: 0, RSS: 4.18 GB
+2026-07-26 16:32:27,507 - Evaluate - INFO - ASR... Epoch: 0, Walltime: 12.383101 CPU time: 73.234375
+2026-07-26 16:32:40,496 - Evaluate - INFO - ASR Module... Epoch: 0, RSS: 4.15 GB
+2026-07-26 16:32:40,502 - Evaluate - INFO - ASR... Epoch: 0, Walltime: 12.706621 CPU time: 75.328125
+2026-07-26 16:32:46,951 - Evaluate - INFO - ASR Module... Epoch: 0, RSS: 4.18 GB
+2026-07-26 16:32:46,956 - Evaluate - INFO - ASR... Epoch: 0, Walltime: 6.229004 CPU time: 36.671875
+2026-07-26 16:32:56,034 - Evaluate - INFO - ASR Module... Epoch: 0, RSS: 4.14 GB
+2026-07-26 16:32:56,038 - Evaluate - INFO - ASR... Epoch: 0, Walltime: 8.861815 CPU time: 52.328125
+2026-07-26 16:33:15,056 - Evaluate - INFO - ASR Module... Epoch: 0, RSS: 4.18 GB
+2026-07-26 16:33:15,062 - Evaluate - INFO - ASR... Epoch: 0, Walltime: 18.784862 CPU time: 111.015625
+2026-07-26 16:33:21,773 - Evaluate - INFO - ASR Module... Epoch: 0, RSS: 4.19 GB
+2026-07-26 16:33:21,778 - Evaluate - INFO - ASR... Epoch: 0, Walltime: 6.482445 CPU time: 38.359375
+2026-07-26 16:33:41,635 - Evaluate - INFO - ASR Module... Epoch: 0, RSS: 4.17 GB
+2026-07-26 16:33:41,640 - Evaluate - INFO - ASR... Epoch: 0, Walltime: 19.439127 CPU time: 115.187500
+2026-07-26 16:33:56,820 - Evaluate - INFO - ASR Module... Epoch: 0, RSS: 4.18 GB
+2026-07-26 16:33:56,826 - Evaluate - INFO - ASR... Epoch: 0, Walltime: 14.894396 CPU time: 88.359375
+2026-07-26 16:34:08,923 - Evaluate - INFO - ASR Module... Epoch: 0, RSS: 4.16 GB
+2026-07-26 16:34:08,928 - Evaluate - INFO - ASR... Epoch: 0, Walltime: 11.814221 CPU time: 69.984375
+2026-07-26 16:34:27,526 - Evaluate - INFO - ASR Module... Epoch: 0, RSS: 4.15 GB
+2026-07-26 16:34:27,532 - Evaluate - INFO - ASR... Epoch: 0, Walltime: 18.359152 CPU time: 109.140625
+2026-07-26 16:34:41,581 - Evaluate - INFO - ASR Module... Epoch: 0, RSS: 4.17 GB
+2026-07-26 16:34:41,585 - Evaluate - INFO - ASR... Epoch: 0, Walltime: 13.763905 CPU time: 81.796875
+2026-07-26 16:34:49,239 - Evaluate - INFO - ASR Module... Epoch: 0, RSS: 4.17 GB
+2026-07-26 16:34:49,244 - Evaluate - INFO - ASR... Epoch: 0, Walltime: 7.420973 CPU time: 43.703125
+2026-07-26 16:34:58,884 - Evaluate - INFO - ASR Module... Epoch: 0, RSS: 4.16 GB
+2026-07-26 16:34:58,889 - Evaluate - INFO - ASR... Epoch: 0, Walltime: 9.382590 CPU time: 55.703125
+2026-07-26 16:35:09,128 - Evaluate - INFO - ASR Module... Epoch: 0, RSS: 4.15 GB
+2026-07-26 16:35:09,136 - Evaluate - INFO - ASR... Epoch: 0, Walltime: 10.016265 CPU time: 58.703125
+2026-07-26 16:35:25,786 - Evaluate - INFO - ASR Module... Epoch: 0, RSS: 4.19 GB
+2026-07-26 16:35:25,791 - Evaluate - INFO - ASR... Epoch: 0, Walltime: 16.349191 CPU time: 96.968750
+2026-07-26 16:35:38,160 - Evaluate - INFO - ASR Module... Epoch: 0, RSS: 4.17 GB
+2026-07-26 16:35:38,164 - Evaluate - INFO - ASR... Epoch: 0, Walltime: 12.116245 CPU time: 71.765625
+2026-07-26 16:35:47,119 - Evaluate - INFO - ASR Module... Epoch: 0, RSS: 4.15 GB
+2026-07-26 16:35:47,123 - Evaluate - INFO - ASR... Epoch: 0, Walltime: 8.703916 CPU time: 51.828125
+2026-07-26 16:36:01,207 - Evaluate - INFO - ASR Module... Epoch: 0, RSS: 4.17 GB
+2026-07-26 16:36:01,212 - Evaluate - INFO - ASR... Epoch: 0, Walltime: 13.846304 CPU time: 82.015625
+2026-07-26 16:36:11,252 - Evaluate - INFO - ASR Module... Epoch: 0, RSS: 4.17 GB
+2026-07-26 16:36:11,255 - Evaluate - INFO - ASR... Epoch: 0, Walltime: 9.810661 CPU time: 57.953125
+2026-07-26 16:36:26,344 - Evaluate - INFO - ASR Module... Epoch: 0, RSS: 4.16 GB
+2026-07-26 16:36:26,353 - Evaluate - INFO - ASR... Epoch: 0, Walltime: 14.841616 CPU time: 87.843750
+2026-07-26 16:36:35,115 - Evaluate - INFO - ASR Module... Epoch: 0, RSS: 4.18 GB
+2026-07-26 16:36:35,124 - Evaluate - INFO - ASR... Epoch: 0, Walltime: 8.512477 CPU time: 50.265625
+2026-07-26 16:36:52,790 - Evaluate - INFO - ASR Module... Epoch: 0, RSS: 4.16 GB
+2026-07-26 16:36:52,795 - Evaluate - INFO - ASR... Epoch: 0, Walltime: 17.444811 CPU time: 103.359375
+2026-07-26 16:36:59,373 - Evaluate - INFO - ASR Module... Epoch: 0, RSS: 4.19 GB
+2026-07-26 16:36:59,377 - Evaluate - INFO - ASR... Epoch: 0, Walltime: 6.368590 CPU time: 37.703125
+2026-07-26 16:37:09,602 - Evaluate - INFO - ASR Module... Epoch: 0, RSS: 4.17 GB
+2026-07-26 16:37:09,606 - Evaluate - INFO - ASR... Epoch: 0, Walltime: 10.033135 CPU time: 59.343750
+2026-07-26 16:37:20,754 - Evaluate - INFO - ASR Module... Epoch: 0, RSS: 4.16 GB
+2026-07-26 16:37:20,760 - Evaluate - INFO - ASR... Epoch: 0, Walltime: 10.905521 CPU time: 64.625000
+2026-07-26 16:37:35,516 - Evaluate - INFO - ASR Module... Epoch: 0, RSS: 4.19 GB
+2026-07-26 16:37:35,521 - Evaluate - INFO - ASR... Epoch: 0, Walltime: 14.503449 CPU time: 85.984375
+2026-07-26 16:37:48,951 - Evaluate - INFO - ASR Module... Epoch: 0, RSS: 4.18 GB
+2026-07-26 16:37:48,955 - Evaluate - INFO - ASR... Epoch: 0, Walltime: 13.130702 CPU time: 77.562500
+2026-07-26 16:37:56,448 - Evaluate - INFO - ASR Module... Epoch: 0, RSS: 4.20 GB
+2026-07-26 16:37:56,452 - Evaluate - INFO - ASR... Epoch: 0, Walltime: 7.285179 CPU time: 43.062500
+2026-07-26 16:38:12,495 - Evaluate - INFO - ASR Module... Epoch: 0, RSS: 4.17 GB
+2026-07-26 16:38:12,500 - Evaluate - INFO - ASR... Epoch: 0, Walltime: 15.528983 CPU time: 91.703125
+2026-07-26 16:38:22,295 - Evaluate - INFO - ASR Module... Epoch: 0, RSS: 4.20 GB
+2026-07-26 16:38:22,299 - Evaluate - INFO - ASR... Epoch: 0, Walltime: 9.534226 CPU time: 56.484375
+2026-07-26 16:38:28,383 - Evaluate - INFO - ASR Module... Epoch: 0, RSS: 4.20 GB
+2026-07-26 16:38:28,388 - Evaluate - INFO - ASR... Epoch: 0, Walltime: 5.896689 CPU time: 34.625000
+2026-07-26 16:38:35,774 - Evaluate - INFO - ASR Module... Epoch: 0, RSS: 4.20 GB
+2026-07-26 16:38:35,778 - Evaluate - INFO - ASR... Epoch: 0, Walltime: 7.191612 CPU time: 42.578125
+2026-07-26 16:38:42,127 - Evaluate - INFO - ASR Module... Epoch: 0, RSS: 4.20 GB
+2026-07-26 16:38:42,132 - Evaluate - INFO - ASR... Epoch: 0, Walltime: 6.132635 CPU time: 36.390625
+2026-07-26 16:38:51,382 - Evaluate - INFO - ASR Module... Epoch: 0, RSS: 4.20 GB
+2026-07-26 16:38:51,386 - Evaluate - INFO - ASR... Epoch: 0, Walltime: 8.999333 CPU time: 52.921875
+2026-07-26 16:39:01,832 - Evaluate - INFO - ASR Module... Epoch: 0, RSS: 4.21 GB
+2026-07-26 16:39:01,836 - Evaluate - INFO - ASR... Epoch: 0, Walltime: 10.248185 CPU time: 60.421875
+2026-07-26 16:39:16,024 - Evaluate - INFO - ASR Module... Epoch: 0, RSS: 4.19 GB
+2026-07-26 16:39:16,027 - Evaluate - INFO - ASR... Epoch: 0, Walltime: 13.952935 CPU time: 82.765625
+2026-07-26 16:39:26,972 - Evaluate - INFO - ASR Module... Epoch: 0, RSS: 4.19 GB
+2026-07-26 16:39:26,978 - Evaluate - INFO - ASR... Epoch: 0, Walltime: 10.673553 CPU time: 63.171875
+2026-07-26 16:39:37,608 - Evaluate - INFO - ASR Module... Epoch: 0, RSS: 4.18 GB
+2026-07-26 16:39:37,612 - Evaluate - INFO - ASR... Epoch: 0, Walltime: 10.363612 CPU time: 61.765625
+2026-07-26 16:39:43,709 - Evaluate - INFO - ASR Module... Epoch: 0, RSS: 4.19 GB
+2026-07-26 16:39:43,713 - Evaluate - INFO - ASR... Epoch: 0, Walltime: 5.893245 CPU time: 34.734375
+2026-07-26 16:39:51,328 - Evaluate - INFO - ASR Module... Epoch: 0, RSS: 4.18 GB
+2026-07-26 16:39:51,333 - Evaluate - INFO - ASR... Epoch: 0, Walltime: 7.390263 CPU time: 43.906250
+2026-07-26 16:40:20,795 - Evaluate - INFO - ASR Module... Epoch: 0, RSS: 4.20 GB
+2026-07-26 16:40:20,804 - Evaluate - INFO - ASR... Epoch: 0, Walltime: 28.689373 CPU time: 170.250000
+2026-07-26 16:40:28,293 - Evaluate - INFO - ASR Module... Epoch: 0, RSS: 4.19 GB
+2026-07-26 16:40:28,299 - Evaluate - INFO - ASR... Epoch: 0, Walltime: 7.197842 CPU time: 42.578125
+2026-07-26 16:40:43,398 - Evaluate - INFO - ASR Module... Epoch: 0, RSS: 4.20 GB
+2026-07-26 16:40:43,403 - Evaluate - INFO - ASR... Epoch: 0, Walltime: 14.816149 CPU time: 87.890625
+2026-07-26 16:40:56,061 - Evaluate - INFO - ASR Module... Epoch: 0, RSS: 4.16 GB
+2026-07-26 16:40:56,065 - Evaluate - INFO - ASR... Epoch: 0, Walltime: 12.327113 CPU time: 72.953125
+2026-07-26 16:41:19,048 - Evaluate - INFO - ASR Module... Epoch: 0, RSS: 4.21 GB
+2026-07-26 16:41:19,052 - Evaluate - INFO - ASR... Epoch: 0, Walltime: 22.302025 CPU time: 132.359375
+2026-07-26 16:41:28,734 - Evaluate - INFO - ASR Module... Epoch: 0, RSS: 4.21 GB
+2026-07-26 16:41:28,739 - Evaluate - INFO - ASR... Epoch: 0, Walltime: 9.415537 CPU time: 55.828125
+2026-07-26 16:41:39,398 - Evaluate - INFO - ASR Module... Epoch: 0, RSS: 4.19 GB
+2026-07-26 16:41:39,404 - Evaluate - INFO - ASR... Epoch: 0, Walltime: 10.371222 CPU time: 60.609375
+2026-07-26 16:42:20,323 - Evaluate - INFO - ASR Module... Epoch: 0, RSS: 4.18 GB
+2026-07-26 16:42:20,327 - Evaluate - INFO - ASR... Epoch: 0, Walltime: 39.969103 CPU time: 237.406250
+2026-07-26 16:42:38,656 - Evaluate - INFO - ASR Module... Epoch: 0, RSS: 4.22 GB
+2026-07-26 16:42:38,661 - Evaluate - INFO - ASR... Epoch: 0, Walltime: 17.668708 CPU time: 104.578125
+2026-07-26 16:43:02,386 - Evaluate - INFO - ASR Module... Epoch: 0, RSS: 4.22 GB
+2026-07-26 16:43:02,391 - Evaluate - INFO - ASR... Epoch: 0, Walltime: 23.094252 CPU time: 136.593750
+2026-07-26 16:43:14,605 - Evaluate - INFO - ASR Module... Epoch: 0, RSS: 4.23 GB
+2026-07-26 16:43:14,609 - Evaluate - INFO - ASR... Epoch: 0, Walltime: 11.926352 CPU time: 70.781250
+2026-07-26 16:43:29,103 - Evaluate - INFO - ASR Module... Epoch: 0, RSS: 4.22 GB
+2026-07-26 16:43:29,108 - Evaluate - INFO - ASR... Epoch: 0, Walltime: 14.191722 CPU time: 84.375000
+2026-07-26 16:43:37,112 - Evaluate - INFO - ASR Module... Epoch: 0, RSS: 4.22 GB
+2026-07-26 16:43:37,117 - Evaluate - INFO - ASR... Epoch: 0, Walltime: 7.741771 CPU time: 45.734375
+2026-07-26 16:43:47,698 - Evaluate - INFO - ASR Module... Epoch: 0, RSS: 4.22 GB
+2026-07-26 16:43:47,705 - Evaluate - INFO - ASR... Epoch: 0, Walltime: 10.342659 CPU time: 61.046875
+2026-07-26 16:44:05,907 - Evaluate - INFO - ASR Module... Epoch: 0, RSS: 4.23 GB
+2026-07-26 16:44:05,912 - Evaluate - INFO - ASR... Epoch: 0, Walltime: 17.585418 CPU time: 104.343750
+2026-07-26 16:44:21,463 - Evaluate - INFO - ASR Module... Epoch: 0, RSS: 4.22 GB
+2026-07-26 16:44:21,466 - Evaluate - INFO - ASR... Epoch: 0, Walltime: 15.283632 CPU time: 90.984375
+2026-07-26 16:44:44,698 - Evaluate - INFO - ASR Module... Epoch: 0, RSS: 4.22 GB
+2026-07-26 16:44:44,702 - Evaluate - INFO - ASR... Epoch: 0, Walltime: 22.625070 CPU time: 134.390625
+2026-07-26 16:44:50,373 - Evaluate - INFO - ASR Module... Epoch: 0, RSS: 4.22 GB
+2026-07-26 16:44:50,381 - Evaluate - INFO - ASR... Epoch: 0, Walltime: 5.373561 CPU time: 31.484375
+2026-07-26 16:44:57,818 - Evaluate - INFO - ASR Module... Epoch: 0, RSS: 4.24 GB
+2026-07-26 16:44:57,825 - Evaluate - INFO - ASR... Epoch: 0, Walltime: 7.168256 CPU time: 42.359375
+2026-07-26 16:45:11,148 - Evaluate - INFO - ASR Module... Epoch: 0, RSS: 4.23 GB
+2026-07-26 16:45:11,157 - Evaluate - INFO - ASR... Epoch: 0, Walltime: 13.056681 CPU time: 77.406250
+2026-07-26 16:45:20,755 - Evaluate - INFO - ASR Module... Epoch: 0, RSS: 4.25 GB
+2026-07-26 16:45:20,760 - Evaluate - INFO - ASR... Epoch: 0, Walltime: 9.317447 CPU time: 55.140625
+2026-07-26 16:45:33,453 - Evaluate - INFO - ASR Module... Epoch: 0, RSS: 4.19 GB
+2026-07-26 16:45:33,460 - Evaluate - INFO - ASR... Epoch: 0, Walltime: 12.431021 CPU time: 73.750000
+2026-07-26 16:45:57,184 - Evaluate - INFO - ASR Module... Epoch: 0, RSS: 4.22 GB
+2026-07-26 16:45:57,190 - Evaluate - INFO - ASR... Epoch: 0, Walltime: 23.395070 CPU time: 138.843750
+2026-07-26 16:46:16,514 - Evaluate - INFO - ASR Module... Epoch: 0, RSS: 4.22 GB
+2026-07-26 16:46:16,519 - Evaluate - INFO - ASR... Epoch: 0, Walltime: 18.727711 CPU time: 110.671875
+2026-07-26 16:46:25,350 - Evaluate - INFO - ASR Module... Epoch: 0, RSS: 4.23 GB
+2026-07-26 16:46:25,354 - Evaluate - INFO - ASR... Epoch: 0, Walltime: 8.541040 CPU time: 50.296875
+2026-07-26 16:46:41,926 - Evaluate - INFO - ASR Module... Epoch: 0, RSS: 4.25 GB
+2026-07-26 16:46:41,934 - Evaluate - INFO - ASR... Epoch: 0, Walltime: 16.344956 CPU time: 97.031250
+2026-07-26 16:46:51,693 - Evaluate - INFO - ASR Module... Epoch: 0, RSS: 4.25 GB
+2026-07-26 16:46:51,697 - Evaluate - INFO - ASR... Epoch: 0, Walltime: 9.538579 CPU time: 56.562500
+2026-07-26 16:47:17,183 - Evaluate - INFO - ASR Module... Epoch: 0, RSS: 4.23 GB
+2026-07-26 16:47:17,188 - Evaluate - INFO - ASR... Epoch: 0, Walltime: 24.761844 CPU time: 147.125000
+2026-07-26 16:47:35,196 - Evaluate - INFO - ASR Module... Epoch: 0, RSS: 4.22 GB
+2026-07-26 16:47:35,201 - Evaluate - INFO - ASR... Epoch: 0, Walltime: 17.752063 CPU time: 105.078125
+2026-07-26 16:47:47,594 - Evaluate - INFO - ASR Module... Epoch: 0, RSS: 4.22 GB
+2026-07-26 16:47:47,601 - Evaluate - INFO - ASR... Epoch: 0, Walltime: 12.098956 CPU time: 71.718750
+2026-07-26 16:47:55,395 - Evaluate - INFO - ASR Module... Epoch: 0, RSS: 4.22 GB
+2026-07-26 16:47:55,399 - Evaluate - INFO - ASR... Epoch: 0, Walltime: 7.563488 CPU time: 44.687500
+2026-07-26 16:48:12,296 - Evaluate - INFO - ASR Module... Epoch: 0, RSS: 4.23 GB
+2026-07-26 16:48:12,303 - Evaluate - INFO - ASR... Epoch: 0, Walltime: 16.675718 CPU time: 98.921875
+2026-07-26 16:48:26,455 - Evaluate - INFO - ASR Module... Epoch: 0, RSS: 4.23 GB
+2026-07-26 16:48:26,459 - Evaluate - INFO - ASR... Epoch: 0, Walltime: 13.878215 CPU time: 82.234375
+2026-07-26 16:48:36,368 - Evaluate - INFO - ASR Module... Epoch: 0, RSS: 4.23 GB
+2026-07-26 16:48:36,375 - Evaluate - INFO - ASR... Epoch: 0, Walltime: 9.641021 CPU time: 56.875000
+2026-07-26 16:48:50,670 - Evaluate - INFO - ASR Module... Epoch: 0, RSS: 4.23 GB
+2026-07-26 16:48:50,674 - Evaluate - INFO - ASR... Epoch: 0, Walltime: 14.049467 CPU time: 83.171875
+2026-07-26 16:49:28,826 - Evaluate - INFO - ASR Module... Epoch: 0, RSS: 4.23 GB
+2026-07-26 16:49:28,831 - Evaluate - INFO - ASR... Epoch: 0, Walltime: 37.351512 CPU time: 219.953125
+2026-07-26 16:49:49,701 - Evaluate - INFO - ASR Module... Epoch: 0, RSS: 4.23 GB
+2026-07-26 16:49:49,706 - Evaluate - INFO - ASR... Epoch: 0, Walltime: 20.212416 CPU time: 117.921875
+2026-07-26 16:49:59,219 - Evaluate - INFO - ASR Module... Epoch: 0, RSS: 4.23 GB
+2026-07-26 16:49:59,223 - Evaluate - INFO - ASR... Epoch: 0, Walltime: 9.296630 CPU time: 55.000000
+2026-07-26 16:50:07,677 - Evaluate - INFO - ASR Module... Epoch: 0, RSS: 4.25 GB
+2026-07-26 16:50:07,685 - Evaluate - INFO - ASR... Epoch: 0, Walltime: 8.200450 CPU time: 47.718750
+2026-07-26 16:50:20,294 - Evaluate - INFO - ASR Module... Epoch: 0, RSS: 4.24 GB
+2026-07-26 16:50:20,299 - Evaluate - INFO - ASR... Epoch: 0, Walltime: 12.376268 CPU time: 72.593750
+2026-07-26 16:50:38,475 - Evaluate - INFO - ASR Module... Epoch: 0, RSS: 4.22 GB
+2026-07-26 16:50:38,478 - Evaluate - INFO - ASR... Epoch: 0, Walltime: 17.909076 CPU time: 106.062500
+2026-07-26 16:50:47,609 - Evaluate - INFO - ASR Module... Epoch: 0, RSS: 4.25 GB
+2026-07-26 16:50:47,614 - Evaluate - INFO - ASR... Epoch: 0, Walltime: 8.891183 CPU time: 51.718750
+2026-07-26 16:50:54,172 - Evaluate - INFO - ASR Module... Epoch: 0, RSS: 4.25 GB
+2026-07-26 16:50:54,176 - Evaluate - INFO - ASR... Epoch: 0, Walltime: 6.363997 CPU time: 37.796875
+2026-07-26 16:51:01,977 - Evaluate - INFO - ASR Module... Epoch: 0, RSS: 4.23 GB
+2026-07-26 16:51:01,982 - Evaluate - INFO - ASR... Epoch: 0, Walltime: 7.594908 CPU time: 44.968750
+2026-07-26 16:51:07,928 - Evaluate - INFO - ASR Module... Epoch: 0, RSS: 4.26 GB
+2026-07-26 16:51:07,933 - Evaluate - INFO - ASR... Epoch: 0, Walltime: 5.747178 CPU time: 33.765625
+2026-07-26 16:51:22,239 - Evaluate - INFO - ASR Module... Epoch: 0, RSS: 4.24 GB
+2026-07-26 16:51:22,243 - Evaluate - INFO - ASR... Epoch: 0, Walltime: 14.113973 CPU time: 83.625000
+2026-07-26 16:51:31,397 - Evaluate - INFO - ASR Module... Epoch: 0, RSS: 4.23 GB
+2026-07-26 16:51:31,402 - Evaluate - INFO - ASR... Epoch: 0, Walltime: 8.882600 CPU time: 52.703125
+2026-07-26 16:51:48,263 - Evaluate - INFO - ASR Module... Epoch: 0, RSS: 4.24 GB
+2026-07-26 16:51:48,267 - Evaluate - INFO - ASR... Epoch: 0, Walltime: 16.337565 CPU time: 97.203125
+2026-07-26 16:51:57,718 - Evaluate - INFO - ASR Module... Epoch: 0, RSS: 4.23 GB
+2026-07-26 16:51:57,723 - Evaluate - INFO - ASR... Epoch: 0, Walltime: 9.219773 CPU time: 54.765625
+2026-07-26 16:52:13,594 - Evaluate - INFO - ASR Module... Epoch: 0, RSS: 4.25 GB
+2026-07-26 16:52:13,599 - Evaluate - INFO - ASR... Epoch: 0, Walltime: 15.626293 CPU time: 92.921875
+2026-07-26 16:52:31,365 - Evaluate - INFO - ASR Module... Epoch: 0, RSS: 4.24 GB
+2026-07-26 16:52:31,370 - Evaluate - INFO - ASR... Epoch: 0, Walltime: 17.479602 CPU time: 103.765625
+2026-07-26 16:52:43,986 - Evaluate - INFO - ASR Module... Epoch: 0, RSS: 4.23 GB
+2026-07-26 16:52:43,990 - Evaluate - INFO - ASR... Epoch: 0, Walltime: 12.345107 CPU time: 73.421875
+2026-07-26 16:52:56,764 - Evaluate - INFO - ASR Module... Epoch: 0, RSS: 4.23 GB
+2026-07-26 16:52:56,769 - Evaluate - INFO - ASR... Epoch: 0, Walltime: 12.516000 CPU time: 73.890625
+2026-07-26 16:53:04,753 - Evaluate - INFO - ASR Module... Epoch: 0, RSS: 4.24 GB
+2026-07-26 16:53:04,758 - Evaluate - INFO - ASR... Epoch: 0, Walltime: 7.749077 CPU time: 45.875000
+2026-07-26 16:53:14,834 - Evaluate - INFO - ASR Module... Epoch: 0, RSS: 4.23 GB
+2026-07-26 16:53:14,839 - Evaluate - INFO - ASR... Epoch: 0, Walltime: 9.857929 CPU time: 58.484375
+2026-07-26 16:53:22,946 - Evaluate - INFO - ASR Module... Epoch: 0, RSS: 4.26 GB
+2026-07-26 16:53:22,951 - Evaluate - INFO - ASR... Epoch: 0, Walltime: 7.815999 CPU time: 46.390625
+2026-07-26 16:53:37,475 - Evaluate - INFO - ASR Module... Epoch: 0, RSS: 4.26 GB
+2026-07-26 16:53:37,481 - Evaluate - INFO - ASR... Epoch: 0, Walltime: 14.283141 CPU time: 84.750000
+2026-07-26 16:54:08,066 - Evaluate - INFO - ASR Module... Epoch: 0, RSS: 4.25 GB
+2026-07-26 16:54:08,074 - Evaluate - INFO - ASR... Epoch: 0, Walltime: 29.971493 CPU time: 178.187500
+2026-07-26 16:54:14,560 - Evaluate - INFO - ASR Module... Epoch: 0, RSS: 4.24 GB
+2026-07-26 16:54:14,565 - Evaluate - INFO - ASR... Epoch: 0, Walltime: 6.208316 CPU time: 36.625000
+2026-07-26 16:54:32,587 - Evaluate - INFO - ASR Module... Epoch: 0, RSS: 4.27 GB
+2026-07-26 16:54:32,591 - Evaluate - INFO - ASR... Epoch: 0, Walltime: 17.543490 CPU time: 104.234375
+2026-07-26 16:54:47,459 - Evaluate - INFO - ASR Module... Epoch: 0, RSS: 4.24 GB
+2026-07-26 16:54:47,463 - Evaluate - INFO - ASR... Epoch: 0, Walltime: 14.635374 CPU time: 86.890625
+2026-07-26 16:54:58,669 - Evaluate - INFO - ASR Module... Epoch: 0, RSS: 4.24 GB
+2026-07-26 16:54:58,676 - Evaluate - INFO - ASR... Epoch: 0, Walltime: 10.998274 CPU time: 65.062500
+2026-07-26 16:55:13,519 - Evaluate - INFO - ASR Module... Epoch: 0, RSS: 4.24 GB
+2026-07-26 16:55:13,525 - Evaluate - INFO - ASR... Epoch: 0, Walltime: 14.606992 CPU time: 86.343750
+2026-07-26 16:55:21,478 - Evaluate - INFO - ASR Module... Epoch: 0, RSS: 4.26 GB
+2026-07-26 16:55:21,481 - Evaluate - INFO - ASR... Epoch: 0, Walltime: 7.695629 CPU time: 45.531250
+2026-07-26 16:55:29,201 - Evaluate - INFO - ASR Module... Epoch: 0, RSS: 4.26 GB
+2026-07-26 16:55:29,205 - Evaluate - INFO - ASR... Epoch: 0, Walltime: 7.484758 CPU time: 44.312500
+2026-07-26 16:55:42,511 - Evaluate - INFO - ASR Module... Epoch: 0, RSS: 4.22 GB
+2026-07-26 16:55:42,518 - Evaluate - INFO - ASR... Epoch: 0, Walltime: 13.085342 CPU time: 76.875000
+2026-07-26 16:56:11,111 - Evaluate - INFO - ASR Module... Epoch: 0, RSS: 4.22 GB
+2026-07-26 16:56:11,116 - Evaluate - INFO - ASR... Epoch: 0, Walltime: 28.003877 CPU time: 166.203125
+2026-07-26 16:56:21,776 - Evaluate - INFO - ASR Module... Epoch: 0, RSS: 4.25 GB
+2026-07-26 16:56:21,780 - Evaluate - INFO - ASR... Epoch: 0, Walltime: 10.397254 CPU time: 61.750000
+2026-07-26 16:56:31,990 - Evaluate - INFO - ASR Module... Epoch: 0, RSS: 3.64 GB
+2026-07-26 16:56:31,995 - Evaluate - INFO - ASR... Epoch: 0, Walltime: 9.983852 CPU time: 59.312500
+2026-07-26 16:56:50,471 - Evaluate - INFO - ASR Module... Epoch: 0, RSS: 3.63 GB
+2026-07-26 16:56:50,476 - Evaluate - INFO - ASR... Epoch: 0, Walltime: 18.214364 CPU time: 107.843750
+2026-07-26 16:56:57,438 - Evaluate - INFO - ASR Module... Epoch: 0, RSS: 3.66 GB
+2026-07-26 16:56:57,442 - Evaluate - INFO - ASR... Epoch: 0, Walltime: 6.710323 CPU time: 39.828125
+2026-07-26 16:57:19,549 - Evaluate - INFO - ASR Module... Epoch: 0, RSS: 3.65 GB
+2026-07-26 16:57:19,554 - Evaluate - INFO - ASR... Epoch: 0, Walltime: 21.619520 CPU time: 128.296875
+2026-07-26 16:57:46,162 - Evaluate - INFO - ASR Module... Epoch: 0, RSS: 3.64 GB
+2026-07-26 16:57:46,166 - Evaluate - INFO - ASR... Epoch: 0, Walltime: 25.980309 CPU time: 154.093750
+2026-07-26 16:58:05,846 - Evaluate - INFO - ASR Module... Epoch: 0, RSS: 3.66 GB
+2026-07-26 16:58:05,850 - Evaluate - INFO - ASR... Epoch: 0, Walltime: 19.084394 CPU time: 113.140625
+2026-07-26 16:58:25,172 - Evaluate - INFO - ASR Module... Epoch: 0, RSS: 3.64 GB
+2026-07-26 16:58:25,178 - Evaluate - INFO - ASR... Epoch: 0, Walltime: 19.099845 CPU time: 113.390625
+2026-07-26 16:58:44,034 - Evaluate - INFO - ASR Module... Epoch: 0, RSS: 3.66 GB
+2026-07-26 16:58:44,038 - Evaluate - INFO - ASR... Epoch: 0, Walltime: 18.282821 CPU time: 108.265625
+2026-07-26 16:58:57,280 - Evaluate - INFO - ASR Module... Epoch: 0, RSS: 3.64 GB
+2026-07-26 16:58:57,285 - Evaluate - INFO - ASR... Epoch: 0, Walltime: 12.987720 CPU time: 76.890625
+2026-07-26 16:59:20,349 - Evaluate - INFO - ASR Module... Epoch: 0, RSS: 3.64 GB
+2026-07-26 16:59:20,353 - Evaluate - INFO - ASR... Epoch: 0, Walltime: 22.415242 CPU time: 133.000000
+2026-07-26 16:59:37,245 - Evaluate - INFO - ASR Module... Epoch: 0, RSS: 3.66 GB
+2026-07-26 16:59:37,250 - Evaluate - INFO - ASR... Epoch: 0, Walltime: 16.588723 CPU time: 98.515625
+2026-07-26 17:00:07,236 - Evaluate - INFO - ASR Module... Epoch: 0, RSS: 3.66 GB
+2026-07-26 17:00:07,241 - Evaluate - INFO - ASR... Epoch: 0, Walltime: 29.413088 CPU time: 166.984375
+2026-07-26 17:00:30,282 - Evaluate - INFO - ASR Module... Epoch: 0, RSS: 3.66 GB
+2026-07-26 17:00:30,286 - Evaluate - INFO - ASR... Epoch: 0, Walltime: 22.480294 CPU time: 130.140625
+2026-07-26 17:00:36,408 - Evaluate - INFO - ASR Module... Epoch: 0, RSS: 3.64 GB
+2026-07-26 17:00:36,412 - Evaluate - INFO - ASR... Epoch: 0, Walltime: 5.942386 CPU time: 35.015625
+2026-07-26 17:00:46,398 - Evaluate - INFO - ASR Module... Epoch: 0, RSS: 3.63 GB
+2026-07-26 17:00:46,402 - Evaluate - INFO - ASR... Epoch: 0, Walltime: 9.775613 CPU time: 56.078125
+2026-07-26 17:00:58,118 - Evaluate - INFO - ASR Module... Epoch: 0, RSS: 3.67 GB
+2026-07-26 17:00:58,124 - Evaluate - INFO - ASR... Epoch: 0, Walltime: 11.472886 CPU time: 67.890625
+2026-07-26 17:01:24,911 - Evaluate - INFO - ASR Module... Epoch: 0, RSS: 3.64 GB
+2026-07-26 17:01:24,916 - Evaluate - INFO - ASR... Epoch: 0, Walltime: 26.161281 CPU time: 154.921875
+2026-07-26 17:01:33,132 - Evaluate - INFO - ASR Module... Epoch: 0, RSS: 2.81 GB
+2026-07-26 17:01:33,141 - Evaluate - INFO - ASR... Epoch: 0, Walltime: 7.978767 CPU time: 46.640625
+2026-07-26 17:01:45,651 - Evaluate - INFO - ASR Module... Epoch: 0, RSS: 2.79 GB
+2026-07-26 17:01:45,655 - Evaluate - INFO - ASR... Epoch: 0, Walltime: 12.286100 CPU time: 72.328125
+2026-07-26 17:01:59,286 - Evaluate - INFO - ASR Module... Epoch: 0, RSS: 2.80 GB
+2026-07-26 17:01:59,289 - Evaluate - INFO - ASR... Epoch: 0, Walltime: 13.422734 CPU time: 79.093750
+2026-07-26 17:02:10,999 - Evaluate - INFO - ASR Module... Epoch: 0, RSS: 2.78 GB
+2026-07-26 17:02:11,003 - Evaluate - INFO - ASR... Epoch: 0, Walltime: 11.326590 CPU time: 66.515625
+2026-07-26 17:02:18,812 - Evaluate - INFO - ASR Module... Epoch: 0, RSS: 2.81 GB
+2026-07-26 17:02:18,817 - Evaluate - INFO - ASR... Epoch: 0, Walltime: 7.600951 CPU time: 44.812500
+2026-07-26 17:02:30,411 - Evaluate - INFO - ASR Module... Epoch: 0, RSS: 2.78 GB
+2026-07-26 17:02:30,417 - Evaluate - INFO - ASR... Epoch: 0, Walltime: 11.377119 CPU time: 66.656250
+2026-07-26 17:02:44,807 - Evaluate - INFO - ASR Module... Epoch: 0, RSS: 2.78 GB
+2026-07-26 17:02:44,812 - Evaluate - INFO - ASR... Epoch: 0, Walltime: 14.164339 CPU time: 83.296875
+2026-07-26 17:03:12,218 - Evaluate - INFO - ASR Module... Epoch: 0, RSS: 2.79 GB
+2026-07-26 17:03:12,224 - Evaluate - INFO - ASR... Epoch: 0, Walltime: 26.845231 CPU time: 158.046875
+2026-07-26 17:03:26,492 - Evaluate - INFO - ASR Module... Epoch: 0, RSS: 2.80 GB
+2026-07-26 17:03:26,499 - Evaluate - INFO - ASR... Epoch: 0, Walltime: 13.933630 CPU time: 81.890625
+2026-07-26 17:03:35,094 - Evaluate - INFO - ASR Module... Epoch: 0, RSS: 2.78 GB
+2026-07-26 17:03:35,102 - Evaluate - INFO - ASR... Epoch: 0, Walltime: 8.354085 CPU time: 49.531250
+2026-07-26 17:03:55,511 - Evaluate - INFO - ASR Module... Epoch: 0, RSS: 2.81 GB
+2026-07-26 17:03:55,515 - Evaluate - INFO - ASR... Epoch: 0, Walltime: 19.911545 CPU time: 118.265625
+2026-07-26 17:04:10,332 - Evaluate - INFO - ASR Module... Epoch: 0, RSS: 2.80 GB
+2026-07-26 17:04:10,336 - Evaluate - INFO - ASR... Epoch: 0, Walltime: 14.593961 CPU time: 86.343750
+2026-07-26 17:04:24,296 - Evaluate - INFO - ASR Module... Epoch: 0, RSS: 2.76 GB
+2026-07-26 17:04:24,302 - Evaluate - INFO - ASR... Epoch: 0, Walltime: 13.724600 CPU time: 81.406250
+2026-07-26 17:04:30,597 - Evaluate - INFO - ASR Module... Epoch: 0, RSS: 2.81 GB
+2026-07-26 17:04:30,602 - Evaluate - INFO - ASR... Epoch: 0, Walltime: 6.052187 CPU time: 35.562500
+2026-07-26 17:04:38,986 - Evaluate - INFO - ASR Module... Epoch: 0, RSS: 2.80 GB
+2026-07-26 17:04:38,993 - Evaluate - INFO - ASR... Epoch: 0, Walltime: 8.194873 CPU time: 48.562500
+2026-07-26 17:04:43,579 - Evaluate - INFO - ASR Module... Epoch: 0, RSS: 2.81 GB
+2026-07-26 17:04:43,583 - Evaluate - INFO - ASR... Epoch: 0, Walltime: 4.391545 CPU time: 25.828125
+2026-07-26 17:04:52,893 - Evaluate - INFO - ASR Module... Epoch: 0, RSS: 2.76 GB
+2026-07-26 17:04:52,898 - Evaluate - INFO - ASR... Epoch: 0, Walltime: 9.126847 CPU time: 54.203125
+2026-07-26 17:05:01,649 - Evaluate - INFO - ASR Module... Epoch: 0, RSS: 2.79 GB
+2026-07-26 17:05:01,653 - Evaluate - INFO - ASR... Epoch: 0, Walltime: 8.567556 CPU time: 50.750000
+2026-07-26 17:05:26,174 - Evaluate - INFO - ASR Module... Epoch: 0, RSS: 2.81 GB
+2026-07-26 17:05:26,179 - Evaluate - INFO - ASR... Epoch: 0, Walltime: 23.984251 CPU time: 142.406250
+2026-07-26 17:05:33,471 - Evaluate - INFO - ASR Module... Epoch: 0, RSS: 2.79 GB
+2026-07-26 17:05:33,475 - Evaluate - INFO - ASR... Epoch: 0, Walltime: 7.065125 CPU time: 41.781250
+2026-07-26 17:05:45,785 - Evaluate - INFO - ASR Module... Epoch: 0, RSS: 2.80 GB
+2026-07-26 17:05:45,789 - Evaluate - INFO - ASR... Epoch: 0, Walltime: 12.103113 CPU time: 71.671875
+2026-07-26 17:05:57,558 - Evaluate - INFO - ASR Module... Epoch: 0, RSS: 2.79 GB
+2026-07-26 17:05:57,567 - Evaluate - INFO - ASR... Epoch: 0, Walltime: 11.508376 CPU time: 68.140625
+2026-07-26 17:06:15,081 - Evaluate - INFO - ASR Module... Epoch: 0, RSS: 2.81 GB
+2026-07-26 17:06:15,086 - Evaluate - INFO - ASR... Epoch: 0, Walltime: 17.056458 CPU time: 100.437500
+2026-07-26 17:06:24,379 - Evaluate - INFO - ASR Module... Epoch: 0, RSS: 2.79 GB
+2026-07-26 17:06:24,383 - Evaluate - INFO - ASR... Epoch: 0, Walltime: 9.017850 CPU time: 53.234375
+2026-07-26 17:06:36,378 - Evaluate - INFO - ASR Module... Epoch: 0, RSS: 2.77 GB
+2026-07-26 17:06:36,384 - Evaluate - INFO - ASR... Epoch: 0, Walltime: 11.783351 CPU time: 69.890625
+2026-07-26 17:06:47,509 - Evaluate - INFO - ASR Module... Epoch: 0, RSS: 2.78 GB
+2026-07-26 17:06:47,515 - Evaluate - INFO - ASR... Epoch: 0, Walltime: 10.851582 CPU time: 63.359375
+2026-07-26 17:07:02,371 - Evaluate - INFO - ASR Module... Epoch: 0, RSS: 2.78 GB
+2026-07-26 17:07:02,377 - Evaluate - INFO - ASR... Epoch: 0, Walltime: 14.558108 CPU time: 85.890625
+2026-07-26 17:07:10,216 - Evaluate - INFO - ASR Module... Epoch: 0, RSS: 2.79 GB
+2026-07-26 17:07:10,221 - Evaluate - INFO - ASR... Epoch: 0, Walltime: 7.611412 CPU time: 45.171875
+2026-07-26 17:07:15,890 - Evaluate - INFO - ASR Module... Epoch: 0, RSS: 2.78 GB
+2026-07-26 17:07:15,894 - Evaluate - INFO - ASR... Epoch: 0, Walltime: 5.463199 CPU time: 32.062500
+2026-07-26 17:07:22,084 - Evaluate - INFO - ASR Module... Epoch: 0, RSS: 2.77 GB
+2026-07-26 17:07:22,089 - Evaluate - INFO - ASR... Epoch: 0, Walltime: 6.024944 CPU time: 35.515625
+2026-07-26 17:07:27,689 - Evaluate - INFO - ASR Module... Epoch: 0, RSS: 2.81 GB
+2026-07-26 17:07:27,693 - Evaluate - INFO - ASR... Epoch: 0, Walltime: 5.375092 CPU time: 31.984375
+2026-07-26 17:07:34,169 - Evaluate - INFO - ASR Module... Epoch: 0, RSS: 2.79 GB
+2026-07-26 17:07:34,174 - Evaluate - INFO - ASR... Epoch: 0, Walltime: 6.273956 CPU time: 37.171875
+2026-07-26 17:07:44,204 - Evaluate - INFO - ASR Module... Epoch: 0, RSS: 2.75 GB
+2026-07-26 17:07:44,209 - Evaluate - INFO - ASR... Epoch: 0, Walltime: 9.817679 CPU time: 57.921875
+2026-07-26 17:07:49,258 - Evaluate - INFO - ASR Module... Epoch: 0, RSS: 2.76 GB
+2026-07-26 17:07:49,263 - Evaluate - INFO - ASR... Epoch: 0, Walltime: 4.837508 CPU time: 28.656250
+2026-07-26 17:07:56,278 - Evaluate - INFO - ASR Module... Epoch: 0, RSS: 2.79 GB
+2026-07-26 17:07:56,284 - Evaluate - INFO - ASR... Epoch: 0, Walltime: 6.774155 CPU time: 40.187500
+2026-07-26 17:08:02,878 - Evaluate - INFO - ASR Module... Epoch: 0, RSS: 2.78 GB
+2026-07-26 17:08:02,882 - Evaluate - INFO - ASR... Epoch: 0, Walltime: 6.371160 CPU time: 37.656250
+2026-07-26 17:08:08,086 - Evaluate - INFO - ASR Module... Epoch: 0, RSS: 2.79 GB
+2026-07-26 17:08:08,090 - Evaluate - INFO - ASR... Epoch: 0, Walltime: 5.016815 CPU time: 29.640625
+2026-07-26 17:08:15,059 - Evaluate - INFO - ASR Module... Epoch: 0, RSS: 2.77 GB
+2026-07-26 17:08:15,064 - Evaluate - INFO - ASR... Epoch: 0, Walltime: 6.751842 CPU time: 39.500000
+2026-07-26 17:08:16,042 - Evaluate - INFO - ASR Module... Epoch: 0, RSS: 2.77 GB
+2026-07-26 17:08:16,047 - Evaluate - INFO - ASR... Epoch: 0, Walltime: 0.915498 CPU time: 5.453125
+2026-07-26 17:08:42,597 - Evaluate - INFO - ASR Module... Epoch: 1, RSS: 2.79 GB
+2026-07-26 17:08:42,604 - Evaluate - INFO - ASR... Epoch: 1, Walltime: 25.809211 CPU time: 153.140625
+2026-07-26 17:09:13,668 - Evaluate - INFO - ASR Module... Epoch: 1, RSS: 2.77 GB
+2026-07-26 17:09:13,673 - Evaluate - INFO - ASR... Epoch: 1, Walltime: 30.349498 CPU time: 180.281250
+2026-07-26 17:09:18,582 - Evaluate - INFO - ASR Module... Epoch: 1, RSS: 2.77 GB
+2026-07-26 17:09:18,587 - Evaluate - INFO - ASR... Epoch: 1, Walltime: 4.698133 CPU time: 27.609375
+2026-07-26 17:09:26,970 - Evaluate - INFO - ASR Module... Epoch: 1, RSS: 2.78 GB
+2026-07-26 17:09:26,975 - Evaluate - INFO - ASR... Epoch: 1, Walltime: 8.155268 CPU time: 48.546875
+2026-07-26 17:09:33,184 - Evaluate - INFO - ASR Module... Epoch: 1, RSS: 2.77 GB
+2026-07-26 17:09:33,189 - Evaluate - INFO - ASR... Epoch: 1, Walltime: 6.015801 CPU time: 35.578125
+2026-07-26 17:09:55,902 - Evaluate - INFO - ASR Module... Epoch: 1, RSS: 2.78 GB
+2026-07-26 17:09:55,906 - Evaluate - INFO - ASR... Epoch: 1, Walltime: 22.196682 CPU time: 131.750000
+2026-07-26 17:10:19,791 - Evaluate - INFO - ASR Module... Epoch: 1, RSS: 2.79 GB
+2026-07-26 17:10:19,795 - Evaluate - INFO - ASR... Epoch: 1, Walltime: 23.374230 CPU time: 138.796875
+2026-07-26 17:10:38,602 - Evaluate - INFO - ASR Module... Epoch: 1, RSS: 2.81 GB
+2026-07-26 17:10:38,606 - Evaluate - INFO - ASR... Epoch: 1, Walltime: 18.210136 CPU time: 107.890625
+2026-07-26 17:10:46,149 - Evaluate - INFO - ASR Module... Epoch: 1, RSS: 2.75 GB
+2026-07-26 17:10:46,157 - Evaluate - INFO - ASR... Epoch: 1, Walltime: 7.325282 CPU time: 43.046875
+2026-07-26 17:11:04,853 - Evaluate - INFO - ASR Module... Epoch: 1, RSS: 2.81 GB
+2026-07-26 17:11:04,858 - Evaluate - INFO - ASR... Epoch: 1, Walltime: 18.456975 CPU time: 109.500000
+2026-07-26 17:11:26,583 - Evaluate - INFO - ASR Module... Epoch: 1, RSS: 2.84 GB
+2026-07-26 17:11:26,589 - Evaluate - INFO - ASR... Epoch: 1, Walltime: 21.162948 CPU time: 125.609375
+2026-07-26 17:11:38,431 - Evaluate - INFO - ASR Module... Epoch: 1, RSS: 2.77 GB
+2026-07-26 17:11:38,436 - Evaluate - INFO - ASR... Epoch: 1, Walltime: 11.568441 CPU time: 67.359375
+2026-07-26 17:12:02,660 - Evaluate - INFO - ASR Module... Epoch: 1, RSS: 2.77 GB
+2026-07-26 17:12:02,664 - Evaluate - INFO - ASR... Epoch: 1, Walltime: 23.606404 CPU time: 140.203125
+2026-07-26 17:12:10,309 - Evaluate - INFO - ASR Module... Epoch: 1, RSS: 2.76 GB
+2026-07-26 17:12:10,314 - Evaluate - INFO - ASR... Epoch: 1, Walltime: 7.388736 CPU time: 43.843750
+2026-07-26 17:12:19,726 - Evaluate - INFO - ASR Module... Epoch: 1, RSS: 2.77 GB
+2026-07-26 17:12:19,731 - Evaluate - INFO - ASR... Epoch: 1, Walltime: 9.170552 CPU time: 54.359375
+2026-07-26 17:12:30,553 - Evaluate - INFO - ASR Module... Epoch: 1, RSS: 2.80 GB
+2026-07-26 17:12:30,558 - Evaluate - INFO - ASR... Epoch: 1, Walltime: 10.601170 CPU time: 63.078125
+2026-07-26 17:12:45,551 - Evaluate - INFO - ASR Module... Epoch: 1, RSS: 2.78 GB
+2026-07-26 17:12:45,557 - Evaluate - INFO - ASR... Epoch: 1, Walltime: 14.757599 CPU time: 87.296875
+2026-07-26 17:12:55,349 - Evaluate - INFO - ASR Module... Epoch: 1, RSS: 2.79 GB
+2026-07-26 17:12:55,353 - Evaluate - INFO - ASR... Epoch: 1, Walltime: 9.509467 CPU time: 56.296875
+2026-07-26 17:13:03,444 - Evaluate - INFO - ASR Module... Epoch: 1, RSS: 2.77 GB
+2026-07-26 17:13:03,448 - Evaluate - INFO - ASR... Epoch: 1, Walltime: 7.901989 CPU time: 46.515625
+2026-07-26 17:13:13,585 - Evaluate - INFO - ASR Module... Epoch: 1, RSS: 2.80 GB
+2026-07-26 17:13:13,590 - Evaluate - INFO - ASR... Epoch: 1, Walltime: 9.924525 CPU time: 58.828125
+2026-07-26 17:13:20,618 - Evaluate - INFO - ASR Module... Epoch: 1, RSS: 2.80 GB
+2026-07-26 17:13:20,623 - Evaluate - INFO - ASR... Epoch: 1, Walltime: 6.794631 CPU time: 40.265625
+2026-07-26 17:13:28,588 - Evaluate - INFO - ASR Module... Epoch: 1, RSS: 2.77 GB
+2026-07-26 17:13:28,593 - Evaluate - INFO - ASR... Epoch: 1, Walltime: 7.742664 CPU time: 46.078125
+2026-07-26 17:13:37,561 - Evaluate - INFO - ASR Module... Epoch: 1, RSS: 2.77 GB
+2026-07-26 17:13:37,569 - Evaluate - INFO - ASR... Epoch: 1, Walltime: 8.792881 CPU time: 52.343750
+2026-07-26 17:13:59,258 - Evaluate - INFO - ASR Module... Epoch: 1, RSS: 2.77 GB
+2026-07-26 17:13:59,263 - Evaluate - INFO - ASR... Epoch: 1, Walltime: 21.449540 CPU time: 127.421875
+2026-07-26 17:14:06,945 - Evaluate - INFO - ASR Module... Epoch: 1, RSS: 2.77 GB
+2026-07-26 17:14:06,952 - Evaluate - INFO - ASR... Epoch: 1, Walltime: 7.446493 CPU time: 43.609375
+2026-07-26 17:14:20,079 - Evaluate - INFO - ASR Module... Epoch: 1, RSS: 2.78 GB
+2026-07-26 17:14:20,083 - Evaluate - INFO - ASR... Epoch: 1, Walltime: 12.884762 CPU time: 76.234375
+2026-07-26 17:14:29,175 - Evaluate - INFO - ASR Module... Epoch: 1, RSS: 2.79 GB
+2026-07-26 17:14:29,181 - Evaluate - INFO - ASR... Epoch: 1, Walltime: 8.855723 CPU time: 52.562500
+2026-07-26 17:14:41,948 - Evaluate - INFO - ASR Module... Epoch: 1, RSS: 2.77 GB
+2026-07-26 17:14:41,952 - Evaluate - INFO - ASR... Epoch: 1, Walltime: 12.551809 CPU time: 74.609375
+2026-07-26 17:15:06,570 - Evaluate - INFO - ASR Module... Epoch: 1, RSS: 2.79 GB
+2026-07-26 17:15:06,575 - Evaluate - INFO - ASR... Epoch: 1, Walltime: 24.298674 CPU time: 144.250000
+2026-07-26 17:15:13,819 - Evaluate - INFO - ASR Module... Epoch: 1, RSS: 2.79 GB
+2026-07-26 17:15:13,824 - Evaluate - INFO - ASR... Epoch: 1, Walltime: 6.978737 CPU time: 41.421875
+2026-07-26 17:15:25,626 - Evaluate - INFO - ASR Module... Epoch: 1, RSS: 2.75 GB
+2026-07-26 17:15:25,631 - Evaluate - INFO - ASR... Epoch: 1, Walltime: 11.563310 CPU time: 68.234375
+2026-07-26 17:15:40,518 - Evaluate - INFO - ASR Module... Epoch: 1, RSS: 2.80 GB
+2026-07-26 17:15:40,522 - Evaluate - INFO - ASR... Epoch: 1, Walltime: 14.599047 CPU time: 86.375000
+2026-07-26 17:15:49,003 - Evaluate - INFO - ASR Module... Epoch: 1, RSS: 2.79 GB
+2026-07-26 17:15:49,007 - Evaluate - INFO - ASR... Epoch: 1, Walltime: 8.227952 CPU time: 48.703125
+2026-07-26 17:15:57,998 - Evaluate - INFO - ASR Module... Epoch: 1, RSS: 2.80 GB
+2026-07-26 17:15:58,004 - Evaluate - INFO - ASR... Epoch: 1, Walltime: 8.750328 CPU time: 51.796875
+2026-07-26 17:16:08,599 - Evaluate - INFO - ASR Module... Epoch: 1, RSS: 2.78 GB
+2026-07-26 17:16:08,604 - Evaluate - INFO - ASR... Epoch: 1, Walltime: 10.368151 CPU time: 61.437500
+2026-07-26 17:16:34,885 - Evaluate - INFO - ASR Module... Epoch: 1, RSS: 2.73 GB
+2026-07-26 17:16:34,889 - Evaluate - INFO - ASR... Epoch: 1, Walltime: 25.624536 CPU time: 151.968750
+2026-07-26 17:16:45,002 - Evaluate - INFO - ASR Module... Epoch: 1, RSS: 2.70 GB
+2026-07-26 17:16:45,010 - Evaluate - INFO - ASR... Epoch: 1, Walltime: 9.879521 CPU time: 58.265625
+2026-07-26 17:17:05,399 - Evaluate - INFO - ASR Module... Epoch: 1, RSS: 2.72 GB
+2026-07-26 17:17:05,406 - Evaluate - INFO - ASR... Epoch: 1, Walltime: 19.899166 CPU time: 118.265625
+2026-07-26 17:17:16,703 - Evaluate - INFO - ASR Module... Epoch: 1, RSS: 2.73 GB
+2026-07-26 17:17:16,707 - Evaluate - INFO - ASR... Epoch: 1, Walltime: 11.034814 CPU time: 65.031250
+2026-07-26 17:17:34,181 - Evaluate - INFO - ASR Module... Epoch: 1, RSS: 2.74 GB
+2026-07-26 17:17:34,187 - Evaluate - INFO - ASR... Epoch: 1, Walltime: 17.175425 CPU time: 101.921875
+2026-07-26 17:17:44,044 - Evaluate - INFO - ASR Module... Epoch: 1, RSS: 2.72 GB
+2026-07-26 17:17:44,048 - Evaluate - INFO - ASR... Epoch: 1, Walltime: 9.597017 CPU time: 56.781250
+2026-07-26 17:18:01,807 - Evaluate - INFO - ASR Module... Epoch: 1, RSS: 2.73 GB
+2026-07-26 17:18:01,812 - Evaluate - INFO - ASR... Epoch: 1, Walltime: 17.489970 CPU time: 103.796875
+2026-07-26 17:18:21,644 - Evaluate - INFO - ASR Module... Epoch: 1, RSS: 2.72 GB
+2026-07-26 17:18:21,650 - Evaluate - INFO - ASR... Epoch: 1, Walltime: 19.263682 CPU time: 114.640625
+2026-07-26 17:18:34,395 - Evaluate - INFO - ASR Module... Epoch: 1, RSS: 2.72 GB
+2026-07-26 17:18:34,400 - Evaluate - INFO - ASR... Epoch: 1, Walltime: 12.496463 CPU time: 73.968750
+2026-07-26 17:18:49,934 - Evaluate - INFO - ASR Module... Epoch: 1, RSS: 2.72 GB
+2026-07-26 17:18:49,938 - Evaluate - INFO - ASR... Epoch: 1, Walltime: 15.279918 CPU time: 90.546875
+2026-07-26 17:19:02,625 - Evaluate - INFO - ASR Module... Epoch: 1, RSS: 2.74 GB
+2026-07-26 17:19:02,630 - Evaluate - INFO - ASR... Epoch: 1, Walltime: 12.443964 CPU time: 73.468750
+2026-07-26 17:19:15,651 - Evaluate - INFO - ASR Module... Epoch: 1, RSS: 2.75 GB
+2026-07-26 17:19:15,655 - Evaluate - INFO - ASR... Epoch: 1, Walltime: 12.730001 CPU time: 75.562500
+2026-07-26 17:19:22,198 - Evaluate - INFO - ASR Module... Epoch: 1, RSS: 2.74 GB
+2026-07-26 17:19:22,202 - Evaluate - INFO - ASR... Epoch: 1, Walltime: 6.321214 CPU time: 37.468750
+2026-07-26 17:19:31,109 - Evaluate - INFO - ASR Module... Epoch: 1, RSS: 2.73 GB
+2026-07-26 17:19:31,114 - Evaluate - INFO - ASR... Epoch: 1, Walltime: 8.693749 CPU time: 51.703125
+2026-07-26 17:19:50,348 - Evaluate - INFO - ASR Module... Epoch: 1, RSS: 2.72 GB
+2026-07-26 17:19:50,355 - Evaluate - INFO - ASR... Epoch: 1, Walltime: 19.012587 CPU time: 112.671875
+2026-07-26 17:19:57,142 - Evaluate - INFO - ASR Module... Epoch: 1, RSS: 2.69 GB
+2026-07-26 17:19:57,147 - Evaluate - INFO - ASR... Epoch: 1, Walltime: 6.544756 CPU time: 38.468750
+2026-07-26 17:20:17,428 - Evaluate - INFO - ASR Module... Epoch: 1, RSS: 2.73 GB
+2026-07-26 17:20:17,432 - Evaluate - INFO - ASR... Epoch: 1, Walltime: 19.684760 CPU time: 116.484375
+2026-07-26 17:20:31,619 - Evaluate - INFO - ASR Module... Epoch: 1, RSS: 2.74 GB
+2026-07-26 17:20:31,625 - Evaluate - INFO - ASR... Epoch: 1, Walltime: 13.950365 CPU time: 82.812500
+2026-07-26 17:20:43,530 - Evaluate - INFO - ASR Module... Epoch: 1, RSS: 2.74 GB
+2026-07-26 17:20:43,536 - Evaluate - INFO - ASR... Epoch: 1, Walltime: 11.674730 CPU time: 69.359375
+2026-07-26 17:21:02,676 - Evaluate - INFO - ASR Module... Epoch: 1, RSS: 2.72 GB
+2026-07-26 17:21:02,681 - Evaluate - INFO - ASR... Epoch: 1, Walltime: 18.787576 CPU time: 111.062500
+2026-07-26 17:21:16,342 - Evaluate - INFO - ASR Module... Epoch: 1, RSS: 2.72 GB
+2026-07-26 17:21:16,347 - Evaluate - INFO - ASR... Epoch: 1, Walltime: 13.404233 CPU time: 79.515625
+2026-07-26 17:21:23,767 - Evaluate - INFO - ASR Module... Epoch: 1, RSS: 2.75 GB
+2026-07-26 17:21:23,771 - Evaluate - INFO - ASR... Epoch: 1, Walltime: 7.208109 CPU time: 42.812500
+2026-07-26 17:21:32,689 - Evaluate - INFO - ASR Module... Epoch: 1, RSS: 2.72 GB
+2026-07-26 17:21:32,696 - Evaluate - INFO - ASR... Epoch: 1, Walltime: 8.698208 CPU time: 51.531250
+2026-07-26 17:21:42,975 - Evaluate - INFO - ASR Module... Epoch: 1, RSS: 2.65 GB
+2026-07-26 17:21:42,981 - Evaluate - INFO - ASR... Epoch: 1, Walltime: 10.014794 CPU time: 59.234375
+2026-07-26 17:21:59,752 - Evaluate - INFO - ASR Module... Epoch: 1, RSS: 2.66 GB
+2026-07-26 17:21:59,757 - Evaluate - INFO - ASR... Epoch: 1, Walltime: 16.508396 CPU time: 97.765625
+2026-07-26 17:22:11,844 - Evaluate - INFO - ASR Module... Epoch: 1, RSS: 2.65 GB
+2026-07-26 17:22:11,849 - Evaluate - INFO - ASR... Epoch: 1, Walltime: 11.823103 CPU time: 70.000000
+2026-07-26 17:22:21,678 - Evaluate - INFO - ASR Module... Epoch: 1, RSS: 2.64 GB
+2026-07-26 17:22:21,686 - Evaluate - INFO - ASR... Epoch: 1, Walltime: 9.559240 CPU time: 56.484375
+2026-07-26 17:22:35,937 - Evaluate - INFO - ASR Module... Epoch: 1, RSS: 2.64 GB
+2026-07-26 17:22:35,941 - Evaluate - INFO - ASR... Epoch: 1, Walltime: 13.987128 CPU time: 82.875000
+2026-07-26 17:22:45,883 - Evaluate - INFO - ASR Module... Epoch: 1, RSS: 2.66 GB
+2026-07-26 17:22:45,887 - Evaluate - INFO - ASR... Epoch: 1, Walltime: 9.716940 CPU time: 57.703125
+2026-07-26 17:23:01,233 - Evaluate - INFO - ASR Module... Epoch: 1, RSS: 2.63 GB
+2026-07-26 17:23:01,241 - Evaluate - INFO - ASR... Epoch: 1, Walltime: 15.041554 CPU time: 88.593750
+2026-07-26 17:23:09,835 - Evaluate - INFO - ASR Module... Epoch: 1, RSS: 2.65 GB
+2026-07-26 17:23:09,843 - Evaluate - INFO - ASR... Epoch: 1, Walltime: 8.308717 CPU time: 48.515625
+2026-07-26 17:23:27,092 - Evaluate - INFO - ASR Module... Epoch: 1, RSS: 2.64 GB
+2026-07-26 17:23:27,097 - Evaluate - INFO - ASR... Epoch: 1, Walltime: 17.037414 CPU time: 101.265625
+2026-07-26 17:23:33,664 - Evaluate - INFO - ASR Module... Epoch: 1, RSS: 2.66 GB
+2026-07-26 17:23:33,668 - Evaluate - INFO - ASR... Epoch: 1, Walltime: 6.312909 CPU time: 37.375000
+2026-07-26 17:23:43,493 - Evaluate - INFO - ASR Module... Epoch: 1, RSS: 2.64 GB
+2026-07-26 17:23:43,502 - Evaluate - INFO - ASR... Epoch: 1, Walltime: 9.596103 CPU time: 56.875000
+2026-07-26 17:23:54,931 - Evaluate - INFO - ASR Module... Epoch: 1, RSS: 2.60 GB
+2026-07-26 17:23:54,937 - Evaluate - INFO - ASR... Epoch: 1, Walltime: 11.146000 CPU time: 66.265625
+2026-07-26 17:24:09,285 - Evaluate - INFO - ASR Module... Epoch: 1, RSS: 2.66 GB
+2026-07-26 17:24:09,288 - Evaluate - INFO - ASR... Epoch: 1, Walltime: 14.092277 CPU time: 83.390625
+2026-07-26 17:24:22,529 - Evaluate - INFO - ASR Module... Epoch: 1, RSS: 2.66 GB
+2026-07-26 17:24:22,533 - Evaluate - INFO - ASR... Epoch: 1, Walltime: 12.982715 CPU time: 77.125000
+2026-07-26 17:24:30,306 - Evaluate - INFO - ASR Module... Epoch: 1, RSS: 2.64 GB
+2026-07-26 17:24:30,311 - Evaluate - INFO - ASR... Epoch: 1, Walltime: 7.536585 CPU time: 44.703125
+2026-07-26 17:24:45,867 - Evaluate - INFO - ASR Module... Epoch: 1, RSS: 2.68 GB
+2026-07-26 17:24:45,870 - Evaluate - INFO - ASR... Epoch: 1, Walltime: 15.010325 CPU time: 89.125000
+2026-07-26 17:24:55,309 - Evaluate - INFO - ASR Module... Epoch: 1, RSS: 2.65 GB
+2026-07-26 17:24:55,313 - Evaluate - INFO - ASR... Epoch: 1, Walltime: 9.189136 CPU time: 54.031250
+2026-07-26 17:25:01,232 - Evaluate - INFO - ASR Module... Epoch: 1, RSS: 2.66 GB
+2026-07-26 17:25:01,240 - Evaluate - INFO - ASR... Epoch: 1, Walltime: 5.738686 CPU time: 33.671875
+2026-07-26 17:25:08,591 - Evaluate - INFO - ASR Module... Epoch: 1, RSS: 2.64 GB
+2026-07-26 17:25:08,595 - Evaluate - INFO - ASR... Epoch: 1, Walltime: 7.159578 CPU time: 42.312500
+2026-07-26 17:25:15,232 - Evaluate - INFO - ASR Module... Epoch: 1, RSS: 2.66 GB
+2026-07-26 17:25:15,235 - Evaluate - INFO - ASR... Epoch: 1, Walltime: 6.421491 CPU time: 37.937500
+2026-07-26 17:25:24,437 - Evaluate - INFO - ASR Module... Epoch: 1, RSS: 2.65 GB
+2026-07-26 17:25:24,441 - Evaluate - INFO - ASR... Epoch: 1, Walltime: 9.027271 CPU time: 53.203125
+2026-07-26 17:25:34,451 - Evaluate - INFO - ASR Module... Epoch: 1, RSS: 2.65 GB
+2026-07-26 17:25:34,456 - Evaluate - INFO - ASR... Epoch: 1, Walltime: 9.830145 CPU time: 58.031250
+2026-07-26 17:25:48,299 - Evaluate - INFO - ASR Module... Epoch: 1, RSS: 2.67 GB
+2026-07-26 17:25:48,303 - Evaluate - INFO - ASR... Epoch: 1, Walltime: 13.615458 CPU time: 80.640625
+2026-07-26 17:25:59,344 - Evaluate - INFO - ASR Module... Epoch: 1, RSS: 2.64 GB
+2026-07-26 17:25:59,351 - Evaluate - INFO - ASR... Epoch: 1, Walltime: 10.766447 CPU time: 63.671875
+2026-07-26 17:26:09,864 - Evaluate - INFO - ASR Module... Epoch: 1, RSS: 2.64 GB
+2026-07-26 17:26:09,868 - Evaluate - INFO - ASR... Epoch: 1, Walltime: 10.283031 CPU time: 60.718750
+2026-07-26 17:26:16,175 - Evaluate - INFO - ASR Module... Epoch: 1, RSS: 2.65 GB
+2026-07-26 17:26:16,182 - Evaluate - INFO - ASR... Epoch: 1, Walltime: 6.095229 CPU time: 35.718750
+2026-07-26 17:26:23,760 - Evaluate - INFO - ASR Module... Epoch: 1, RSS: 2.65 GB
+2026-07-26 17:26:23,763 - Evaluate - INFO - ASR... Epoch: 1, Walltime: 7.338403 CPU time: 43.250000
+2026-07-26 17:26:52,680 - Evaluate - INFO - ASR Module... Epoch: 1, RSS: 2.66 GB
+2026-07-26 17:26:52,684 - Evaluate - INFO - ASR... Epoch: 1, Walltime: 28.149101 CPU time: 167.187500
+2026-07-26 17:27:00,538 - Evaluate - INFO - ASR Module... Epoch: 1, RSS: 2.64 GB
+2026-07-26 17:27:00,544 - Evaluate - INFO - ASR... Epoch: 1, Walltime: 7.614995 CPU time: 44.859375
+2026-07-26 17:27:15,575 - Evaluate - INFO - ASR Module... Epoch: 1, RSS: 2.65 GB
+2026-07-26 17:27:15,579 - Evaluate - INFO - ASR... Epoch: 1, Walltime: 14.786499 CPU time: 87.640625
+2026-07-26 17:27:28,235 - Evaluate - INFO - ASR Module... Epoch: 1, RSS: 2.62 GB
+2026-07-26 17:27:28,239 - Evaluate - INFO - ASR... Epoch: 1, Walltime: 12.435814 CPU time: 73.640625
+2026-07-26 17:27:50,747 - Evaluate - INFO - ASR Module... Epoch: 1, RSS: 2.63 GB
+2026-07-26 17:27:50,753 - Evaluate - INFO - ASR... Epoch: 1, Walltime: 21.934105 CPU time: 130.140625
+2026-07-26 17:28:00,481 - Evaluate - INFO - ASR Module... Epoch: 1, RSS: 2.65 GB
+2026-07-26 17:28:00,485 - Evaluate - INFO - ASR... Epoch: 1, Walltime: 9.501864 CPU time: 55.843750
+2026-07-26 17:28:09,146 - Evaluate - INFO - ASR Module... Epoch: 1, RSS: 2.65 GB
+2026-07-26 17:28:09,153 - Evaluate - INFO - ASR... Epoch: 1, Walltime: 8.461203 CPU time: 50.250000
+2026-07-26 17:28:47,448 - Evaluate - INFO - ASR Module... Epoch: 1, RSS: 2.63 GB
+2026-07-26 17:28:47,453 - Evaluate - INFO - ASR... Epoch: 1, Walltime: 37.422642 CPU time: 221.843750
+2026-07-26 17:29:04,757 - Evaluate - INFO - ASR Module... Epoch: 1, RSS: 2.66 GB
+2026-07-26 17:29:04,761 - Evaluate - INFO - ASR... Epoch: 1, Walltime: 16.729274 CPU time: 99.250000
+2026-07-26 17:29:27,689 - Evaluate - INFO - ASR Module... Epoch: 1, RSS: 2.68 GB
+2026-07-26 17:29:27,695 - Evaluate - INFO - ASR... Epoch: 1, Walltime: 22.362761 CPU time: 132.671875
+2026-07-26 17:29:39,336 - Evaluate - INFO - ASR Module... Epoch: 1, RSS: 2.66 GB
+2026-07-26 17:29:39,339 - Evaluate - INFO - ASR... Epoch: 1, Walltime: 11.410852 CPU time: 67.656250
+2026-07-26 17:29:53,161 - Evaluate - INFO - ASR Module... Epoch: 1, RSS: 2.64 GB
+2026-07-26 17:29:53,166 - Evaluate - INFO - ASR... Epoch: 1, Walltime: 13.559349 CPU time: 80.328125
+2026-07-26 17:30:01,225 - Evaluate - INFO - ASR Module... Epoch: 1, RSS: 2.66 GB
+2026-07-26 17:30:01,229 - Evaluate - INFO - ASR... Epoch: 1, Walltime: 7.824867 CPU time: 45.765625
+2026-07-26 17:30:11,345 - Evaluate - INFO - ASR Module... Epoch: 1, RSS: 2.65 GB
+2026-07-26 17:30:11,349 - Evaluate - INFO - ASR... Epoch: 1, Walltime: 9.932454 CPU time: 58.859375
+2026-07-26 17:30:27,977 - Evaluate - INFO - ASR Module... Epoch: 1, RSS: 2.64 GB
+2026-07-26 17:30:27,982 - Evaluate - INFO - ASR... Epoch: 1, Walltime: 16.085695 CPU time: 95.468750
+2026-07-26 17:30:43,455 - Evaluate - INFO - ASR Module... Epoch: 1, RSS: 2.64 GB
+2026-07-26 17:30:43,460 - Evaluate - INFO - ASR... Epoch: 1, Walltime: 15.218414 CPU time: 90.250000
+2026-07-26 17:31:06,136 - Evaluate - INFO - ASR Module... Epoch: 1, RSS: 2.66 GB
+2026-07-26 17:31:06,141 - Evaluate - INFO - ASR... Epoch: 1, Walltime: 22.104701 CPU time: 131.453125
+2026-07-26 17:31:11,746 - Evaluate - INFO - ASR Module... Epoch: 1, RSS: 2.64 GB
+2026-07-26 17:31:11,750 - Evaluate - INFO - ASR... Epoch: 1, Walltime: 5.369533 CPU time: 31.765625
+2026-07-26 17:31:18,618 - Evaluate - INFO - ASR Module... Epoch: 1, RSS: 2.67 GB
+2026-07-26 17:31:18,623 - Evaluate - INFO - ASR... Epoch: 1, Walltime: 6.667652 CPU time: 39.265625
+2026-07-26 17:31:31,322 - Evaluate - INFO - ASR Module... Epoch: 1, RSS: 2.65 GB
+2026-07-26 17:31:31,327 - Evaluate - INFO - ASR... Epoch: 1, Walltime: 12.507194 CPU time: 74.125000
+2026-07-26 17:31:40,400 - Evaluate - INFO - ASR Module... Epoch: 1, RSS: 2.67 GB
+2026-07-26 17:31:40,404 - Evaluate - INFO - ASR... Epoch: 1, Walltime: 8.812710 CPU time: 52.000000
+2026-07-26 17:31:52,441 - Evaluate - INFO - ASR Module... Epoch: 1, RSS: 2.63 GB
+2026-07-26 17:31:52,446 - Evaluate - INFO - ASR... Epoch: 1, Walltime: 11.845333 CPU time: 70.437500
+2026-07-26 17:32:16,119 - Evaluate - INFO - ASR Module... Epoch: 1, RSS: 2.65 GB
+2026-07-26 17:32:16,123 - Evaluate - INFO - ASR... Epoch: 1, Walltime: 23.451804 CPU time: 139.031250
+2026-07-26 17:32:34,927 - Evaluate - INFO - ASR Module... Epoch: 1, RSS: 2.65 GB
+2026-07-26 17:32:34,932 - Evaluate - INFO - ASR... Epoch: 1, Walltime: 18.248881 CPU time: 108.562500
+2026-07-26 17:32:44,005 - Evaluate - INFO - ASR Module... Epoch: 1, RSS: 2.68 GB
+2026-07-26 17:32:44,012 - Evaluate - INFO - ASR... Epoch: 1, Walltime: 8.804625 CPU time: 51.468750
+2026-07-26 17:33:00,063 - Evaluate - INFO - ASR Module... Epoch: 1, RSS: 2.67 GB
+2026-07-26 17:33:00,067 - Evaluate - INFO - ASR... Epoch: 1, Walltime: 15.833866 CPU time: 93.546875
+2026-07-26 17:33:09,808 - Evaluate - INFO - ASR Module... Epoch: 1, RSS: 2.68 GB
+2026-07-26 17:33:09,812 - Evaluate - INFO - ASR... Epoch: 1, Walltime: 9.488402 CPU time: 56.078125
+2026-07-26 17:33:35,855 - Evaluate - INFO - ASR Module... Epoch: 1, RSS: 2.66 GB
+2026-07-26 17:33:35,863 - Evaluate - INFO - ASR... Epoch: 1, Walltime: 25.269892 CPU time: 150.156250
+2026-07-26 17:33:54,947 - Evaluate - INFO - ASR Module... Epoch: 1, RSS: 2.67 GB
+2026-07-26 17:33:54,952 - Evaluate - INFO - ASR... Epoch: 1, Walltime: 18.786915 CPU time: 109.921875
+2026-07-26 17:34:08,249 - Evaluate - INFO - ASR Module... Epoch: 1, RSS: 2.65 GB
+2026-07-26 17:34:08,253 - Evaluate - INFO - ASR... Epoch: 1, Walltime: 13.042428 CPU time: 76.875000
+2026-07-26 17:34:15,937 - Evaluate - INFO - ASR Module... Epoch: 1, RSS: 2.65 GB
+2026-07-26 17:34:15,942 - Evaluate - INFO - ASR... Epoch: 1, Walltime: 7.469799 CPU time: 44.125000
+2026-07-26 17:34:33,029 - Evaluate - INFO - ASR Module... Epoch: 1, RSS: 2.67 GB
+2026-07-26 17:34:33,034 - Evaluate - INFO - ASR... Epoch: 1, Walltime: 16.837860 CPU time: 99.968750
+2026-07-26 17:34:48,104 - Evaluate - INFO - ASR Module... Epoch: 1, RSS: 2.65 GB
+2026-07-26 17:34:48,109 - Evaluate - INFO - ASR... Epoch: 1, Walltime: 14.838683 CPU time: 87.531250
+2026-07-26 17:34:58,645 - Evaluate - INFO - ASR Module... Epoch: 1, RSS: 2.65 GB
+2026-07-26 17:34:58,650 - Evaluate - INFO - ASR... Epoch: 1, Walltime: 10.316042 CPU time: 60.640625
+2026-07-26 17:35:13,088 - Evaluate - INFO - ASR Module... Epoch: 1, RSS: 2.65 GB
+2026-07-26 17:35:13,093 - Evaluate - INFO - ASR... Epoch: 1, Walltime: 14.170011 CPU time: 84.015625
+2026-07-26 17:35:48,457 - Evaluate - INFO - ASR Module... Epoch: 1, RSS: 2.66 GB
+2026-07-26 17:35:48,463 - Evaluate - INFO - ASR... Epoch: 1, Walltime: 34.482589 CPU time: 204.890625
+2026-07-26 17:36:08,077 - Evaluate - INFO - ASR Module... Epoch: 1, RSS: 2.67 GB
+2026-07-26 17:36:08,081 - Evaluate - INFO - ASR... Epoch: 1, Walltime: 18.969592 CPU time: 112.609375
+2026-07-26 17:36:17,325 - Evaluate - INFO - ASR Module... Epoch: 1, RSS: 2.68 GB
+2026-07-26 17:36:17,336 - Evaluate - INFO - ASR... Epoch: 1, Walltime: 8.985449 CPU time: 53.250000
+2026-07-26 17:36:25,048 - Evaluate - INFO - ASR Module... Epoch: 1, RSS: 2.65 GB
+2026-07-26 17:36:25,053 - Evaluate - INFO - ASR... Epoch: 1, Walltime: 7.465347 CPU time: 44.078125
+2026-07-26 17:36:36,183 - Evaluate - INFO - ASR Module... Epoch: 1, RSS: 2.65 GB
+2026-07-26 17:36:36,187 - Evaluate - INFO - ASR... Epoch: 1, Walltime: 10.918480 CPU time: 64.781250
+2026-07-26 17:36:53,693 - Evaluate - INFO - ASR Module... Epoch: 1, RSS: 2.67 GB
+2026-07-26 17:36:53,696 - Evaluate - INFO - ASR... Epoch: 1, Walltime: 17.271136 CPU time: 102.437500
+2026-07-26 17:37:02,311 - Evaluate - INFO - ASR Module... Epoch: 1, RSS: 2.68 GB
+2026-07-26 17:37:02,315 - Evaluate - INFO - ASR... Epoch: 1, Walltime: 8.401384 CPU time: 49.421875
+2026-07-26 17:37:09,336 - Evaluate - INFO - ASR Module... Epoch: 1, RSS: 2.68 GB
+2026-07-26 17:37:09,345 - Evaluate - INFO - ASR... Epoch: 1, Walltime: 6.815189 CPU time: 40.171875
+2026-07-26 17:37:17,174 - Evaluate - INFO - ASR Module... Epoch: 1, RSS: 2.66 GB
+2026-07-26 17:37:17,181 - Evaluate - INFO - ASR... Epoch: 1, Walltime: 7.615862 CPU time: 45.109375
+2026-07-26 17:37:22,893 - Evaluate - INFO - ASR Module... Epoch: 1, RSS: 2.67 GB
+2026-07-26 17:37:22,897 - Evaluate - INFO - ASR... Epoch: 1, Walltime: 5.523896 CPU time: 32.750000
+2026-07-26 17:37:36,627 - Evaluate - INFO - ASR Module... Epoch: 1, RSS: 2.64 GB
+2026-07-26 17:37:36,631 - Evaluate - INFO - ASR... Epoch: 1, Walltime: 13.484640 CPU time: 80.062500
+2026-07-26 17:37:45,680 - Evaluate - INFO - ASR Module... Epoch: 1, RSS: 2.66 GB
+2026-07-26 17:37:45,684 - Evaluate - INFO - ASR... Epoch: 1, Walltime: 8.836929 CPU time: 52.015625
+2026-07-26 17:38:03,119 - Evaluate - INFO - ASR Module... Epoch: 1, RSS: 2.66 GB
+2026-07-26 17:38:03,126 - Evaluate - INFO - ASR... Epoch: 1, Walltime: 16.980043 CPU time: 100.578125
+2026-07-26 17:38:12,494 - Evaluate - INFO - ASR Module... Epoch: 1, RSS: 2.65 GB
+2026-07-26 17:38:12,498 - Evaluate - INFO - ASR... Epoch: 1, Walltime: 9.111005 CPU time: 53.781250
+2026-07-26 17:38:27,671 - Evaluate - INFO - ASR Module... Epoch: 1, RSS: 2.67 GB
+2026-07-26 17:38:27,675 - Evaluate - INFO - ASR... Epoch: 1, Walltime: 14.939486 CPU time: 88.828125
+2026-07-26 17:38:45,356 - Evaluate - INFO - ASR Module... Epoch: 1, RSS: 2.66 GB
+2026-07-26 17:38:45,363 - Evaluate - INFO - ASR... Epoch: 1, Walltime: 17.411747 CPU time: 102.953125
+2026-07-26 17:38:58,797 - Evaluate - INFO - ASR Module... Epoch: 1, RSS: 2.66 GB
+2026-07-26 17:38:58,803 - Evaluate - INFO - ASR... Epoch: 1, Walltime: 13.141931 CPU time: 77.859375
+2026-07-26 17:39:11,424 - Evaluate - INFO - ASR Module... Epoch: 1, RSS: 2.65 GB
+2026-07-26 17:39:11,429 - Evaluate - INFO - ASR... Epoch: 1, Walltime: 12.360967 CPU time: 73.187500
+2026-07-26 17:39:19,247 - Evaluate - INFO - ASR Module... Epoch: 1, RSS: 2.62 GB
+2026-07-26 17:39:19,252 - Evaluate - INFO - ASR... Epoch: 1, Walltime: 7.528937 CPU time: 44.687500
+2026-07-26 17:39:29,703 - Evaluate - INFO - ASR Module... Epoch: 1, RSS: 2.65 GB
+2026-07-26 17:39:29,707 - Evaluate - INFO - ASR... Epoch: 1, Walltime: 10.210349 CPU time: 60.453125
+2026-07-26 17:39:37,805 - Evaluate - INFO - ASR Module... Epoch: 1, RSS: 2.67 GB
+2026-07-26 17:39:37,809 - Evaluate - INFO - ASR... Epoch: 1, Walltime: 7.857938 CPU time: 46.734375
+2026-07-26 17:39:51,900 - Evaluate - INFO - ASR Module... Epoch: 1, RSS: 2.68 GB
+2026-07-26 17:39:51,904 - Evaluate - INFO - ASR... Epoch: 1, Walltime: 13.883387 CPU time: 82.390625
+2026-07-26 17:40:21,892 - Evaluate - INFO - ASR Module... Epoch: 1, RSS: 2.66 GB
+2026-07-26 17:40:21,897 - Evaluate - INFO - ASR... Epoch: 1, Walltime: 29.395790 CPU time: 174.562500
+2026-07-26 17:40:28,410 - Evaluate - INFO - ASR Module... Epoch: 1, RSS: 2.67 GB
+2026-07-26 17:40:28,415 - Evaluate - INFO - ASR... Epoch: 1, Walltime: 6.239287 CPU time: 37.062500
+2026-07-26 17:40:45,996 - Evaluate - INFO - ASR Module... Epoch: 1, RSS: 2.68 GB
+2026-07-26 17:40:46,001 - Evaluate - INFO - ASR... Epoch: 1, Walltime: 17.182813 CPU time: 102.296875
+2026-07-26 17:40:59,953 - Evaluate - INFO - ASR Module... Epoch: 1, RSS: 2.65 GB
+2026-07-26 17:40:59,961 - Evaluate - INFO - ASR... Epoch: 1, Walltime: 13.672613 CPU time: 81.000000
+2026-07-26 17:41:11,038 - Evaluate - INFO - ASR Module... Epoch: 1, RSS: 2.64 GB
+2026-07-26 17:41:11,048 - Evaluate - INFO - ASR... Epoch: 1, Walltime: 10.755703 CPU time: 63.843750
+2026-07-26 17:41:25,335 - Evaluate - INFO - ASR Module... Epoch: 1, RSS: 2.66 GB
+2026-07-26 17:41:25,344 - Evaluate - INFO - ASR... Epoch: 1, Walltime: 14.032246 CPU time: 83.234375
+2026-07-26 17:41:33,138 - Evaluate - INFO - ASR Module... Epoch: 1, RSS: 2.65 GB
+2026-07-26 17:41:33,144 - Evaluate - INFO - ASR... Epoch: 1, Walltime: 7.539232 CPU time: 44.640625
+2026-07-26 17:41:40,967 - Evaluate - INFO - ASR Module... Epoch: 1, RSS: 2.64 GB
+2026-07-26 17:41:40,972 - Evaluate - INFO - ASR... Epoch: 1, Walltime: 7.553802 CPU time: 44.828125
+2026-07-26 17:41:53,815 - Evaluate - INFO - ASR Module... Epoch: 1, RSS: 2.60 GB
+2026-07-26 17:41:53,820 - Evaluate - INFO - ASR... Epoch: 1, Walltime: 12.560373 CPU time: 74.671875
+2026-07-26 17:42:21,843 - Evaluate - INFO - ASR Module... Epoch: 1, RSS: 2.62 GB
+2026-07-26 17:42:21,847 - Evaluate - INFO - ASR... Epoch: 1, Walltime: 27.504034 CPU time: 163.375000
+2026-07-26 17:42:32,386 - Evaluate - INFO - ASR Module... Epoch: 1, RSS: 2.61 GB
+2026-07-26 17:42:32,403 - Evaluate - INFO - ASR... Epoch: 1, Walltime: 10.275641 CPU time: 60.875000
+2026-07-26 17:42:42,296 - Evaluate - INFO - ASR Module... Epoch: 1, RSS: 2.63 GB
+2026-07-26 17:42:42,301 - Evaluate - INFO - ASR... Epoch: 1, Walltime: 9.682491 CPU time: 57.500000
+2026-07-26 17:43:00,376 - Evaluate - INFO - ASR Module... Epoch: 1, RSS: 2.65 GB
+2026-07-26 17:43:00,381 - Evaluate - INFO - ASR... Epoch: 1, Walltime: 17.873711 CPU time: 106.078125
+2026-07-26 17:43:07,947 - Evaluate - INFO - ASR Module... Epoch: 1, RSS: 2.64 GB
+2026-07-26 17:43:07,951 - Evaluate - INFO - ASR... Epoch: 1, Walltime: 7.343658 CPU time: 43.187500
+2026-07-26 17:43:29,700 - Evaluate - INFO - ASR Module... Epoch: 1, RSS: 2.63 GB
+2026-07-26 17:43:29,705 - Evaluate - INFO - ASR... Epoch: 1, Walltime: 21.260873 CPU time: 126.093750
+2026-07-26 17:43:56,279 - Evaluate - INFO - ASR Module... Epoch: 1, RSS: 2.63 GB
+2026-07-26 17:43:56,284 - Evaluate - INFO - ASR... Epoch: 1, Walltime: 25.947906 CPU time: 154.218750
+2026-07-26 17:44:16,767 - Evaluate - INFO - ASR Module... Epoch: 1, RSS: 2.64 GB
+2026-07-26 17:44:16,773 - Evaluate - INFO - ASR... Epoch: 1, Walltime: 19.876502 CPU time: 117.593750
+2026-07-26 17:44:35,668 - Evaluate - INFO - ASR Module... Epoch: 1, RSS: 2.63 GB
+2026-07-26 17:44:35,673 - Evaluate - INFO - ASR... Epoch: 1, Walltime: 18.634492 CPU time: 110.703125
+2026-07-26 17:44:54,245 - Evaluate - INFO - ASR Module... Epoch: 1, RSS: 2.65 GB
+2026-07-26 17:44:54,250 - Evaluate - INFO - ASR... Epoch: 1, Walltime: 18.038293 CPU time: 107.046875
+2026-07-26 17:45:07,438 - Evaluate - INFO - ASR Module... Epoch: 1, RSS: 2.60 GB
+2026-07-26 17:45:07,442 - Evaluate - INFO - ASR... Epoch: 1, Walltime: 12.897953 CPU time: 76.765625
+2026-07-26 17:45:29,766 - Evaluate - INFO - ASR Module... Epoch: 1, RSS: 2.65 GB
+2026-07-26 17:45:29,771 - Evaluate - INFO - ASR... Epoch: 1, Walltime: 21.791806 CPU time: 129.578125
+2026-07-26 17:45:46,894 - Evaluate - INFO - ASR Module... Epoch: 1, RSS: 2.63 GB
+2026-07-26 17:45:46,899 - Evaluate - INFO - ASR... Epoch: 1, Walltime: 16.856383 CPU time: 100.140625
+2026-07-26 17:46:13,153 - Evaluate - INFO - ASR Module... Epoch: 1, RSS: 2.65 GB
+2026-07-26 17:46:13,159 - Evaluate - INFO - ASR... Epoch: 1, Walltime: 25.722672 CPU time: 152.765625
+2026-07-26 17:46:33,109 - Evaluate - INFO - ASR Module... Epoch: 1, RSS: 2.65 GB
+2026-07-26 17:46:33,114 - Evaluate - INFO - ASR... Epoch: 1, Walltime: 19.358323 CPU time: 115.140625
+2026-07-26 17:46:38,951 - Evaluate - INFO - ASR Module... Epoch: 1, RSS: 2.63 GB
+2026-07-26 17:46:38,955 - Evaluate - INFO - ASR... Epoch: 1, Walltime: 5.590172 CPU time: 33.078125
+2026-07-26 17:46:47,386 - Evaluate - INFO - ASR Module... Epoch: 1, RSS: 2.66 GB
+2026-07-26 17:46:47,391 - Evaluate - INFO - ASR... Epoch: 1, Walltime: 8.219436 CPU time: 48.796875
+2026-07-26 17:46:59,119 - Evaluate - INFO - ASR Module... Epoch: 1, RSS: 2.65 GB
+2026-07-26 17:46:59,124 - Evaluate - INFO - ASR... Epoch: 1, Walltime: 11.489463 CPU time: 68.218750
+2026-07-26 17:47:25,033 - Evaluate - INFO - ASR Module... Epoch: 1, RSS: 2.63 GB
+2026-07-26 17:47:25,037 - Evaluate - INFO - ASR... Epoch: 1, Walltime: 25.305654 CPU time: 150.406250
+2026-07-26 17:47:32,423 - Evaluate - INFO - ASR Module... Epoch: 1, RSS: 2.65 GB
+2026-07-26 17:47:32,428 - Evaluate - INFO - ASR... Epoch: 1, Walltime: 7.131558 CPU time: 42.234375
+2026-07-26 17:47:43,908 - Evaluate - INFO - ASR Module... Epoch: 1, RSS: 2.62 GB
+2026-07-26 17:47:43,912 - Evaluate - INFO - ASR... Epoch: 1, Walltime: 11.264418 CPU time: 66.859375
+2026-07-26 17:47:57,421 - Evaluate - INFO - ASR Module... Epoch: 1, RSS: 2.65 GB
+2026-07-26 17:47:57,425 - Evaluate - INFO - ASR... Epoch: 1, Walltime: 13.247756 CPU time: 78.750000
+2026-07-26 17:48:08,362 - Evaluate - INFO - ASR Module... Epoch: 1, RSS: 2.63 GB
+2026-07-26 17:48:08,366 - Evaluate - INFO - ASR... Epoch: 1, Walltime: 10.645610 CPU time: 62.750000
+2026-07-26 17:48:15,721 - Evaluate - INFO - ASR Module... Epoch: 1, RSS: 2.65 GB
+2026-07-26 17:48:15,727 - Evaluate - INFO - ASR... Epoch: 1, Walltime: 7.128288 CPU time: 42.250000
+2026-07-26 17:48:26,221 - Evaluate - INFO - ASR Module... Epoch: 1, RSS: 2.62 GB
+2026-07-26 17:48:26,228 - Evaluate - INFO - ASR... Epoch: 1, Walltime: 10.267069 CPU time: 60.890625
+2026-07-26 17:48:39,975 - Evaluate - INFO - ASR Module... Epoch: 1, RSS: 2.63 GB
+2026-07-26 17:48:39,980 - Evaluate - INFO - ASR... Epoch: 1, Walltime: 13.487317 CPU time: 80.093750
+2026-07-26 17:49:06,388 - Evaluate - INFO - ASR Module... Epoch: 1, RSS: 2.64 GB
+2026-07-26 17:49:06,393 - Evaluate - INFO - ASR... Epoch: 1, Walltime: 25.814026 CPU time: 153.140625
+2026-07-26 17:49:19,964 - Evaluate - INFO - ASR Module... Epoch: 1, RSS: 2.65 GB
+2026-07-26 17:49:19,969 - Evaluate - INFO - ASR... Epoch: 1, Walltime: 13.318437 CPU time: 79.156250
+2026-07-26 17:49:28,821 - Evaluate - INFO - ASR Module... Epoch: 1, RSS: 2.65 GB
+2026-07-26 17:49:28,826 - Evaluate - INFO - ASR... Epoch: 1, Walltime: 8.536266 CPU time: 50.250000
+2026-07-26 17:49:49,610 - Evaluate - INFO - ASR Module... Epoch: 1, RSS: 2.65 GB
+2026-07-26 17:49:49,615 - Evaluate - INFO - ASR... Epoch: 1, Walltime: 20.302567 CPU time: 120.375000
+2026-07-26 17:50:04,353 - Evaluate - INFO - ASR Module... Epoch: 1, RSS: 2.65 GB
+2026-07-26 17:50:04,357 - Evaluate - INFO - ASR... Epoch: 1, Walltime: 14.506214 CPU time: 86.156250
+2026-07-26 17:50:18,336 - Evaluate - INFO - ASR Module... Epoch: 1, RSS: 2.63 GB
+2026-07-26 17:50:18,340 - Evaluate - INFO - ASR... Epoch: 1, Walltime: 13.720468 CPU time: 81.312500
+2026-07-26 17:50:24,466 - Evaluate - INFO - ASR Module... Epoch: 1, RSS: 2.63 GB
+2026-07-26 17:50:24,473 - Evaluate - INFO - ASR... Epoch: 1, Walltime: 5.893732 CPU time: 34.656250
+2026-07-26 17:50:32,616 - Evaluate - INFO - ASR Module... Epoch: 1, RSS: 2.63 GB
+2026-07-26 17:50:32,620 - Evaluate - INFO - ASR... Epoch: 1, Walltime: 7.925113 CPU time: 46.843750
+2026-07-26 17:50:37,175 - Evaluate - INFO - ASR Module... Epoch: 1, RSS: 2.65 GB
+2026-07-26 17:50:37,179 - Evaluate - INFO - ASR... Epoch: 1, Walltime: 4.368246 CPU time: 25.671875
+2026-07-26 17:50:46,228 - Evaluate - INFO - ASR Module... Epoch: 1, RSS: 2.60 GB
+2026-07-26 17:50:46,234 - Evaluate - INFO - ASR... Epoch: 1, Walltime: 8.822852 CPU time: 52.265625
+2026-07-26 17:50:54,932 - Evaluate - INFO - ASR Module... Epoch: 1, RSS: 2.64 GB
+2026-07-26 17:50:54,937 - Evaluate - INFO - ASR... Epoch: 1, Walltime: 8.509281 CPU time: 50.468750
+2026-07-26 17:51:20,030 - Evaluate - INFO - ASR Module... Epoch: 1, RSS: 2.65 GB
+2026-07-26 17:51:20,035 - Evaluate - INFO - ASR... Epoch: 1, Walltime: 24.473051 CPU time: 144.953125
+2026-07-26 17:51:27,118 - Evaluate - INFO - ASR Module... Epoch: 1, RSS: 2.64 GB
+2026-07-26 17:51:27,123 - Evaluate - INFO - ASR... Epoch: 1, Walltime: 6.812358 CPU time: 40.281250
+2026-07-26 17:51:39,277 - Evaluate - INFO - ASR Module... Epoch: 1, RSS: 2.63 GB
+2026-07-26 17:51:39,285 - Evaluate - INFO - ASR... Epoch: 1, Walltime: 11.924754 CPU time: 70.828125
+2026-07-26 17:51:51,094 - Evaluate - INFO - ASR Module... Epoch: 1, RSS: 2.62 GB
+2026-07-26 17:51:51,100 - Evaluate - INFO - ASR... Epoch: 1, Walltime: 11.542043 CPU time: 68.375000
+2026-07-26 17:52:07,957 - Evaluate - INFO - ASR Module... Epoch: 1, RSS: 2.65 GB
+2026-07-26 17:52:07,961 - Evaluate - INFO - ASR... Epoch: 1, Walltime: 16.365848 CPU time: 97.062500
+2026-07-26 17:52:17,168 - Evaluate - INFO - ASR Module... Epoch: 1, RSS: 2.63 GB
+2026-07-26 17:52:17,175 - Evaluate - INFO - ASR... Epoch: 1, Walltime: 8.964826 CPU time: 53.421875
+2026-07-26 17:52:29,384 - Evaluate - INFO - ASR Module... Epoch: 1, RSS: 2.60 GB
+2026-07-26 17:52:29,390 - Evaluate - INFO - ASR... Epoch: 1, Walltime: 11.956550 CPU time: 70.515625
+2026-07-26 17:52:40,238 - Evaluate - INFO - ASR Module... Epoch: 1, RSS: 2.61 GB
+2026-07-26 17:52:40,243 - Evaluate - INFO - ASR... Epoch: 1, Walltime: 10.595511 CPU time: 62.890625
+2026-07-26 17:52:54,186 - Evaluate - INFO - ASR Module... Epoch: 1, RSS: 2.63 GB
+2026-07-26 17:52:54,190 - Evaluate - INFO - ASR... Epoch: 1, Walltime: 13.651827 CPU time: 81.109375
+2026-07-26 17:53:02,274 - Evaluate - INFO - ASR Module... Epoch: 1, RSS: 2.65 GB
+2026-07-26 17:53:02,278 - Evaluate - INFO - ASR... Epoch: 1, Walltime: 7.833288 CPU time: 46.453125
+2026-07-26 17:53:08,382 - Evaluate - INFO - ASR Module... Epoch: 1, RSS: 2.65 GB
+2026-07-26 17:53:08,386 - Evaluate - INFO - ASR... Epoch: 1, Walltime: 5.906257 CPU time: 34.781250
+2026-07-26 17:53:14,215 - Evaluate - INFO - ASR Module... Epoch: 1, RSS: 2.63 GB
+2026-07-26 17:53:14,220 - Evaluate - INFO - ASR... Epoch: 1, Walltime: 5.629353 CPU time: 33.437500
+2026-07-26 17:53:20,100 - Evaluate - INFO - ASR Module... Epoch: 1, RSS: 2.65 GB
+2026-07-26 17:53:20,104 - Evaluate - INFO - ASR... Epoch: 1, Walltime: 5.672442 CPU time: 33.453125
+2026-07-26 17:53:26,592 - Evaluate - INFO - ASR Module... Epoch: 1, RSS: 2.64 GB
+2026-07-26 17:53:26,598 - Evaluate - INFO - ASR... Epoch: 1, Walltime: 6.263690 CPU time: 37.093750
+2026-07-26 17:53:36,950 - Evaluate - INFO - ASR Module... Epoch: 1, RSS: 2.62 GB
+2026-07-26 17:53:36,956 - Evaluate - INFO - ASR... Epoch: 1, Walltime: 10.093921 CPU time: 60.015625
+2026-07-26 17:53:41,758 - Evaluate - INFO - ASR Module... Epoch: 1, RSS: 2.63 GB
+2026-07-26 17:53:41,762 - Evaluate - INFO - ASR... Epoch: 1, Walltime: 4.563071 CPU time: 27.031250
+2026-07-26 17:53:48,658 - Evaluate - INFO - ASR Module... Epoch: 1, RSS: 2.65 GB
+2026-07-26 17:53:48,664 - Evaluate - INFO - ASR... Epoch: 1, Walltime: 6.661690 CPU time: 39.437500
+2026-07-26 17:53:55,068 - Evaluate - INFO - ASR Module... Epoch: 1, RSS: 2.63 GB
+2026-07-26 17:53:55,075 - Evaluate - INFO - ASR... Epoch: 1, Walltime: 6.195049 CPU time: 36.750000
+2026-07-26 17:54:00,360 - Evaluate - INFO - ASR Module... Epoch: 1, RSS: 2.64 GB
+2026-07-26 17:54:00,364 - Evaluate - INFO - ASR... Epoch: 1, Walltime: 5.052661 CPU time: 29.859375
+2026-07-26 17:54:06,835 - Evaluate - INFO - ASR Module... Epoch: 1, RSS: 2.63 GB
+2026-07-26 17:54:06,839 - Evaluate - INFO - ASR... Epoch: 1, Walltime: 6.271768 CPU time: 37.203125
+2026-07-26 17:54:07,898 - Evaluate - INFO - ASR Module... Epoch: 1, RSS: 2.63 GB
+2026-07-26 17:54:07,902 - Evaluate - INFO - ASR... Epoch: 1, Walltime: 1.010206 CPU time: 5.984375
+2026-07-26 17:54:35,451 - Evaluate - INFO - ASR Module... Epoch: 2, RSS: 2.66 GB
+2026-07-26 17:54:35,457 - Evaluate - INFO - ASR... Epoch: 2, Walltime: 26.636149 CPU time: 158.250000
+2026-07-26 17:55:06,562 - Evaluate - INFO - ASR Module... Epoch: 2, RSS: 2.63 GB
+2026-07-26 17:55:06,571 - Evaluate - INFO - ASR... Epoch: 2, Walltime: 30.259800 CPU time: 179.937500
+2026-07-26 17:55:11,286 - Evaluate - INFO - ASR Module... Epoch: 2, RSS: 2.65 GB
+2026-07-26 17:55:11,291 - Evaluate - INFO - ASR... Epoch: 2, Walltime: 4.472321 CPU time: 26.453125
+2026-07-26 17:55:19,561 - Evaluate - INFO - ASR Module... Epoch: 2, RSS: 2.63 GB
+2026-07-26 17:55:19,565 - Evaluate - INFO - ASR... Epoch: 2, Walltime: 8.002177 CPU time: 47.531250
+2026-07-26 17:55:26,041 - Evaluate - INFO - ASR Module... Epoch: 2, RSS: 2.63 GB
+2026-07-26 17:55:26,050 - Evaluate - INFO - ASR... Epoch: 2, Walltime: 6.294279 CPU time: 36.765625
+2026-07-26 17:55:48,336 - Evaluate - INFO - ASR Module... Epoch: 2, RSS: 2.65 GB
+2026-07-26 17:55:48,341 - Evaluate - INFO - ASR... Epoch: 2, Walltime: 21.829831 CPU time: 129.671875
+2026-07-26 17:56:11,882 - Evaluate - INFO - ASR Module... Epoch: 2, RSS: 2.64 GB
+2026-07-26 17:56:11,886 - Evaluate - INFO - ASR... Epoch: 2, Walltime: 22.963193 CPU time: 136.500000
+2026-07-26 17:56:29,999 - Evaluate - INFO - ASR Module... Epoch: 2, RSS: 2.65 GB
+2026-07-26 17:56:30,003 - Evaluate - INFO - ASR... Epoch: 2, Walltime: 17.497939 CPU time: 104.109375
+2026-07-26 17:56:37,123 - Evaluate - INFO - ASR Module... Epoch: 2, RSS: 2.63 GB
+2026-07-26 17:56:37,127 - Evaluate - INFO - ASR... Epoch: 2, Walltime: 6.906789 CPU time: 40.921875
+2026-07-26 17:56:54,998 - Evaluate - INFO - ASR Module... Epoch: 2, RSS: 2.64 GB
+2026-07-26 17:56:55,003 - Evaluate - INFO - ASR... Epoch: 2, Walltime: 17.640320 CPU time: 104.890625
+2026-07-26 17:57:15,792 - Evaluate - INFO - ASR Module... Epoch: 2, RSS: 2.64 GB
+2026-07-26 17:57:15,799 - Evaluate - INFO - ASR... Epoch: 2, Walltime: 20.179932 CPU time: 119.921875
+2026-07-26 17:57:26,819 - Evaluate - INFO - ASR Module... Epoch: 2, RSS: 2.63 GB
+2026-07-26 17:57:26,823 - Evaluate - INFO - ASR... Epoch: 2, Walltime: 10.795032 CPU time: 64.109375
+2026-07-26 17:57:49,625 - Evaluate - INFO - ASR Module... Epoch: 2, RSS: 2.63 GB
+2026-07-26 17:57:49,630 - Evaluate - INFO - ASR... Epoch: 2, Walltime: 22.221415 CPU time: 131.906250
+2026-07-26 17:57:57,007 - Evaluate - INFO - ASR Module... Epoch: 2, RSS: 2.64 GB
+2026-07-26 17:57:57,011 - Evaluate - INFO - ASR... Epoch: 2, Walltime: 7.145754 CPU time: 42.609375
+2026-07-26 17:58:06,231 - Evaluate - INFO - ASR Module... Epoch: 2, RSS: 2.63 GB
+2026-07-26 17:58:06,236 - Evaluate - INFO - ASR... Epoch: 2, Walltime: 8.979826 CPU time: 53.171875
+2026-07-26 17:58:18,046 - Evaluate - INFO - ASR Module... Epoch: 2, RSS: 2.64 GB
+2026-07-26 17:58:18,054 - Evaluate - INFO - ASR... Epoch: 2, Walltime: 11.517848 CPU time: 68.140625
+2026-07-26 17:58:33,318 - Evaluate - INFO - ASR Module... Epoch: 2, RSS: 2.64 GB
+2026-07-26 17:58:33,322 - Evaluate - INFO - ASR... Epoch: 2, Walltime: 15.000269 CPU time: 89.093750
+2026-07-26 17:58:42,930 - Evaluate - INFO - ASR Module... Epoch: 2, RSS: 2.65 GB
+2026-07-26 17:58:42,934 - Evaluate - INFO - ASR... Epoch: 2, Walltime: 9.363832 CPU time: 55.562500
+2026-07-26 17:58:50,855 - Evaluate - INFO - ASR Module... Epoch: 2, RSS: 2.62 GB
+2026-07-26 17:58:50,859 - Evaluate - INFO - ASR... Epoch: 2, Walltime: 7.726746 CPU time: 45.828125
+2026-07-26 17:59:01,147 - Evaluate - INFO - ASR Module... Epoch: 2, RSS: 2.63 GB
+2026-07-26 17:59:01,152 - Evaluate - INFO - ASR... Epoch: 2, Walltime: 10.092758 CPU time: 59.671875
+2026-07-26 17:59:08,827 - Evaluate - INFO - ASR Module... Epoch: 2, RSS: 2.63 GB
+2026-07-26 17:59:08,832 - Evaluate - INFO - ASR... Epoch: 2, Walltime: 7.436166 CPU time: 44.109375
+2026-07-26 17:59:17,319 - Evaluate - INFO - ASR Module... Epoch: 2, RSS: 2.64 GB
+2026-07-26 17:59:17,323 - Evaluate - INFO - ASR... Epoch: 2, Walltime: 8.296094 CPU time: 49.328125
+2026-07-26 17:59:26,658 - Evaluate - INFO - ASR Module... Epoch: 2, RSS: 2.64 GB
+2026-07-26 17:59:26,662 - Evaluate - INFO - ASR... Epoch: 2, Walltime: 9.105402 CPU time: 53.890625
+2026-07-26 17:59:48,577 - Evaluate - INFO - ASR Module... Epoch: 2, RSS: 2.64 GB
+2026-07-26 17:59:48,581 - Evaluate - INFO - ASR... Epoch: 2, Walltime: 21.684365 CPU time: 128.828125
+2026-07-26 17:59:55,820 - Evaluate - INFO - ASR Module... Epoch: 2, RSS: 2.64 GB
+2026-07-26 17:59:55,825 - Evaluate - INFO - ASR... Epoch: 2, Walltime: 7.024063 CPU time: 41.703125
+2026-07-26 18:00:08,953 - Evaluate - INFO - ASR Module... Epoch: 2, RSS: 2.64 GB
+2026-07-26 18:00:08,957 - Evaluate - INFO - ASR... Epoch: 2, Walltime: 12.890045 CPU time: 76.734375
+2026-07-26 18:00:18,177 - Evaluate - INFO - ASR Module... Epoch: 2, RSS: 2.65 GB
+2026-07-26 18:00:18,181 - Evaluate - INFO - ASR... Epoch: 2, Walltime: 8.975844 CPU time: 53.171875
+2026-07-26 18:00:31,445 - Evaluate - INFO - ASR Module... Epoch: 2, RSS: 2.63 GB
+2026-07-26 18:00:31,451 - Evaluate - INFO - ASR... Epoch: 2, Walltime: 13.070366 CPU time: 77.453125
+2026-07-26 18:00:54,951 - Evaluate - INFO - ASR Module... Epoch: 2, RSS: 2.65 GB
+2026-07-26 18:00:54,955 - Evaluate - INFO - ASR... Epoch: 2, Walltime: 23.206514 CPU time: 137.734375
+2026-07-26 18:01:02,062 - Evaluate - INFO - ASR Module... Epoch: 2, RSS: 2.65 GB
+2026-07-26 18:01:02,067 - Evaluate - INFO - ASR... Epoch: 2, Walltime: 6.868961 CPU time: 40.546875
+2026-07-26 18:01:13,775 - Evaluate - INFO - ASR Module... Epoch: 2, RSS: 2.62 GB
+2026-07-26 18:01:13,779 - Evaluate - INFO - ASR... Epoch: 2, Walltime: 11.503146 CPU time: 68.078125
+2026-07-26 18:01:27,943 - Evaluate - INFO - ASR Module... Epoch: 2, RSS: 2.66 GB
+2026-07-26 18:01:27,947 - Evaluate - INFO - ASR... Epoch: 2, Walltime: 13.915229 CPU time: 82.406250
+2026-07-26 18:01:36,181 - Evaluate - INFO - ASR Module... Epoch: 2, RSS: 2.65 GB
+2026-07-26 18:01:36,186 - Evaluate - INFO - ASR... Epoch: 2, Walltime: 7.974119 CPU time: 46.984375
+2026-07-26 18:01:45,227 - Evaluate - INFO - ASR Module... Epoch: 2, RSS: 2.66 GB
+2026-07-26 18:01:45,231 - Evaluate - INFO - ASR... Epoch: 2, Walltime: 8.843060 CPU time: 52.515625
+2026-07-26 18:01:55,480 - Evaluate - INFO - ASR Module... Epoch: 2, RSS: 2.65 GB
+2026-07-26 18:01:55,485 - Evaluate - INFO - ASR... Epoch: 2, Walltime: 10.013974 CPU time: 59.500000
+2026-07-26 18:02:21,210 - Evaluate - INFO - ASR Module... Epoch: 2, RSS: 2.65 GB
+2026-07-26 18:02:21,215 - Evaluate - INFO - ASR... Epoch: 2, Walltime: 25.214004 CPU time: 150.000000
+2026-07-26 18:02:31,199 - Evaluate - INFO - ASR Module... Epoch: 2, RSS: 2.65 GB
+2026-07-26 18:02:31,204 - Evaluate - INFO - ASR... Epoch: 2, Walltime: 9.714641 CPU time: 57.609375
+2026-07-26 18:02:51,725 - Evaluate - INFO - ASR Module... Epoch: 2, RSS: 2.63 GB
+2026-07-26 18:02:51,729 - Evaluate - INFO - ASR... Epoch: 2, Walltime: 20.080795 CPU time: 118.921875
+2026-07-26 18:03:02,995 - Evaluate - INFO - ASR Module... Epoch: 2, RSS: 2.66 GB
+2026-07-26 18:03:02,999 - Evaluate - INFO - ASR... Epoch: 2, Walltime: 11.041733 CPU time: 65.703125
+2026-07-26 18:03:20,721 - Evaluate - INFO - ASR Module... Epoch: 2, RSS: 2.64 GB
+2026-07-26 18:03:20,727 - Evaluate - INFO - ASR... Epoch: 2, Walltime: 17.482433 CPU time: 103.859375
+2026-07-26 18:03:30,782 - Evaluate - INFO - ASR Module... Epoch: 2, RSS: 2.66 GB
+2026-07-26 18:03:30,787 - Evaluate - INFO - ASR... Epoch: 2, Walltime: 9.799735 CPU time: 57.937500
+2026-07-26 18:03:48,796 - Evaluate - INFO - ASR Module... Epoch: 2, RSS: 2.63 GB
+2026-07-26 18:03:48,801 - Evaluate - INFO - ASR... Epoch: 2, Walltime: 17.783052 CPU time: 105.531250
+2026-07-26 18:04:09,003 - Evaluate - INFO - ASR Module... Epoch: 2, RSS: 2.63 GB
+2026-07-26 18:04:09,007 - Evaluate - INFO - ASR... Epoch: 2, Walltime: 19.716014 CPU time: 117.234375
+2026-07-26 18:04:22,012 - Evaluate - INFO - ASR Module... Epoch: 2, RSS: 2.65 GB
+2026-07-26 18:04:22,017 - Evaluate - INFO - ASR... Epoch: 2, Walltime: 12.740169 CPU time: 75.437500
+2026-07-26 18:04:38,041 - Evaluate - INFO - ASR Module... Epoch: 2, RSS: 2.66 GB
+2026-07-26 18:04:38,045 - Evaluate - INFO - ASR... Epoch: 2, Walltime: 15.779586 CPU time: 93.812500
+2026-07-26 18:04:51,066 - Evaluate - INFO - ASR Module... Epoch: 2, RSS: 2.64 GB
+2026-07-26 18:04:51,071 - Evaluate - INFO - ASR... Epoch: 2, Walltime: 12.732865 CPU time: 75.437500
+2026-07-26 18:05:04,108 - Evaluate - INFO - ASR Module... Epoch: 2, RSS: 2.67 GB
+2026-07-26 18:05:04,112 - Evaluate - INFO - ASR... Epoch: 2, Walltime: 12.760336 CPU time: 75.328125
+2026-07-26 18:05:10,675 - Evaluate - INFO - ASR Module... Epoch: 2, RSS: 2.66 GB
+2026-07-26 18:05:10,685 - Evaluate - INFO - ASR... Epoch: 2, Walltime: 6.313862 CPU time: 37.078125
+2026-07-26 18:05:20,051 - Evaluate - INFO - ASR Module... Epoch: 2, RSS: 2.64 GB
+2026-07-26 18:05:20,056 - Evaluate - INFO - ASR... Epoch: 2, Walltime: 9.163696 CPU time: 54.031250
+2026-07-26 18:05:39,022 - Evaluate - INFO - ASR Module... Epoch: 2, RSS: 2.62 GB
+2026-07-26 18:05:39,026 - Evaluate - INFO - ASR... Epoch: 2, Walltime: 18.732019 CPU time: 111.156250
+2026-07-26 18:05:45,570 - Evaluate - INFO - ASR Module... Epoch: 2, RSS: 2.61 GB
+2026-07-26 18:05:45,574 - Evaluate - INFO - ASR... Epoch: 2, Walltime: 6.319464 CPU time: 37.500000
+2026-07-26 18:06:05,394 - Evaluate - INFO - ASR Module... Epoch: 2, RSS: 2.64 GB
+2026-07-26 18:06:05,398 - Evaluate - INFO - ASR... Epoch: 2, Walltime: 19.345972 CPU time: 114.609375
+2026-07-26 18:06:19,679 - Evaluate - INFO - ASR Module... Epoch: 2, RSS: 2.65 GB
+2026-07-26 18:06:19,683 - Evaluate - INFO - ASR... Epoch: 2, Walltime: 14.023752 CPU time: 83.296875
+2026-07-26 18:06:31,569 - Evaluate - INFO - ASR Module... Epoch: 2, RSS: 2.65 GB
+2026-07-26 18:06:31,573 - Evaluate - INFO - ASR... Epoch: 2, Walltime: 11.631117 CPU time: 69.109375
+2026-07-26 18:06:50,407 - Evaluate - INFO - ASR Module... Epoch: 2, RSS: 2.61 GB
+2026-07-26 18:06:50,412 - Evaluate - INFO - ASR... Epoch: 2, Walltime: 18.593413 CPU time: 110.156250
+2026-07-26 18:07:04,214 - Evaluate - INFO - ASR Module... Epoch: 2, RSS: 2.63 GB
+2026-07-26 18:07:04,224 - Evaluate - INFO - ASR... Epoch: 2, Walltime: 13.561246 CPU time: 80.390625
+2026-07-26 18:07:11,480 - Evaluate - INFO - ASR Module... Epoch: 2, RSS: 2.66 GB
+2026-07-26 18:07:11,484 - Evaluate - INFO - ASR... Epoch: 2, Walltime: 7.014349 CPU time: 41.312500
+2026-07-26 18:07:20,446 - Evaluate - INFO - ASR Module... Epoch: 2, RSS: 2.65 GB
+2026-07-26 18:07:20,450 - Evaluate - INFO - ASR... Epoch: 2, Walltime: 8.748765 CPU time: 51.921875
+2026-07-26 18:07:30,387 - Evaluate - INFO - ASR Module... Epoch: 2, RSS: 2.64 GB
+2026-07-26 18:07:30,390 - Evaluate - INFO - ASR... Epoch: 2, Walltime: 9.700369 CPU time: 57.187500
+2026-07-26 18:07:47,279 - Evaluate - INFO - ASR Module... Epoch: 2, RSS: 2.65 GB
+2026-07-26 18:07:47,284 - Evaluate - INFO - ASR... Epoch: 2, Walltime: 16.644720 CPU time: 98.937500
+2026-07-26 18:07:59,526 - Evaluate - INFO - ASR Module... Epoch: 2, RSS: 2.66 GB
+2026-07-26 18:07:59,531 - Evaluate - INFO - ASR... Epoch: 2, Walltime: 11.982985 CPU time: 70.968750
+2026-07-26 18:08:08,369 - Evaluate - INFO - ASR Module... Epoch: 2, RSS: 2.64 GB
+2026-07-26 18:08:08,373 - Evaluate - INFO - ASR... Epoch: 2, Walltime: 8.593076 CPU time: 50.890625
+2026-07-26 18:08:22,144 - Evaluate - INFO - ASR Module... Epoch: 2, RSS: 2.64 GB
+2026-07-26 18:08:22,147 - Evaluate - INFO - ASR... Epoch: 2, Walltime: 13.536554 CPU time: 80.140625
+2026-07-26 18:08:32,316 - Evaluate - INFO - ASR Module... Epoch: 2, RSS: 2.65 GB
+2026-07-26 18:08:32,321 - Evaluate - INFO - ASR... Epoch: 2, Walltime: 9.929599 CPU time: 58.843750
+2026-07-26 18:08:47,359 - Evaluate - INFO - ASR Module... Epoch: 2, RSS: 2.63 GB
+2026-07-26 18:08:47,363 - Evaluate - INFO - ASR... Epoch: 2, Walltime: 14.805384 CPU time: 87.734375
+2026-07-26 18:08:55,800 - Evaluate - INFO - ASR Module... Epoch: 2, RSS: 2.63 GB
+2026-07-26 18:08:55,807 - Evaluate - INFO - ASR... Epoch: 2, Walltime: 8.204276 CPU time: 48.546875
+2026-07-26 18:09:13,059 - Evaluate - INFO - ASR Module... Epoch: 2, RSS: 2.63 GB
+2026-07-26 18:09:13,063 - Evaluate - INFO - ASR... Epoch: 2, Walltime: 16.987706 CPU time: 100.843750
+2026-07-26 18:09:19,436 - Evaluate - INFO - ASR Module... Epoch: 2, RSS: 2.65 GB
+2026-07-26 18:09:19,440 - Evaluate - INFO - ASR... Epoch: 2, Walltime: 6.126879 CPU time: 35.953125
+2026-07-26 18:09:29,058 - Evaluate - INFO - ASR Module... Epoch: 2, RSS: 2.63 GB
+2026-07-26 18:09:29,062 - Evaluate - INFO - ASR... Epoch: 2, Walltime: 9.395607 CPU time: 55.687500
+2026-07-26 18:09:40,260 - Evaluate - INFO - ASR Module... Epoch: 2, RSS: 2.61 GB
+2026-07-26 18:09:40,264 - Evaluate - INFO - ASR... Epoch: 2, Walltime: 10.989048 CPU time: 64.859375
+2026-07-26 18:09:54,331 - Evaluate - INFO - ASR Module... Epoch: 2, RSS: 2.66 GB
+2026-07-26 18:09:54,335 - Evaluate - INFO - ASR... Epoch: 2, Walltime: 13.783771 CPU time: 81.734375
+2026-07-26 18:10:07,643 - Evaluate - INFO - ASR Module... Epoch: 2, RSS: 2.66 GB
+2026-07-26 18:10:07,647 - Evaluate - INFO - ASR... Epoch: 2, Walltime: 13.075676 CPU time: 77.484375
+2026-07-26 18:10:14,930 - Evaluate - INFO - ASR Module... Epoch: 2, RSS: 2.66 GB
+2026-07-26 18:10:14,937 - Evaluate - INFO - ASR... Epoch: 2, Walltime: 7.013366 CPU time: 41.515625
+2026-07-26 18:10:30,395 - Evaluate - INFO - ASR Module... Epoch: 2, RSS: 2.62 GB
+2026-07-26 18:10:30,399 - Evaluate - INFO - ASR... Epoch: 2, Walltime: 14.937637 CPU time: 88.171875
+2026-07-26 18:10:39,843 - Evaluate - INFO - ASR Module... Epoch: 2, RSS: 2.65 GB
+2026-07-26 18:10:39,847 - Evaluate - INFO - ASR... Epoch: 2, Walltime: 9.163577 CPU time: 54.250000
+2026-07-26 18:10:45,667 - Evaluate - INFO - ASR Module... Epoch: 2, RSS: 2.64 GB
+2026-07-26 18:10:45,672 - Evaluate - INFO - ASR... Epoch: 2, Walltime: 5.635820 CPU time: 33.062500
+2026-07-26 18:10:52,984 - Evaluate - INFO - ASR Module... Epoch: 2, RSS: 2.64 GB
+2026-07-26 18:10:52,988 - Evaluate - INFO - ASR... Epoch: 2, Walltime: 7.130825 CPU time: 42.187500
+2026-07-26 18:10:59,557 - Evaluate - INFO - ASR Module... Epoch: 2, RSS: 2.64 GB
+2026-07-26 18:10:59,565 - Evaluate - INFO - ASR... Epoch: 2, Walltime: 6.366359 CPU time: 37.625000
+2026-07-26 18:11:08,089 - Evaluate - INFO - ASR Module... Epoch: 2, RSS: 2.64 GB
+2026-07-26 18:11:08,093 - Evaluate - INFO - ASR... Epoch: 2, Walltime: 8.314748 CPU time: 49.031250
+2026-07-26 18:11:17,984 - Evaluate - INFO - ASR Module... Epoch: 2, RSS: 2.65 GB
+2026-07-26 18:11:17,988 - Evaluate - INFO - ASR... Epoch: 2, Walltime: 9.712087 CPU time: 57.781250
+2026-07-26 18:11:31,834 - Evaluate - INFO - ASR Module... Epoch: 2, RSS: 2.63 GB
+2026-07-26 18:11:31,842 - Evaluate - INFO - ASR... Epoch: 2, Walltime: 13.659633 CPU time: 80.890625
+2026-07-26 18:11:42,631 - Evaluate - INFO - ASR Module... Epoch: 2, RSS: 2.64 GB
+2026-07-26 18:11:42,635 - Evaluate - INFO - ASR... Epoch: 2, Walltime: 10.521803 CPU time: 62.312500
+2026-07-26 18:11:52,726 - Evaluate - INFO - ASR Module... Epoch: 2, RSS: 2.63 GB
+2026-07-26 18:11:52,731 - Evaluate - INFO - ASR... Epoch: 2, Walltime: 9.864554 CPU time: 58.437500
+2026-07-26 18:11:59,066 - Evaluate - INFO - ASR Module... Epoch: 2, RSS: 2.65 GB
+2026-07-26 18:11:59,070 - Evaluate - INFO - ASR... Epoch: 2, Walltime: 6.005567 CPU time: 35.437500
+2026-07-26 18:12:06,641 - Evaluate - INFO - ASR Module... Epoch: 2, RSS: 2.67 GB
+2026-07-26 18:12:06,645 - Evaluate - INFO - ASR... Epoch: 2, Walltime: 7.308504 CPU time: 43.375000
+2026-07-26 18:12:36,562 - Evaluate - INFO - ASR Module... Epoch: 2, RSS: 2.66 GB
+2026-07-26 18:12:36,566 - Evaluate - INFO - ASR... Epoch: 2, Walltime: 29.190162 CPU time: 172.593750
+2026-07-26 18:12:43,917 - Evaluate - INFO - ASR Module... Epoch: 2, RSS: 2.66 GB
+2026-07-26 18:12:43,924 - Evaluate - INFO - ASR... Epoch: 2, Walltime: 7.105890 CPU time: 42.140625
+2026-07-26 18:12:58,749 - Evaluate - INFO - ASR Module... Epoch: 2, RSS: 2.65 GB
+2026-07-26 18:12:58,754 - Evaluate - INFO - ASR... Epoch: 2, Walltime: 14.603159 CPU time: 86.750000
+2026-07-26 18:13:11,189 - Evaluate - INFO - ASR Module... Epoch: 2, RSS: 2.63 GB
+2026-07-26 18:13:11,193 - Evaluate - INFO - ASR... Epoch: 2, Walltime: 12.109917 CPU time: 71.437500
+2026-07-26 18:13:33,705 - Evaluate - INFO - ASR Module... Epoch: 2, RSS: 2.62 GB
+2026-07-26 18:13:33,710 - Evaluate - INFO - ASR... Epoch: 2, Walltime: 21.904323 CPU time: 130.171875
+2026-07-26 18:13:43,773 - Evaluate - INFO - ASR Module... Epoch: 2, RSS: 2.64 GB
+2026-07-26 18:13:43,777 - Evaluate - INFO - ASR... Epoch: 2, Walltime: 9.818295 CPU time: 57.953125
+2026-07-26 18:13:52,655 - Evaluate - INFO - ASR Module... Epoch: 2, RSS: 2.64 GB
+2026-07-26 18:13:52,659 - Evaluate - INFO - ASR... Epoch: 2, Walltime: 8.671353 CPU time: 51.484375
+2026-07-26 18:14:33,469 - Evaluate - INFO - ASR Module... Epoch: 2, RSS: 2.63 GB
+2026-07-26 18:14:33,473 - Evaluate - INFO - ASR... Epoch: 2, Walltime: 39.976918 CPU time: 237.593750
+2026-07-26 18:14:51,103 - Evaluate - INFO - ASR Module... Epoch: 2, RSS: 2.65 GB
+2026-07-26 18:14:51,110 - Evaluate - INFO - ASR... Epoch: 2, Walltime: 17.075246 CPU time: 101.359375
+2026-07-26 18:15:14,158 - Evaluate - INFO - ASR Module... Epoch: 2, RSS: 2.63 GB
+2026-07-26 18:15:14,163 - Evaluate - INFO - ASR... Epoch: 2, Walltime: 22.457685 CPU time: 133.359375
+2026-07-26 18:15:26,296 - Evaluate - INFO - ASR Module... Epoch: 2, RSS: 2.66 GB
+2026-07-26 18:15:26,302 - Evaluate - INFO - ASR... Epoch: 2, Walltime: 11.839580 CPU time: 70.203125
+2026-07-26 18:15:40,299 - Evaluate - INFO - ASR Module... Epoch: 2, RSS: 2.64 GB
+2026-07-26 18:15:40,303 - Evaluate - INFO - ASR... Epoch: 2, Walltime: 13.748011 CPU time: 81.234375
+2026-07-26 18:15:48,551 - Evaluate - INFO - ASR Module... Epoch: 2, RSS: 2.63 GB
+2026-07-26 18:15:48,555 - Evaluate - INFO - ASR... Epoch: 2, Walltime: 7.991990 CPU time: 47.312500
+2026-07-26 18:15:59,042 - Evaluate - INFO - ASR Module... Epoch: 2, RSS: 2.64 GB
+2026-07-26 18:15:59,046 - Evaluate - INFO - ASR... Epoch: 2, Walltime: 10.264465 CPU time: 60.812500
+2026-07-26 18:16:15,942 - Evaluate - INFO - ASR Module... Epoch: 2, RSS: 2.66 GB
+2026-07-26 18:16:15,946 - Evaluate - INFO - ASR... Epoch: 2, Walltime: 16.336608 CPU time: 96.656250
+2026-07-26 18:16:31,970 - Evaluate - INFO - ASR Module... Epoch: 2, RSS: 2.64 GB
+2026-07-26 18:16:31,975 - Evaluate - INFO - ASR... Epoch: 2, Walltime: 15.783808 CPU time: 93.218750
+2026-07-26 18:16:54,964 - Evaluate - INFO - ASR Module... Epoch: 2, RSS: 2.64 GB
+2026-07-26 18:16:54,968 - Evaluate - INFO - ASR... Epoch: 2, Walltime: 22.402417 CPU time: 133.156250
+2026-07-26 18:17:00,560 - Evaluate - INFO - ASR Module... Epoch: 2, RSS: 2.65 GB
+2026-07-26 18:17:00,564 - Evaluate - INFO - ASR... Epoch: 2, Walltime: 5.336724 CPU time: 31.281250
+2026-07-26 18:17:08,234 - Evaluate - INFO - ASR Module... Epoch: 2, RSS: 2.63 GB
+2026-07-26 18:17:08,238 - Evaluate - INFO - ASR... Epoch: 2, Walltime: 7.464203 CPU time: 44.171875
+2026-07-26 18:17:21,818 - Evaluate - INFO - ASR Module... Epoch: 2, RSS: 2.65 GB
+2026-07-26 18:17:21,822 - Evaluate - INFO - ASR... Epoch: 2, Walltime: 13.366037 CPU time: 79.156250
+2026-07-26 18:17:31,142 - Evaluate - INFO - ASR Module... Epoch: 2, RSS: 2.66 GB
+2026-07-26 18:17:31,147 - Evaluate - INFO - ASR... Epoch: 2, Walltime: 9.062243 CPU time: 53.531250
+2026-07-26 18:17:43,750 - Evaluate - INFO - ASR Module... Epoch: 2, RSS: 2.64 GB
+2026-07-26 18:17:43,755 - Evaluate - INFO - ASR... Epoch: 2, Walltime: 12.379934 CPU time: 72.796875
+2026-07-26 18:18:07,706 - Evaluate - INFO - ASR Module... Epoch: 2, RSS: 2.64 GB
+2026-07-26 18:18:07,712 - Evaluate - INFO - ASR... Epoch: 2, Walltime: 23.701134 CPU time: 140.671875
+2026-07-26 18:18:26,208 - Evaluate - INFO - ASR Module... Epoch: 2, RSS: 2.64 GB
+2026-07-26 18:18:26,212 - Evaluate - INFO - ASR... Epoch: 2, Walltime: 17.902912 CPU time: 105.984375
+2026-07-26 18:18:34,303 - Evaluate - INFO - ASR Module... Epoch: 2, RSS: 2.62 GB
+2026-07-26 18:18:34,309 - Evaluate - INFO - ASR... Epoch: 2, Walltime: 7.811769 CPU time: 46.343750
+2026-07-26 18:18:49,971 - Evaluate - INFO - ASR Module... Epoch: 2, RSS: 2.67 GB
+2026-07-26 18:18:49,976 - Evaluate - INFO - ASR... Epoch: 2, Walltime: 15.443692 CPU time: 91.406250
+2026-07-26 18:18:59,617 - Evaluate - INFO - ASR Module... Epoch: 2, RSS: 2.66 GB
+2026-07-26 18:18:59,621 - Evaluate - INFO - ASR... Epoch: 2, Walltime: 9.381840 CPU time: 55.406250
+2026-07-26 18:19:25,278 - Evaluate - INFO - ASR Module... Epoch: 2, RSS: 2.65 GB
+2026-07-26 18:19:25,283 - Evaluate - INFO - ASR... Epoch: 2, Walltime: 24.958225 CPU time: 148.140625
+2026-07-26 18:19:42,869 - Evaluate - INFO - ASR Module... Epoch: 2, RSS: 2.64 GB
+2026-07-26 18:19:42,876 - Evaluate - INFO - ASR... Epoch: 2, Walltime: 17.334012 CPU time: 103.171875
+2026-07-26 18:19:55,367 - Evaluate - INFO - ASR Module... Epoch: 2, RSS: 2.63 GB
+2026-07-26 18:19:55,372 - Evaluate - INFO - ASR... Epoch: 2, Walltime: 12.216627 CPU time: 72.375000
+2026-07-26 18:20:02,808 - Evaluate - INFO - ASR Module... Epoch: 2, RSS: 2.64 GB
+2026-07-26 18:20:02,814 - Evaluate - INFO - ASR... Epoch: 2, Walltime: 7.196758 CPU time: 42.515625
+2026-07-26 18:20:19,488 - Evaluate - INFO - ASR Module... Epoch: 2, RSS: 2.64 GB
+2026-07-26 18:20:19,492 - Evaluate - INFO - ASR... Epoch: 2, Walltime: 16.473731 CPU time: 97.843750
+2026-07-26 18:20:34,104 - Evaluate - INFO - ASR Module... Epoch: 2, RSS: 2.65 GB
+2026-07-26 18:20:34,112 - Evaluate - INFO - ASR... Epoch: 2, Walltime: 14.384415 CPU time: 85.187500
+2026-07-26 18:20:43,506 - Evaluate - INFO - ASR Module... Epoch: 2, RSS: 2.64 GB
+2026-07-26 18:20:43,514 - Evaluate - INFO - ASR... Epoch: 2, Walltime: 9.166262 CPU time: 54.437500
+2026-07-26 18:20:57,906 - Evaluate - INFO - ASR Module... Epoch: 2, RSS: 2.64 GB
+2026-07-26 18:20:57,916 - Evaluate - INFO - ASR... Epoch: 2, Walltime: 14.154417 CPU time: 84.046875
+2026-07-26 18:21:32,836 - Evaluate - INFO - ASR Module... Epoch: 2, RSS: 2.65 GB
+2026-07-26 18:21:32,843 - Evaluate - INFO - ASR... Epoch: 2, Walltime: 34.112092 CPU time: 202.484375
+2026-07-26 18:21:52,911 - Evaluate - INFO - ASR Module... Epoch: 2, RSS: 2.62 GB
+2026-07-26 18:21:52,916 - Evaluate - INFO - ASR... Epoch: 2, Walltime: 19.372886 CPU time: 114.546875
+2026-07-26 18:22:02,162 - Evaluate - INFO - ASR Module... Epoch: 2, RSS: 2.66 GB
+2026-07-26 18:22:02,170 - Evaluate - INFO - ASR... Epoch: 2, Walltime: 9.010943 CPU time: 53.375000
+2026-07-26 18:22:09,944 - Evaluate - INFO - ASR Module... Epoch: 2, RSS: 2.63 GB
+2026-07-26 18:22:09,948 - Evaluate - INFO - ASR... Epoch: 2, Walltime: 7.547641 CPU time: 44.812500
+2026-07-26 18:22:21,149 - Evaluate - INFO - ASR Module... Epoch: 2, RSS: 2.63 GB
+2026-07-26 18:22:21,153 - Evaluate - INFO - ASR... Epoch: 2, Walltime: 10.970660 CPU time: 65.234375
+2026-07-26 18:22:38,632 - Evaluate - INFO - ASR Module... Epoch: 2, RSS: 2.63 GB
+2026-07-26 18:22:38,639 - Evaluate - INFO - ASR... Epoch: 2, Walltime: 17.179293 CPU time: 102.000000
+2026-07-26 18:22:47,217 - Evaluate - INFO - ASR Module... Epoch: 2, RSS: 2.63 GB
+2026-07-26 18:22:47,221 - Evaluate - INFO - ASR... Epoch: 2, Walltime: 8.325024 CPU time: 49.218750
+2026-07-26 18:22:54,116 - Evaluate - INFO - ASR Module... Epoch: 2, RSS: 2.64 GB
+2026-07-26 18:22:54,121 - Evaluate - INFO - ASR... Epoch: 2, Walltime: 6.688287 CPU time: 39.781250
+2026-07-26 18:23:01,937 - Evaluate - INFO - ASR Module... Epoch: 2, RSS: 2.63 GB
+2026-07-26 18:23:01,941 - Evaluate - INFO - ASR... Epoch: 2, Walltime: 7.591017 CPU time: 45.046875
+2026-07-26 18:23:07,825 - Evaluate - INFO - ASR Module... Epoch: 2, RSS: 2.65 GB
+2026-07-26 18:23:07,832 - Evaluate - INFO - ASR... Epoch: 2, Walltime: 5.673017 CPU time: 33.578125
+2026-07-26 18:23:21,756 - Evaluate - INFO - ASR Module... Epoch: 2, RSS: 2.63 GB
+2026-07-26 18:23:21,761 - Evaluate - INFO - ASR... Epoch: 2, Walltime: 13.689425 CPU time: 80.984375
+2026-07-26 18:23:31,094 - Evaluate - INFO - ASR Module... Epoch: 2, RSS: 2.63 GB
+2026-07-26 18:23:31,098 - Evaluate - INFO - ASR... Epoch: 2, Walltime: 9.071120 CPU time: 53.265625
+2026-07-26 18:23:47,956 - Evaluate - INFO - ASR Module... Epoch: 2, RSS: 2.64 GB
+2026-07-26 18:23:47,963 - Evaluate - INFO - ASR... Epoch: 2, Walltime: 16.360043 CPU time: 97.312500
+2026-07-26 18:23:57,445 - Evaluate - INFO - ASR Module... Epoch: 2, RSS: 2.65 GB
+2026-07-26 18:23:57,449 - Evaluate - INFO - ASR... Epoch: 2, Walltime: 9.244233 CPU time: 54.640625
+2026-07-26 18:24:12,776 - Evaluate - INFO - ASR Module... Epoch: 2, RSS: 2.65 GB
+2026-07-26 18:24:12,781 - Evaluate - INFO - ASR... Epoch: 2, Walltime: 15.100362 CPU time: 89.500000
+2026-07-26 18:24:29,980 - Evaluate - INFO - ASR Module... Epoch: 2, RSS: 2.63 GB
+2026-07-26 18:24:29,984 - Evaluate - INFO - ASR... Epoch: 2, Walltime: 16.934790 CPU time: 100.437500
+2026-07-26 18:24:43,092 - Evaluate - INFO - ASR Module... Epoch: 2, RSS: 2.61 GB
+2026-07-26 18:24:43,098 - Evaluate - INFO - ASR... Epoch: 2, Walltime: 12.835556 CPU time: 75.984375
+2026-07-26 18:24:55,710 - Evaluate - INFO - ASR Module... Epoch: 2, RSS: 2.66 GB
+2026-07-26 18:24:55,715 - Evaluate - INFO - ASR... Epoch: 2, Walltime: 12.373328 CPU time: 73.609375
+2026-07-26 18:25:03,572 - Evaluate - INFO - ASR Module... Epoch: 2, RSS: 2.65 GB
+2026-07-26 18:25:03,580 - Evaluate - INFO - ASR... Epoch: 2, Walltime: 7.619762 CPU time: 44.875000
+2026-07-26 18:25:13,956 - Evaluate - INFO - ASR Module... Epoch: 2, RSS: 2.61 GB
+2026-07-26 18:25:13,961 - Evaluate - INFO - ASR... Epoch: 2, Walltime: 10.123704 CPU time: 60.062500
+2026-07-26 18:25:22,225 - Evaluate - INFO - ASR Module... Epoch: 2, RSS: 2.66 GB
+2026-07-26 18:25:22,231 - Evaluate - INFO - ASR... Epoch: 2, Walltime: 7.977461 CPU time: 46.906250
+2026-07-26 18:25:36,001 - Evaluate - INFO - ASR Module... Epoch: 2, RSS: 2.67 GB
+2026-07-26 18:25:36,006 - Evaluate - INFO - ASR... Epoch: 2, Walltime: 13.530413 CPU time: 80.343750
+2026-07-26 18:26:06,077 - Evaluate - INFO - ASR Module... Epoch: 2, RSS: 2.65 GB
+2026-07-26 18:26:06,083 - Evaluate - INFO - ASR... Epoch: 2, Walltime: 29.410389 CPU time: 174.250000
+2026-07-26 18:26:13,326 - Evaluate - INFO - ASR Module... Epoch: 2, RSS: 2.63 GB
+2026-07-26 18:26:13,329 - Evaluate - INFO - ASR... Epoch: 2, Walltime: 6.965302 CPU time: 41.015625
+2026-07-26 18:26:31,492 - Evaluate - INFO - ASR Module... Epoch: 2, RSS: 2.65 GB
+2026-07-26 18:26:31,496 - Evaluate - INFO - ASR... Epoch: 2, Walltime: 17.695508 CPU time: 104.968750
+2026-07-26 18:26:45,858 - Evaluate - INFO - ASR Module... Epoch: 2, RSS: 2.61 GB
+2026-07-26 18:26:45,864 - Evaluate - INFO - ASR... Epoch: 2, Walltime: 14.126020 CPU time: 84.015625
+2026-07-26 18:26:57,324 - Evaluate - INFO - ASR Module... Epoch: 2, RSS: 2.60 GB
+2026-07-26 18:26:57,329 - Evaluate - INFO - ASR... Epoch: 2, Walltime: 11.179722 CPU time: 65.953125
+2026-07-26 18:27:11,922 - Evaluate - INFO - ASR Module... Epoch: 2, RSS: 2.61 GB
+2026-07-26 18:27:11,927 - Evaluate - INFO - ASR... Epoch: 2, Walltime: 14.344004 CPU time: 84.875000
+2026-07-26 18:27:19,743 - Evaluate - INFO - ASR Module... Epoch: 2, RSS: 2.63 GB
+2026-07-26 18:27:19,752 - Evaluate - INFO - ASR... Epoch: 2, Walltime: 7.542764 CPU time: 44.671875
+2026-07-26 18:27:27,284 - Evaluate - INFO - ASR Module... Epoch: 2, RSS: 2.63 GB
+2026-07-26 18:27:27,288 - Evaluate - INFO - ASR... Epoch: 2, Walltime: 7.354056 CPU time: 43.687500
+2026-07-26 18:27:40,166 - Evaluate - INFO - ASR Module... Epoch: 2, RSS: 2.61 GB
+2026-07-26 18:27:40,170 - Evaluate - INFO - ASR... Epoch: 2, Walltime: 12.664921 CPU time: 75.109375
+2026-07-26 18:28:08,524 - Evaluate - INFO - ASR Module... Epoch: 2, RSS: 2.62 GB
+2026-07-26 18:28:08,528 - Evaluate - INFO - ASR... Epoch: 2, Walltime: 27.737249 CPU time: 164.406250
+2026-07-26 18:28:19,568 - Evaluate - INFO - ASR Module... Epoch: 2, RSS: 2.63 GB
+2026-07-26 18:28:19,573 - Evaluate - INFO - ASR... Epoch: 2, Walltime: 10.778293 CPU time: 63.843750
+2026-07-26 18:28:29,226 - Evaluate - INFO - ASR Module... Epoch: 2, RSS: 2.60 GB
+2026-07-26 18:28:29,232 - Evaluate - INFO - ASR... Epoch: 2, Walltime: 9.418555 CPU time: 55.781250
+2026-07-26 18:28:46,544 - Evaluate - INFO - ASR Module... Epoch: 2, RSS: 2.60 GB
+2026-07-26 18:28:46,551 - Evaluate - INFO - ASR... Epoch: 2, Walltime: 17.066738 CPU time: 101.515625
+2026-07-26 18:28:53,450 - Evaluate - INFO - ASR Module... Epoch: 2, RSS: 2.63 GB
+2026-07-26 18:28:53,454 - Evaluate - INFO - ASR... Epoch: 2, Walltime: 6.647716 CPU time: 39.140625
+2026-07-26 18:29:15,060 - Evaluate - INFO - ASR Module... Epoch: 2, RSS: 2.61 GB
+2026-07-26 18:29:15,064 - Evaluate - INFO - ASR... Epoch: 2, Walltime: 21.041203 CPU time: 124.781250
+2026-07-26 18:29:41,588 - Evaluate - INFO - ASR Module... Epoch: 2, RSS: 2.60 GB
+2026-07-26 18:29:41,591 - Evaluate - INFO - ASR... Epoch: 2, Walltime: 26.030067 CPU time: 154.390625
+2026-07-26 18:30:00,556 - Evaluate - INFO - ASR Module... Epoch: 2, RSS: 2.62 GB
+2026-07-26 18:30:00,561 - Evaluate - INFO - ASR... Epoch: 2, Walltime: 18.493390 CPU time: 109.859375
+2026-07-26 18:30:19,591 - Evaluate - INFO - ASR Module... Epoch: 2, RSS: 2.62 GB
+2026-07-26 18:30:19,597 - Evaluate - INFO - ASR... Epoch: 2, Walltime: 18.751685 CPU time: 111.328125
+2026-07-26 18:30:38,166 - Evaluate - INFO - ASR Module... Epoch: 2, RSS: 2.63 GB
+2026-07-26 18:30:38,172 - Evaluate - INFO - ASR... Epoch: 2, Walltime: 17.970865 CPU time: 106.671875
+2026-07-26 18:30:51,367 - Evaluate - INFO - ASR Module... Epoch: 2, RSS: 2.59 GB
+2026-07-26 18:30:51,372 - Evaluate - INFO - ASR... Epoch: 2, Walltime: 12.909980 CPU time: 76.515625
+2026-07-26 18:31:13,465 - Evaluate - INFO - ASR Module... Epoch: 2, RSS: 2.63 GB
+2026-07-26 18:31:13,470 - Evaluate - INFO - ASR... Epoch: 2, Walltime: 21.498589 CPU time: 127.500000
+2026-07-26 18:31:30,687 - Evaluate - INFO - ASR Module... Epoch: 2, RSS: 2.61 GB
+2026-07-26 18:31:30,691 - Evaluate - INFO - ASR... Epoch: 2, Walltime: 16.925366 CPU time: 100.218750
+2026-07-26 18:31:57,390 - Evaluate - INFO - ASR Module... Epoch: 2, RSS: 2.63 GB
+2026-07-26 18:31:57,395 - Evaluate - INFO - ASR... Epoch: 2, Walltime: 26.040458 CPU time: 154.718750
+2026-07-26 18:32:17,749 - Evaluate - INFO - ASR Module... Epoch: 2, RSS: 2.63 GB
+2026-07-26 18:32:17,753 - Evaluate - INFO - ASR... Epoch: 2, Walltime: 19.726164 CPU time: 117.109375
+2026-07-26 18:32:23,327 - Evaluate - INFO - ASR Module... Epoch: 2, RSS: 2.64 GB
+2026-07-26 18:32:23,331 - Evaluate - INFO - ASR... Epoch: 2, Walltime: 5.359250 CPU time: 31.515625
+2026-07-26 18:32:32,047 - Evaluate - INFO - ASR Module... Epoch: 2, RSS: 2.64 GB
+2026-07-26 18:32:32,052 - Evaluate - INFO - ASR... Epoch: 2, Walltime: 8.498315 CPU time: 50.312500
+2026-07-26 18:32:43,399 - Evaluate - INFO - ASR Module... Epoch: 2, RSS: 2.63 GB
+2026-07-26 18:32:43,406 - Evaluate - INFO - ASR... Epoch: 2, Walltime: 11.152923 CPU time: 66.046875
+2026-07-26 18:33:08,896 - Evaluate - INFO - ASR Module... Epoch: 2, RSS: 2.61 GB
+2026-07-26 18:33:08,901 - Evaluate - INFO - ASR... Epoch: 2, Walltime: 24.923754 CPU time: 147.796875
+2026-07-26 18:33:16,386 - Evaluate - INFO - ASR Module... Epoch: 2, RSS: 2.64 GB
+2026-07-26 18:33:16,391 - Evaluate - INFO - ASR... Epoch: 2, Walltime: 7.256424 CPU time: 43.000000
+2026-07-26 18:33:28,120 - Evaluate - INFO - ASR Module... Epoch: 2, RSS: 2.61 GB
+2026-07-26 18:33:28,125 - Evaluate - INFO - ASR... Epoch: 2, Walltime: 11.494360 CPU time: 67.906250
+2026-07-26 18:33:41,116 - Evaluate - INFO - ASR Module... Epoch: 2, RSS: 2.64 GB
+2026-07-26 18:33:41,122 - Evaluate - INFO - ASR... Epoch: 2, Walltime: 12.748353 CPU time: 75.343750
+2026-07-26 18:33:51,993 - Evaluate - INFO - ASR Module... Epoch: 2, RSS: 2.60 GB
+2026-07-26 18:33:51,997 - Evaluate - INFO - ASR... Epoch: 2, Walltime: 10.605266 CPU time: 62.906250
+2026-07-26 18:33:59,561 - Evaluate - INFO - ASR Module... Epoch: 2, RSS: 2.61 GB
+2026-07-26 18:33:59,565 - Evaluate - INFO - ASR... Epoch: 2, Walltime: 7.306676 CPU time: 43.093750
+2026-07-26 18:34:10,710 - Evaluate - INFO - ASR Module... Epoch: 2, RSS: 2.61 GB
+2026-07-26 18:34:10,714 - Evaluate - INFO - ASR... Epoch: 2, Walltime: 10.915245 CPU time: 64.781250
+2026-07-26 18:34:24,074 - Evaluate - INFO - ASR Module... Epoch: 2, RSS: 2.60 GB
+2026-07-26 18:34:24,080 - Evaluate - INFO - ASR... Epoch: 2, Walltime: 13.116055 CPU time: 77.531250
+2026-07-26 18:34:49,850 - Evaluate - INFO - ASR Module... Epoch: 2, RSS: 2.62 GB
+2026-07-26 18:34:49,855 - Evaluate - INFO - ASR... Epoch: 2, Walltime: 25.130226 CPU time: 149.093750
+2026-07-26 18:35:04,176 - Evaluate - INFO - ASR Module... Epoch: 2, RSS: 2.62 GB
+2026-07-26 18:35:04,181 - Evaluate - INFO - ASR... Epoch: 2, Walltime: 14.027637 CPU time: 82.531250
+2026-07-26 18:35:12,989 - Evaluate - INFO - ASR Module... Epoch: 2, RSS: 2.63 GB
+2026-07-26 18:35:12,993 - Evaluate - INFO - ASR... Epoch: 2, Walltime: 8.545226 CPU time: 50.062500
+2026-07-26 18:35:34,002 - Evaluate - INFO - ASR Module... Epoch: 2, RSS: 2.63 GB
+2026-07-26 18:35:34,007 - Evaluate - INFO - ASR... Epoch: 2, Walltime: 20.575504 CPU time: 121.953125
+2026-07-26 18:35:49,258 - Evaluate - INFO - ASR Module... Epoch: 2, RSS: 2.62 GB
+2026-07-26 18:35:49,262 - Evaluate - INFO - ASR... Epoch: 2, Walltime: 14.928949 CPU time: 88.625000
+2026-07-26 18:36:03,722 - Evaluate - INFO - ASR Module... Epoch: 2, RSS: 2.62 GB
+2026-07-26 18:36:03,726 - Evaluate - INFO - ASR... Epoch: 2, Walltime: 14.223967 CPU time: 84.328125
+2026-07-26 18:36:09,990 - Evaluate - INFO - ASR Module... Epoch: 2, RSS: 2.62 GB
+2026-07-26 18:36:09,996 - Evaluate - INFO - ASR... Epoch: 2, Walltime: 6.070781 CPU time: 35.000000
+2026-07-26 18:36:18,095 - Evaluate - INFO - ASR Module... Epoch: 2, RSS: 2.61 GB
+2026-07-26 18:36:18,103 - Evaluate - INFO - ASR... Epoch: 2, Walltime: 7.878156 CPU time: 46.734375
+2026-07-26 18:36:22,508 - Evaluate - INFO - ASR Module... Epoch: 2, RSS: 2.63 GB
+2026-07-26 18:36:22,512 - Evaluate - INFO - ASR... Epoch: 2, Walltime: 4.190164 CPU time: 24.781250
+2026-07-26 18:36:31,542 - Evaluate - INFO - ASR Module... Epoch: 2, RSS: 2.60 GB
+2026-07-26 18:36:31,547 - Evaluate - INFO - ASR... Epoch: 2, Walltime: 8.781719 CPU time: 51.687500
+2026-07-26 18:36:40,434 - Evaluate - INFO - ASR Module... Epoch: 2, RSS: 2.61 GB
+2026-07-26 18:36:40,439 - Evaluate - INFO - ASR... Epoch: 2, Walltime: 8.691635 CPU time: 51.578125
+2026-07-26 18:37:04,217 - Evaluate - INFO - ASR Module... Epoch: 2, RSS: 2.63 GB
+2026-07-26 18:37:04,222 - Evaluate - INFO - ASR... Epoch: 2, Walltime: 23.268503 CPU time: 138.453125
+2026-07-26 18:37:11,542 - Evaluate - INFO - ASR Module... Epoch: 2, RSS: 2.64 GB
+2026-07-26 18:37:11,548 - Evaluate - INFO - ASR... Epoch: 2, Walltime: 7.045591 CPU time: 41.093750
+2026-07-26 18:37:23,774 - Evaluate - INFO - ASR Module... Epoch: 2, RSS: 2.62 GB
+2026-07-26 18:37:23,778 - Evaluate - INFO - ASR... Epoch: 2, Walltime: 11.988621 CPU time: 71.078125
+2026-07-26 18:37:35,480 - Evaluate - INFO - ASR Module... Epoch: 2, RSS: 2.60 GB
+2026-07-26 18:37:35,487 - Evaluate - INFO - ASR... Epoch: 2, Walltime: 11.472326 CPU time: 68.031250
+2026-07-26 18:37:53,030 - Evaluate - INFO - ASR Module... Epoch: 2, RSS: 2.63 GB
+2026-07-26 18:37:53,037 - Evaluate - INFO - ASR... Epoch: 2, Walltime: 16.976213 CPU time: 100.578125
+2026-07-26 18:38:03,744 - Evaluate - INFO - ASR Module... Epoch: 2, RSS: 2.59 GB
+2026-07-26 18:38:03,748 - Evaluate - INFO - ASR... Epoch: 2, Walltime: 10.478504 CPU time: 55.796875
+2026-07-26 18:38:17,284 - Evaluate - INFO - ASR Module... Epoch: 2, RSS: 2.60 GB
+2026-07-26 18:38:17,291 - Evaluate - INFO - ASR... Epoch: 2, Walltime: 13.332858 CPU time: 78.531250
+2026-07-26 18:38:28,281 - Evaluate - INFO - ASR Module... Epoch: 2, RSS: 2.63 GB
+2026-07-26 18:38:28,285 - Evaluate - INFO - ASR... Epoch: 2, Walltime: 10.765520 CPU time: 63.671875
+2026-07-26 18:38:42,519 - Evaluate - INFO - ASR Module... Epoch: 2, RSS: 2.62 GB
+2026-07-26 18:38:42,523 - Evaluate - INFO - ASR... Epoch: 2, Walltime: 14.017843 CPU time: 83.218750
+2026-07-26 18:38:50,592 - Evaluate - INFO - ASR Module... Epoch: 2, RSS: 2.63 GB
+2026-07-26 18:38:50,596 - Evaluate - INFO - ASR... Epoch: 2, Walltime: 7.823680 CPU time: 46.390625
+2026-07-26 18:38:56,434 - Evaluate - INFO - ASR Module... Epoch: 2, RSS: 2.61 GB
+2026-07-26 18:38:56,438 - Evaluate - INFO - ASR... Epoch: 2, Walltime: 5.623282 CPU time: 33.281250
+2026-07-26 18:39:02,671 - Evaluate - INFO - ASR Module... Epoch: 2, RSS: 2.63 GB
+2026-07-26 18:39:02,675 - Evaluate - INFO - ASR... Epoch: 2, Walltime: 6.011720 CPU time: 35.390625
+2026-07-26 18:39:08,611 - Evaluate - INFO - ASR Module... Epoch: 2, RSS: 2.64 GB
+2026-07-26 18:39:08,617 - Evaluate - INFO - ASR... Epoch: 2, Walltime: 5.701107 CPU time: 33.625000
+2026-07-26 18:39:15,179 - Evaluate - INFO - ASR Module... Epoch: 2, RSS: 2.60 GB
+2026-07-26 18:39:15,184 - Evaluate - INFO - ASR... Epoch: 2, Walltime: 6.330772 CPU time: 37.203125
+2026-07-26 18:39:25,943 - Evaluate - INFO - ASR Module... Epoch: 2, RSS: 2.61 GB
+2026-07-26 18:39:25,948 - Evaluate - INFO - ASR... Epoch: 2, Walltime: 10.533826 CPU time: 62.265625
+2026-07-26 18:39:30,953 - Evaluate - INFO - ASR Module... Epoch: 2, RSS: 2.63 GB
+2026-07-26 18:39:30,958 - Evaluate - INFO - ASR... Epoch: 2, Walltime: 4.764777 CPU time: 27.937500
+2026-07-26 18:39:37,991 - Evaluate - INFO - ASR Module... Epoch: 2, RSS: 2.61 GB
+2026-07-26 18:39:37,998 - Evaluate - INFO - ASR... Epoch: 2, Walltime: 6.846981 CPU time: 40.203125
+2026-07-26 18:39:44,709 - Evaluate - INFO - ASR Module... Epoch: 2, RSS: 2.61 GB
+2026-07-26 18:39:44,714 - Evaluate - INFO - ASR... Epoch: 2, Walltime: 6.499558 CPU time: 38.484375
+2026-07-26 18:39:49,887 - Evaluate - INFO - ASR Module... Epoch: 2, RSS: 2.60 GB
+2026-07-26 18:39:49,891 - Evaluate - INFO - ASR... Epoch: 2, Walltime: 4.962509 CPU time: 29.281250
+2026-07-26 18:39:56,867 - Evaluate - INFO - ASR Module... Epoch: 2, RSS: 2.60 GB
+2026-07-26 18:39:56,872 - Evaluate - INFO - ASR... Epoch: 2, Walltime: 6.767695 CPU time: 40.031250
+2026-07-26 18:39:57,960 - Evaluate - INFO - ASR Module... Epoch: 2, RSS: 2.60 GB
+2026-07-26 18:39:57,964 - Evaluate - INFO - ASR... Epoch: 2, Walltime: 1.029925 CPU time: 6.031250
