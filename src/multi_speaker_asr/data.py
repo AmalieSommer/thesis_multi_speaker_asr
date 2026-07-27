@@ -17,6 +17,8 @@ import itertools
 import numpy as np
 import torch
 from silero_vad import load_silero_vad, read_audio, get_speech_timestamps
+import torchaudio
+import torchaudio.functional as F
 
 logging.config.dictConfig(LOGGING_CONFIG)
 
@@ -48,41 +50,62 @@ class AudioDataset(IterableDataset):
                 # Skip audio segments that are too short...
                 continue
             
-            audio = self.load_audio(
+            audio = self.load_wav(
                 sample['segment']
             )
             if audio is None: 
                 continue
 
-            yield {
-                'audio_id': sample['audio_id'],
-                'segment_id': iter if 'segment_id' not in sample.keys() else sample['segment_id'],
-                'text': sample['text'],
-                'audio': audio
-            }
-            iter += 1
+            if (len(audio) / self.target_sr) < 30.0:
+                yield {
+                    'audio_id': sample['audio_id'],
+                    'segment_id': iter if 'segment_id' not in sample.keys() else sample['segment_id'],
+                    'text': sample['text'],
+                    'audio': audio
+                }
+                iter += 1
+
+            else:
+                yield from self.search_cutoff_points(audio_np=audio, sample_info=sample)
     
     def __iter__recordings(self):
+        seg_iter = 0
         for sample in self.metadata:
-            if 'segment_duration' in sample.keys() and sample['segment_duration'] <= 1.0:
+            if 'segment_duration' in sample.keys() and sample['segment_duration'] < 1.0:
                 # Skip audio segments that are too short...
                 continue
 
-            audio_offset = sample['audio_offset']
-            audio = self.load_audio(
+            audio = self.load_wav(
                 sample['audio'],
                 start=sample['start'],
-                end=sample['end'],
-                offset=audio_offset
+                end=sample['end']
             )
 
             yield {
                 'audio_id': sample['audio_id'],
-                'segment_id': sample['segment_id'],
-                'text': sample['text'],
+                'segment_id': sample['segment_id'] if 'segment_id' in sample.keys() else seg_iter,
                 'audio': audio,
             }
+            seg_iter += 1
 
+    def load_wav(self, audio, start=None, end=None, offset=0, target_sr=16000):
+        wav, sr = torchaudio.load(audio)
+        if sr != target_sr:
+            wav = F.resample(waveform=wav, orig_freq=sr, new_freq=target_sr)
+
+        if wav.shape[0] > 1:
+            wav = wav.mean(axis=0)
+
+        wav = wav.squeeze(0).numpy()
+        if not start or not end:
+            return wav
+                
+        start = int(start - offset)
+        end = int(end - offset)
+
+        return wav[(start * target_sr) : (end * target_sr)]
+        
+    
 
     def load_audio(self, audio, start=None, end=None, offset=0, target_sr=16000):
         if not audio:
@@ -96,6 +119,10 @@ class AudioDataset(IterableDataset):
         # Check for multiple channels and convert to mono
         if audio.ndim > 1:
             audio = audio.mean(axis=1)
+
+        print(librosa.__file__)
+        print(librosa.resample)
+        print(librosa.resample.__module__)
 
         if sr != target_sr:
             audio = librosa.resample(
@@ -145,6 +172,7 @@ class AudioDataset(IterableDataset):
  
 
     def collator(self, batch):
+        return batch
         # Verify the duration of the audio samples dont exceed XX seconds
         audio_batch = []
         metadata_batch = []
@@ -165,11 +193,12 @@ class AudioDataset(IterableDataset):
             audio_batch.extend([item for item in output])
             metadata_batch.append({
                 'audio_id': item['audio_id'],
-                'segment_id': item['segment_id'],
-                'text': item['text'],
+                'segment_id': item['segment_id'] if 'segment_id' in item.keys() else i,
+                'text': item['text'] if 'text' in item.keys() else '',
                 'start': start,
                 'end': end
             })
+
         return audio_batch, metadata_batch, sample_to_segment
         """
                 # Create a mapping from the index of the audio sample to the original audio id.
@@ -202,7 +231,7 @@ class AudioDataset(IterableDataset):
         """
         
 
-    def search_cutoff_points(self, audio_np, sr=16000, max_sec=30, search_window_sec=5, lookahead_sec=2, grace_sec: float = 0.5, min_remainder_sec: int = 10):
+    def search_cutoff_points(self, audio_np, sample_info, sr=16000, max_sec=30, search_window_sec=5, lookahead_sec=2, grace_sec: float = 0.5, min_remainder_sec: int = 10):
         max_samples = int(max_sec * sr)
         grace_samples = int(grace_sec * sr)
         min_remainder = int(min_remainder_sec * sr)
@@ -216,7 +245,13 @@ class AudioDataset(IterableDataset):
             theoretical_end = current_start + max_samples
             
             if theoretical_end >= total_length:
-                chunks.append(audio_np[current_start:])
+                yield {
+                    'audio_id': sample_info['audio_id'],
+                    'audio': audio_np[current_start:],
+                    'text': sample_info['text'],
+                    'segment_id': sample_info['segment_id']
+                }
+                #chunks.append(audio_np[current_start:])
                 break
                 
             search_start = max(current_start, theoretical_end - int(search_window_sec * sr))
@@ -270,10 +305,22 @@ class AudioDataset(IterableDataset):
             remaining = total_length - cut_index
 
             if remaining < min_remainder:
-                chunks.append(audio_np[current_start:])
+                yield {
+                    'audio_id': sample_info['audio_id'],
+                    'audio': audio_np[current_start:],
+                    'text': sample_info['text'],
+                    'segment_id': sample_info['segment_id']
+                }
+                #chunks.append(audio_np[current_start:])
                 break
             else:
-                chunks.append(audio_np[current_start:cut_index])
+                yield {
+                    'audio_id': sample_info['audio_id'],
+                    'audio': audio_np[current_start:cut_index],
+                    'text': sample_info['text'],
+                    'segment_id': sample_info['segment_id']
+                }
+                #chunks.append(audio_np[current_start:cut_index])
                 current_start = cut_index
         return chunks
 
