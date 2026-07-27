@@ -26,6 +26,7 @@ import librosa
 from carbontracker.tracker import CarbonTracker
 from pathlib import Path
 from jiwer import wer, cer
+import traceback
 
 
 
@@ -60,11 +61,10 @@ def evaluate_inference(output_filepath: str, loader: DataLoader, model: RoestASR
                     for batch in loader:
                         if not batch:
                             continue
+                        if len(batch) == 1:
+                            batch = batch[0]
 
-                        audio_batch = batch[0]
-                        metadata = batch[1]
-                        reference_map = batch[2]
-
+                        audio_batch = batch['audio']
                         asr_walltime_start = time.perf_counter()
                         asr_cputime_start = time.process_time()
                         output = model.transcribe(audio_batch=audio_batch)
@@ -78,30 +78,21 @@ def evaluate_inference(output_filepath: str, loader: DataLoader, model: RoestASR
                             )
                         logger.info('ASR... Epoch: %i, Walltime: %f CPU time: %f', epoch, asr_walltime, asr_cputime)
                         results = []
-                        for i, data in enumerate(metadata):
-                            ref = data['text']
-                            idx = reference_map.get(i, None)
-                            if idx is None:
-                                continue
-                            #transcript = [output[batch_info['ref_indices']] for batch_info in data['audio_batch_info']]
-                            text = ' '.join([output[id] for id in idx])
-                            wer_ = wer(reference=clean_transcription(ref), hypothesis=clean_transcription(text))
-                            cer_ = cer(reference=clean_transcription(ref), hypothesis=clean_transcription(text))
-    
+                        for i, segment in enumerate(output):
                             results.append({
-                                'audio_id': data['audio_id'],
-                                'segment_id': data['segment_id'],
-                                'ref': ref,
-                                'seg_start': data['start'],
-                                'seg_end': data['end'],
-                                'wer': wer_,
-                                'cer': cer_,      
-                                'hyp': text
+                                'audio_id': batch['audio_id'],
+                                'segment_id': batch['segment_id'],
+                                'ref': batch['text'],
+                                'seg_start': segment['start'],
+                                'seg_end': segment['end'],      
+                                'hyp': segment['text'],
+                                'tokens': segment['tokens']
                             })
                         writer.write(json.dumps(results) + '\n')
                         writer.flush()
                     tracker.epoch_end()
     except Exception as e:
+        traceback.print_exc()
         raise RuntimeError(e)
         #logger.error('Failed with error: %s', e)
     finally:
