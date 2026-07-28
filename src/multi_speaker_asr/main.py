@@ -5,7 +5,8 @@ from multi_speaker_asr.evaluate import (
     aligner_inference,
     evaluate_inference,
     warmup,
-    diarize_inference
+    diarize_inference,
+    evaluate_diarization
     )
 import torch
 from tqdm import tqdm
@@ -108,7 +109,7 @@ def exp_2(config: yaml):
     dataset = AudioDataset(metadata=metadata, mode=config['dataset_mode'])
     loader = DataLoader(dataset=dataset, batch_size=config['batch_size'], shuffle=False, num_workers=0, collate_fn=dataset.collator)
 
-    diarize_inference(data=loader, clip_timestamps=True, write_file=config['filepath'])
+    evaluate_diarization(output_filepath=config['filepath'], loader=loader, max_epochs=3)
 
 
 def build_quantized_model(config):
@@ -122,6 +123,8 @@ if __name__=='__main__':
     config_file = load_config()
     if config_file['build_model']:
         build_quantized_model(config=config_file)
+    elif config_file['diarization']:
+        exp_2(config=config_file)
     else:
         exp_1(config=config_file)
     
