@@ -13,6 +13,8 @@ src/hpc_results
 
 /pyproject.toml
 /uv.lock
+/results
+/notebooks/*.png
 
 # test cache
 manual_test/
