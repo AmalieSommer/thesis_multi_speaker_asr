@@ -1,8 +1,11 @@
-filepath: /root/master_thesis/thesis_multi_speaker_asr/results/diarization.jsonl
-metadata: /root/master_thesis/thesis_multi_speaker_asr/data/coral-v3-long-form-conversations/test/coral_metadata.csv
-batch_size: 1
 device: 'cpu'
-dataset_mode: recordings
+filepath: 'results\\diarize_wa_baseline.jsonl'
+dataset_location: 'local'
+metadata: 'L:\\Auditdata\\Wrist Angel - Video\\Amalie Sommer\\repo\\thesis_multi_speaker_asr\\data\\wrist_angel_metadata.csv'
+dataset_mode: 'recordings'
+batch_size: 1
 diarization: True
 build_model: False
-dataset_location: local
+max_duration: !!float .inf
+streaming: False
+epochs: 2

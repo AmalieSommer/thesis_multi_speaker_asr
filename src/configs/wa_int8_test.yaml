@@ -1,0 +1,11 @@
+device: 'cpu'
+output_file: 'data\\results\\asr\\WA_int8.jsonl'
+model: 'pluttodk/roest-v3-whisper-1.5b-ct2'
+data: 'data\\wrist_angel_metadata.csv'
+audio_path: 'L:\\Auditdata\\Wrist Angel - Video\\Amalie Sommer\\repo\\thesis_multi_speaker_asr\\data\\audio\\clipped\\'
+computetype: int8
+cputhreads: 10
+alignment_model: 'CoRal-project/roest-v3-wav2vec2-315m'
+clip_timestamps: False
+vad_filter: True
+batchsize: 4
