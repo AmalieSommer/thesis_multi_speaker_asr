@@ -1,0 +1,14 @@
+device: 'cpu'
+asr_filepath: 'results\\wa_wav2vec2_baseline.jsonl'
+model_type: 'wav2vec2'
+backend_type: 'torch'
+dataset_location: 'local'
+metadata: 'L:\\Auditdata\\Wrist Angel - Video\\Amalie Sommer\\repo\\thesis_multi_speaker_asr\\data\\audio\\segments\\metadata_new.csv'
+dataset_mode: 'segments'
+batch_size: 5
+computetype: fp32
+cputhreads: 6
+
+use_saved_model: False
+local_models_dir: src\\multi_speaker_asr\\models\\saved_models\\wav2vec2\\
+build_model: False
