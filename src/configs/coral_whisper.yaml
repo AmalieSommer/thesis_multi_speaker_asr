@@ -1,0 +1,20 @@
+device: 'cpu'
+asr_filepath: 'src/hpc_results/exp_1/phase_1/asr_output.jsonl'
+model_type: whisper
+computetype: fp32
+cputhreads: 6
+batch_size: 1
+dataset_location: local
+metadata: /root/master_thesis/thesis_multi_speaker_asr/data/coral-v3-long-form-conversations/test/coral_metadata.csv
+dataset_mode: recordings
+backend_type: torch
+
+word_timestamps: True
+
+use_saved_model: False
+local_models_dir: 'src/multi_speaker_asr/models/saved_models/whisper/'
+safe_tensors_filename: 'model.safetensors'
+quantization_map_filename: 'quantization_map.json'
+
+
+build_model: False
