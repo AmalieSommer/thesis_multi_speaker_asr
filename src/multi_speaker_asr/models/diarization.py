@@ -53,9 +53,7 @@ class Diarize:
                 'waveform': wav,
                 'sample_rate': target_sr
             },
-            hook,
-            min_speakers=1,
-            max_speakers=2
+            hook
             )
 
         for segment, _, speaker in output.speaker_diarization.itertracks(yield_label=True):
@@ -134,59 +132,3 @@ class RollingClusters:
         else: 
 
             return best_speaker_id
-
-
-############################################################################
-########### Modified version of the original from WhisperX #################
-########### To support different input format for speakers #################
-############################################################################
-
-def assign_word_speakers(segments: list[dict], speaker_times: list[dict]):
-    intervals = [(item['start'], item['end'], item['speaker']) for item in speaker_times]
-    interval_tree = IntervalTree(intervals=intervals)
-
-    # Iterate the list of transcription segments:
-    for segment in segments:
-        for word in segment['word_segments']:
-
-            start_word = word['start']
-            end_word = word['end']
-
-            overlapping_intervals = interval_tree.query(start=start_word, end=end_word)
-
-            if overlapping_intervals:
-                speaker_intersections: dict[str, float] = {}
-                for speaker, intersection in overlapping_intervals:
-                    speaker_intersections[speaker] = speaker_intersections.get(speaker, 0.0) + intersection
-
-                word['speaker'] = max(speaker_intersections.items(), key=lambda x: x[1])[0]
-            else:
-                root = (start_word + end_word) / 2
-                nearest_speaker = interval_tree.find_nearest(time=root)
-                if nearest_speaker:
-                    word['speaker'] = nearest_speaker
-            """
-            if 'words' in segment.keys():
-                # Iterate list of words in the segment:
-                for word in segment['words']:
-                    if ('start' not in word) | ('end' not in word):
-                        continue
-
-                    start_word = word['start']
-                    end_word = word.get('end', start_word)
-
-                    word_overlaps = interval_tree.query(start=start_word, end=end_word)
-
-                    if word_overlaps:
-                        # Multiple speakers speak at this time interval:
-                        intersections = {}
-                        for speaker, intersection in word_overlaps:
-                            intersections[speaker] = intersections.get(speaker, 0.0) + intersection
-                        word['speaker'] = max(intersections.items(), key=lambda x: x[1])[0]
-                    else:
-                        root = (start_word + end_word) / 2
-                        nearest = interval_tree.find_nearest(time=root)
-                        if nearest:
-                            word['speaker'] = nearest
-            """
-    return segments

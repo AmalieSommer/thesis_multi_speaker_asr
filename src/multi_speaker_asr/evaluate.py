@@ -1,7 +1,7 @@
 from multi_speaker_asr.data import AudioDataset, Audio, AudioData
 from multi_speaker_asr.models.asr import WhisperPipeline, RoestASR
 from pyannote.audio.pipelines.utils.hook import ProgressHook
-from multi_speaker_asr.models.diarization import Diarize, assign_word_speakers, RollingClusters
+from multi_speaker_asr.models.diarization import Diarize, RollingClusters
 from datasets import Dataset
 from multi_speaker_asr.models.alignment import Wav2Vec2
 import torch
@@ -27,6 +27,7 @@ from carbontracker.tracker import CarbonTracker
 from pathlib import Path
 from jiwer import wer, cer
 import traceback
+import inspect
 
 
 
@@ -99,6 +100,193 @@ def evaluate_inference(output_filepath: str, loader: DataLoader, model: RoestASR
         del loader
         del model
         gc.collect()
+
+
+
+def evaluate_diarization(output_filepath: str, loader: DataLoader, max_epochs: int = 3):
+    try:
+        cluster_registry = RollingClusters()
+        model = Diarize()
+        model.load()
+        tracker = CarbonTracker(epochs=max_epochs)
+        with open(output_filepath, 'w') as writer:
+            for epoch in range(max_epochs):
+                tracker.epoch_start()
+                batch_num = 0
+                for batch in loader:
+                    if len(batch) == 1:
+                        batch = batch[0]
+
+                    audio_chunk = batch['audio']
+                    wav = torch.tensor(audio_chunk).unsqueeze(0)   # To get the correct format of (channel, time) Tensor.
+                    diarization_walltime_start = perf_counter()
+                    diarization_cputime_start = process_time()
+                    with ProgressHook() as hook:
+                        diarization, embeddings = model.model({
+                                'waveform': wav,
+                                'sample_rate': 16000
+                            },
+                            hook=hook,
+                            return_embeddings=True
+                        )
+                    diarization_walltime = perf_counter() - diarization_walltime_start
+                    diarization_cputime = process_time() - diarization_cputime_start
+                    logger.critical('Epoch: %i, Batch: %i Walltime: %f CPU time: %f', epoch, batch_num, diarization_walltime, diarization_cputime)
+                    logger.info(
+                        "Diarization Module... Epoch: %i Batch: %i RSS: %.2f GB",
+                        epoch,
+                        batch_num,
+                        proc.memory_info().rss / (1024**3)
+                    )
+                    print(type(model.model))
+                    print(inspect.signature(model.model.apply))
+
+                    idx_to_speaker = {
+                        i: cluster_registry.process_chunk(emb)
+                        for i, emb in enumerate(embeddings)
+                    }
+                    speaker_to_idx = {
+                        label: i
+                        for i, label in enumerate(diarization.labels())
+                    }
+                    for segment, track, speaker in diarization.itertracks(yield_label=True):
+                        print(f'Speaker: {speaker}... Start: {segment.start}, End: {segment.end}... Track: {track}')
+                        idx = speaker_to_idx[speaker]
+                        speaker_label = idx_to_speaker[idx]
+
+                        if speaker_label is None:
+                            logger.error('Segment contains no speech. Skip!')
+                            continue
+                        else:
+                            item = {
+                                'audio_id': batch['audio_id'],
+                                'segment_id': batch['segment_id'],
+                                'speaker': speaker_label,
+                                'speaker_start': segment.start,
+                                'speaker_end': segment.end,
+                                'speech_duration': segment.duration,
+                                'orig_start': batch['start'],
+                                'orig_end': batch['end']
+                            }
+                            writer.write(json.dumps(item) + '\n')
+                            writer.flush()
+
+                    batch_num += 1
+
+
+    except Exception as e:
+        logger.error('An error occurred: %s', e)
+
+
+
+def diarize_inference(
+        data: AudioDataset,
+        vad_filter: bool = False,
+        clip_timestamps: bool = False,
+        model='CoRal-project/roest-v3-wav2vec2-315m', 
+        write_file='align_output_longer_int8.jsonl',
+        max_speakers=5
+    ):
+
+    try:
+        cluster_registry = RollingClusters()
+        pipeline = Diarize()   # Default values are fine for now
+        pipeline.load()
+        
+        with torch.inference_mode():
+            with open(write_file, 'w') as writer:
+                for epoch in range(MAX_EPOCHS):
+                    tracker = CarbonTracker(MAX_EPOCHS)
+                    tracker.epoch_start()
+                    iter = 0
+                    batch_num = 0
+                    for sample in data:
+                        audio = sample[0]
+                        metadata = sample[1]
+
+                        for segment in metadata:
+                            # Split into subsegments of size 5 seconds with a small overlap of e.g. 0.5-1 second.
+                            chunk_size = 30
+                            overlap = 0.5
+
+                            clip_start = segment['start']
+                            clip_end = segment['end']
+
+                            
+                            for chunk_offset, audio_chunk in fetch_audio_chunk(audio_path=audio['audio'], chunk_size=chunk_size, overlap=overlap, clip_offset=clip_start):
+                                chunk_offset -= clip_start
+                                if chunk_offset >= (clip_end - clip_start):
+                                    break
+                                
+                                speaker_segments = []
+                                wav = torch.tensor(audio_chunk).unsqueeze(0)   # To get the correct format of (channel, time) Tensor.
+                                diarization_walltime_start = perf_counter()
+                                diarization_cputime_start = process_time()
+                                with ProgressHook() as hook:
+                                    output = pipeline.model({
+                                            'waveform': wav,
+                                            'sample_rate': 16000
+                                        },
+                                        hook=hook,
+                                        max_speakers=max_speakers
+                                    )
+                                    diarization_walltime = perf_counter() - diarization_walltime_start
+                                    diarization_cputime = process_time() - diarization_cputime_start
+                                    logger.critical('Epoch: %i, Batch: %i Walltime: %f CPU time: %f', epoch, batch_num, diarization_walltime, diarization_cputime)
+                                    logger.info(
+                                        "Diarization Module... Epoch: %i Batch: %i RSS: %.2f GB",
+                                        epoch,
+                                        batch_num,
+                                        proc.memory_info().rss / (1024**3)
+                                    )
+
+                                idx_to_speaker = {
+                                    i: cluster_registry.process_chunk(emb)
+                                    for i, emb in enumerate(output.speaker_embeddings)
+                                }
+                                speaker_to_idx = {
+                                    label: i
+                                    for i, label in enumerate(output.speaker_diarization.labels())
+                                }
+                            
+                                for segment, track, speaker in output.speaker_diarization.itertracks(yield_label=True):
+                                    print(f'Speaker: {speaker}... Start: {segment.start}, End: {segment.end}... Track: {track}')
+                                    idx = speaker_to_idx[speaker]
+                                    speaker_label = idx_to_speaker[idx]
+
+                                    if speaker_label is None:
+                                        logger.error('Segment contains no speech. Skip!')
+                                        continue
+                                    else:
+                                        speaker_segments.append({
+                                            'speaker': speaker_label,
+                                            'start': (segment.start + chunk_offset),
+                                            'end': (segment.end + chunk_offset),
+                                            'duration': segment.duration
+                                        })
+
+                                item = {
+                                    'epoch': epoch,
+                                    'idx': iter,
+                                    'audio_id': sample['id'],
+                                    'offset': chunk_offset,
+                                    'speaker_segments': speaker_segments
+                                    }
+                                batch_num += 1
+                                iter += 1
+                                writer.write(json.dumps(item) + '\n')
+                                writer.flush()
+
+                tracker.epoch_end()
+
+    except Exception as e:
+        logger.error('Failed during diarization with error: %s', e)
+    finally:
+        pipeline.unload()
+        del pipeline
+        gc.collect()
+
+
 
 
 def fetch_dataloader(
@@ -408,113 +596,6 @@ def aligner_inference(
         gc.collect()   
 
 
-
-def diarize_inference(
-        data: AudioDataset,
-        vad_filter: bool = False,
-        clip_timestamps: bool = False,
-        model='CoRal-project/roest-v3-wav2vec2-315m', 
-        write_file='align_output_longer_int8.jsonl',
-        max_speakers=5
-    ):
-
-    try:
-        cluster_registry = RollingClusters()
-        pipeline = Diarize()   # Default values are fine for now
-        pipeline.load()
-        
-        with torch.inference_mode():
-            with open(write_file, 'w') as writer:
-                for epoch in range(MAX_EPOCHS):
-                    tracker = CarbonTracker(MAX_EPOCHS)
-                    tracker.epoch_start()
-                    iter = 0
-                    batch_num = 0
-                    for sample in data:
-                        audio = sample[0]
-                        metadata = sample[1]
-
-                        for segment in metadata:
-                            # Split into subsegments of size 5 seconds with a small overlap of e.g. 0.5-1 second.
-                            chunk_size = 30
-                            overlap = 0.5
-
-                            clip_start = segment['start']
-                            clip_end = segment['end']
-
-                            
-                            for chunk_offset, audio_chunk in fetch_audio_chunk(audio_path=audio['audio'], chunk_size=chunk_size, overlap=overlap, clip_offset=clip_start):
-                                chunk_offset -= clip_start
-                                if chunk_offset >= (clip_end - clip_start):
-                                    break
-                                
-                                speaker_segments = []
-                                wav = torch.tensor(audio_chunk).unsqueeze(0)   # To get the correct format of (channel, time) Tensor.
-                                diarization_walltime_start = perf_counter()
-                                diarization_cputime_start = process_time()
-                                with ProgressHook() as hook:
-                                    output = pipeline.model({
-                                            'waveform': wav,
-                                            'sample_rate': 16000
-                                        },
-                                        hook=hook,
-                                        max_speakers=max_speakers
-                                    )
-                                    diarization_walltime = perf_counter() - diarization_walltime_start
-                                    diarization_cputime = process_time() - diarization_cputime_start
-                                    logger.critical('Epoch: %i, Batch: %i Walltime: %f CPU time: %f', epoch, batch_num, diarization_walltime, diarization_cputime)
-                                    logger.info(
-                                        "Diarization Module... Epoch: %i Batch: %i RSS: %.2f GB",
-                                        epoch,
-                                        batch_num,
-                                        proc.memory_info().rss / (1024**3)
-                                    )
-
-                                idx_to_speaker = {
-                                    i: cluster_registry.process_chunk(emb)
-                                    for i, emb in enumerate(output.speaker_embeddings)
-                                }
-                                speaker_to_idx = {
-                                    label: i
-                                    for i, label in enumerate(output.speaker_diarization.labels())
-                                }
-                            
-                                for segment, track, speaker in output.speaker_diarization.itertracks(yield_label=True):
-                                    print(f'Speaker: {speaker}... Start: {segment.start}, End: {segment.end}... Track: {track}')
-                                    idx = speaker_to_idx[speaker]
-                                    speaker_label = idx_to_speaker[idx]
-
-                                    if speaker_label is None:
-                                        logger.error('Segment contains no speech. Skip!')
-                                        continue
-                                    else:
-                                        speaker_segments.append({
-                                            'speaker': speaker_label,
-                                            'start': (segment.start + chunk_offset),
-                                            'end': (segment.end + chunk_offset),
-                                            'duration': segment.duration
-                                        })
-
-                                item = {
-                                    'epoch': epoch,
-                                    'idx': iter,
-                                    'audio_id': sample['id'],
-                                    'offset': chunk_offset,
-                                    'speaker_segments': speaker_segments
-                                    }
-                                batch_num += 1
-                                iter += 1
-                                writer.write(json.dumps(item) + '\n')
-                                writer.flush()
-
-                tracker.epoch_end()
-
-    except Exception as e:
-        logger.error('Failed during diarization with error: %s', e)
-    finally:
-        pipeline.unload()
-        del pipeline
-        gc.collect()
 
 
 

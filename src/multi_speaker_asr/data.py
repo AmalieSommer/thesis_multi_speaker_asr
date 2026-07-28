@@ -81,6 +81,12 @@ class AudioDataset(IterableDataset):
                 end=sample['end']
             )
 
+            yield from self.search_cutoff_points(
+                audio_np=audio,
+                sample_info=sample,
+                max_sec=10
+            )
+
             yield {
                 'audio_id': sample['audio_id'],
                 'segment_id': sample['segment_id'] if 'segment_id' in sample.keys() else seg_iter,
@@ -240,16 +246,20 @@ class AudioDataset(IterableDataset):
         total_length = len(audio_np)
         current_start = 0
         vad_model = load_silero_vad()
-        
+        iter = 0
         while current_start < total_length:
             theoretical_end = current_start + max_samples
+
+            iter += 1
             
             if theoretical_end >= total_length:
                 yield {
                     'audio_id': sample_info['audio_id'],
                     'audio': audio_np[current_start:],
                     'text': sample_info['text'],
-                    'segment_id': sample_info['segment_id']
+                    'segment_id': sample_info['segment_id'] if 'segment_id' in sample_info.keys() else iter,
+                    'start': current_start,
+                    'end': total_length
                 }
                 #chunks.append(audio_np[current_start:])
                 break
@@ -309,16 +319,21 @@ class AudioDataset(IterableDataset):
                     'audio_id': sample_info['audio_id'],
                     'audio': audio_np[current_start:],
                     'text': sample_info['text'],
-                    'segment_id': sample_info['segment_id']
+                    'segment_id': sample_info['segment_id'] if 'segment_id' in sample_info.keys() else iter,
+                    'start': len(audio_np[:current_start]) / self.target_sr,
+                    'end': total_length
                 }
                 #chunks.append(audio_np[current_start:])
                 break
             else:
+                audio_chunk = audio_np[current_start:cut_index]
                 yield {
                     'audio_id': sample_info['audio_id'],
-                    'audio': audio_np[current_start:cut_index],
-                    'text': sample_info['text'],
-                    'segment_id': sample_info['segment_id']
+                    'audio': audio_chunk,
+                    'text': sample_info['text'] if 'text' in sample_info.keys() else '',
+                    'segment_id': sample_info['segment_id'] if 'segment_id' in sample_info.keys() else iter,
+                    'start': len(audio_np[:current_start]) / self.target_sr,
+                    'end': (total_length - len(audio_chunk)) / self.target_sr
                 }
                 #chunks.append(audio_np[current_start:cut_index])
                 current_start = cut_index
