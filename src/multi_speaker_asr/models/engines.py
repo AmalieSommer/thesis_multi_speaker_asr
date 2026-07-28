@@ -12,6 +12,7 @@ from transformers import (
     WhisperTimeStampLogitsProcessor,
     AutoTokenizer
     )
+from huggingface_hub import hf_hub_download
 from faster_whisper.tokenizer import Tokenizer
 import tokenizers
 import os
@@ -19,7 +20,7 @@ from pyctcdecode import build_ctcdecoder
 import torchaudio
 from optimum.quanto import requantize
 from safetensors.torch import load_file
-from faster_whisper import WhisperModel
+from faster_whisper import WhisperModel, BatchedInferencePipeline
 from faster_whisper.audio import decode_audio, pad_or_trim
 import numpy as np
 import torch
@@ -34,6 +35,7 @@ from pywhispercpp.model import Model
 
 logging.config.dictConfig(LOGGING_CONFIG)
 logger = logging.getLogger(name='Engine')
+HF_TOKEN = os.getenv('HF_TOKEN')
 
 class BaseEngine:
     def __init__(self, model_path: str, device: str = 'cpu', sr: int = 16000, language: str = 'da', task: str = 'transcribe'):
@@ -80,66 +82,38 @@ class PytorchEngine(BaseEngine):
             self, 
             model_path, 
             device = 'cpu', 
-            model_type: str = 'whisper', 
-            use_saved_model: bool = False,
-            local_models_dir: str = None,
+            model_type: str = 'whisper',
             cpu_threads: int = 4,
             compute_type: str = 'float32'
             ):
         
         self.model_type = model_type
         self.compute_type = compute_type
-        self.use_saved_model = use_saved_model
-        self.local_models_dir = local_models_dir
         super().__init__(model_path, device)
 
 
     @profile
-    def load_model(self):    
-        if self.use_saved_model:
-            if self.local_models_dir is None:
-                raise ValueError('Missing path to local model...')
-            path = os.path.join(self.local_models_dir, self.compute_type)
-
-            with init_empty_weights():
-                if self.model_type == 'whisper':
-                    config = WhisperConfig.from_pretrained(path)
-                    model = WhisperForConditionalGeneration(config=config)
-                elif self.model_type == 'wav2vec2':
-                    config = AutoConfig.from_pretrained(path)
-                    model = AutoModelForCTC.from_config(config=config)
-
-            state_dict = load_file(os.path.join(path, 'model.safetensors'))
-            with open(os.path.join(path, 'quantization_map.json'), 'r') as f:
-                quantization_map = json.load(f)
-            requantize(model=model, state_dict=state_dict, quantization_map=quantization_map, device=self.device)
-        else:
-            # Else load the standard model:          
-            if self.model_type == 'whisper':
-                model = pipeline(
-                                    task='automatic-speech-recognition',
-                                    model=self.model_path,
-                                    language='da',
-                                    dtype=torch.float32
-                                )
-            elif self.model_type == 'wav2vec2':
-                model = pipeline(
-                                    task='automatic-speech-recognition',
-                                    model=self.model_path,
-                                    language='da',
-                                    dtype=torch.float32
-                                )
+    def load_model(self):            
+        if self.model_type == 'whisper':
+            model = pipeline(
+                                task='automatic-speech-recognition',
+                                model=self.model_path,
+                                language='da',
+                                dtype=torch.float32
+                            )
+        elif self.model_type == 'wav2vec2':
+            model = pipeline(
+                                task='automatic-speech-recognition',
+                                model=self.model_path,
+                                language='da',
+                                dtype=torch.float32
+                            )
         return model
     
         
     @profile
     def load_processor(self):
-        if self.use_saved_model:
-            if self.local_models_dir is None:
-                raise ValueError('Missing path to local processor...')
-            path = os.path.join(self.local_models_dir, self.compute_type)
-        else:
-            path = self.model_path
+        path = self.model_path
 
         if self.model_type == 'whisper':
             return WhisperProcessor.from_pretrained(path)
@@ -293,21 +267,27 @@ class OnnxEngine(BaseEngine):
 
 
 class CT2(BaseEngine):
-    def __init__(self, model_path, model_type, device = 'cpu', compute_type: str = 'fp32', cpu_threads: int = 6):
+    def __init__(self, model_path, model_type, device = 'cpu', compute_type: str = 'int8', cpu_threads: int = 6, intra_batched_inference: bool = False):
         self.compute_type = 'float32' if compute_type == 'fp32' else 'int8'
         self.cpu_threads = cpu_threads
         self.model_type = model_type
+        self.intra_batched_inference = intra_batched_inference
         super().__init__(model_path, device)
 
 
     @profile
     def load_model(self):
-        return WhisperModel(
+        model = WhisperModel(
             model_size_or_path='pluttodk/roest-v3-whisper-1.5b-ct2', 
             device=self.device,
             compute_type=self.compute_type,
             cpu_threads=self.cpu_threads
         )
+        if self.intra_batched_inference:
+            return BatchedInferencePipeline(
+                model=model
+            )
+        return model
 
     @profile
     def load_processor(self):
@@ -316,9 +296,29 @@ class CT2(BaseEngine):
 
 
     def transcribe(self, audio_batch, language: str = 'da', task: str = 'transcribe', chunk_length: int = 30):
-        if not isinstance(audio_batch, list):
+        if not isinstance(audio_batch, (list, np.ndarray)):
             audio_batch = [audio_batch]
 
+        if self.intra_batched_inference:
+            output, _ = self.model.transcribe(
+                        audio_batch[0],
+                        language=self.language,
+                        vad_filter=True,
+                        word_timestamps=False,
+                        without_timestamps=False
+                        )
+            result = []
+            for segment in output:
+                result.append({
+                    'text': segment.text,
+                    'start': segment.start,
+                    'end': segment.end,
+                    'tokens': segment.tokens,
+                    'avg_logprob': segment.avg_logprob
+                })
+            return result
+
+        # Otherwise, run a normal inter-batched inference run
         features_list = []
         previous_tokens = []
         for audio in audio_batch:
@@ -352,9 +352,6 @@ class CT2(BaseEngine):
             tokens = result.sequences_ids[0]
             text = tokenizer.decode(tokens).strip()
             transcriptions.append(text)
-
-            
-            
         return transcriptions
 
 
@@ -367,13 +364,9 @@ class WhisperCPP(BaseEngine):
             sr = 16000, 
             language = 'da', 
             task = 'transcribe',
-            use_saved_model: bool = False,
-            local_models_dir: str = None,
-            cpu_threads: int = 4,
+            cpu_threads: int = 6,
             compute_type: str = 'float32'
             ):
-        self.use_saved_model = use_saved_model
-        self.local_models_dir = local_models_dir
         self.cpu_threads = cpu_threads
         self.compute_type = compute_type
 
@@ -396,12 +389,16 @@ class WhisperCPP(BaseEngine):
         else:
             raise ValueError(f'Compute_type {self.compute_type} is not supported... The supported configurations are: fp32, int4, int5 and int8...')
 
+        # Download from Huggingface Repository:
+        model_path = hf_hub_download(
+            repo_id='AmalieSommer/whisper.cpp-roest-v3-1.5b',
+            filename=model_name,
+            token=HF_TOKEN
+        )
+
         return Model(
-            model=model_name,
-            models_dir=os.path.join(self.local_models_dir, 'whisper.cpp'),
-            print_realtime=False, 
-            print_progress=True,
-            no_timestamps=False
+            model=model_path,
+            n_threads=self.cpu_threads
         )
 
     @profile
@@ -410,12 +407,19 @@ class WhisperCPP(BaseEngine):
         
     def transcribe(self, audio, language='da'):
         if not isinstance(audio, (list, tuple)):
-            return self.model.transcribe(audio)
+            return self.model.transcribe(audio, extract_probability=True)
 
         # A batch of multiple audio files have been passed, and must be processed sequentially, because current Whisper.cpp does not support batched inference
         batch = []
         for a in audio:
-            res = self.model.transcribe(a, extract_probability=True)
+            res = self.model.transcribe(
+                a,
+                temperature=0.0,
+                print_realtime=True,
+                beamsize=1,
+                best_of=1,
+                lang='da'
+            )
             for item in res:
                 batch.append({
                     'start': item.t0,
