@@ -1,11 +1,11 @@
 device: 'cpu'
-filepath: 'results\\diarize_wa_baseline.jsonl'
+filepath: 'results\\diarize_wa_streaming.jsonl'
 dataset_location: 'local'
 metadata: 'L:\\Auditdata\\Wrist Angel - Video\\Amalie Sommer\\repo\\thesis_multi_speaker_asr\\data\\wrist_angel_metadata.csv'
 dataset_mode: 'recordings'
 batch_size: 1
 diarization: True
 build_model: False
-max_duration: !!float .inf
+max_duration: 20
 streaming: False
 epochs: 2

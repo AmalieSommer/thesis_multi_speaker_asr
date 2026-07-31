@@ -13,8 +13,10 @@ src/hpc_results
 
 /pyproject.toml
 /uv.lock
-/results
+#/results/*.jsonl
+/results/ground_truth/*.jsonl
 /notebooks/*.png
+data/
 
 # test cache
 manual_test/
@@ -193,6 +195,4 @@ cython_debug/
 #.idea/
 
 
-# Local data files
-rost-whisper-ct2/model.bin
-data/
+
