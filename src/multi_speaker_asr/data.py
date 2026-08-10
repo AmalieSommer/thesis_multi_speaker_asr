@@ -19,225 +19,144 @@ import torch
 from silero_vad import load_silero_vad, read_audio, get_speech_timestamps
 import torchaudio
 import torchaudio.functional as F
+from huggingface_hub import dataset_info
+from huggingface_hub.errors import HFValidationError
+from datasets import load_dataset, load_from_disk
+
+
 
 logging.config.dictConfig(LOGGING_CONFIG)
-
-
 CWD = os.getcwd()
+
+
+COLUMN_MAPPING = {
+    "audio": ["audio", "wav_path", "file", "filepath", "audio_filepath", 'path'],
+    "sample_id": ["sample_id", "id", "utterance_id", "id_recording", 'id_conversation', 'meeting_id'],
+}
 
 
 
 class AudioDataset(IterableDataset):
-    def __init__(self, metadata, mode: str = 'segments', transform = None, target_sr: int = 16000, max_segment_duration: int = 30):
-        self.metadata = metadata
-        self.mode = mode
-        self.transform = transform
+    def __init__(self, data_config: dict, target_sr: int = 16000, max_segment_duration: int = 30):
         self.target_sr = target_sr
         self.max_duration = max_segment_duration
+        self.metadata = self.load_data(**data_config)
+
+
+    def _find_column(self, available_columns, possible_names):
+        for name in possible_names:
+            if name in available_columns:
+                return name
+        raise ValueError(
+            f"None of {possible_names} found in {available_columns}"
+        )
+        
+
+    def load_data(self, **data_config) -> IterableDataset:
+        dataset_path = data_config['path']
+        split = data_config['split']
+        name = data_config['name']
+
+        data_type, ext_type, path = validate_filepath(dataset_path)
+        if ext_type == 'file':
+            file_ext = path.suffix.lstrip('.')
+
+            # Edge case for jsonl files needing a json builder:
+            if file_ext == 'jsonl':
+                file_ext = 'json'
+
+            metadata_path = Path(dataset_path).resolve()
+            self.metadata_path = metadata_path.parent   # Setting the base directory for the local data
+
+            return load_dataset(file_ext, data_files=str(dataset_path), split=split, streaming=True)
+        elif data_type == 'hub':
+            # Read data from Huggingface
+            data = load_dataset(path=dataset_path, name=name, split=split, streaming=True)        
+            return data.cast_column('audio', Audio(decode=False))
+
 
     def __iter__(self):
-        if self.mode == 'segments':
-            yield from self.__iter__segments()
-        elif self.mode == 'recordings':
-            yield from self.__iter__recordings()
-        else:
-            raise ValueError('Unknown mode value...')
-        
-    def __iter__segments(self):
-        iter = 0
         for sample in self.metadata:
-            if 'segment_duration' in sample.keys() and sample['segment_duration'] < 1.0:
-                # Skip audio segments that are too short...
-                continue
-            
-            audio = self.load_wav(
-                sample['segment']
-            )
-            if audio is None: 
-                continue
+            audio_column_name = self._find_column(list(sample.keys()), COLUMN_MAPPING['audio'])
+            id_column_name = self._find_column(list(sample.keys()), COLUMN_MAPPING['sample_id'])
 
-            if (len(audio) / self.target_sr) < 30.0:
-                yield {
-                    'audio_id': sample['audio_id'],
-                    'segment_id': iter if 'segment_id' not in sample.keys() else sample['segment_id'],
-                    'text': sample['text'],
-                    'audio': audio
-                }
-                iter += 1
+            sample['audio'] = sample.pop(audio_column_name)
+            sample['sample_id'] = sample.pop(id_column_name)
 
-            else:
-                yield from self.search_cutoff_points(audio_np=audio, sample_info=sample)
-    
-    def __iter__recordings(self):
-        seg_iter = 0
-        for sample in self.metadata:
-            if 'segment_duration' in sample.keys() and sample['segment_duration'] < 1.0:
-                # Skip audio segments that are too short...
-                continue
 
-            audio = self.load_wav(
+            start = None if 'start' not in sample.keys() else sample['start']
+            end = None if 'end' not in sample.keys() else sample['end']
+
+
+            audio, sr = self.load_wav(
                 sample['audio'],
-                start=sample['start'],
-                end=sample['end']
+                start=start,
+                end=end
             )
 
             yield from self.search_cutoff_points(
                 audio_np=audio,
+                sr=sr,
                 sample_info=sample,
-                max_sec=10
+                max_sec=self.max_duration
             )
 
-            yield {
-                'audio_id': sample['audio_id'],
-                'segment_id': sample['segment_id'] if 'segment_id' in sample.keys() else seg_iter,
-                'audio': audio,
-            }
-            seg_iter += 1
+
 
     def load_wav(self, audio, start=None, end=None, offset=0, target_sr=16000):
+        print(audio)
+        if not isinstance(audio, str):
+            if isinstance(audio, dict):
+                audio = io.BytesIO(audio['bytes'])
+        else:
+            audio = self.metadata_path / audio
+
+
         wav, sr = torchaudio.load(audio)
         if sr != target_sr:
             wav = F.resample(waveform=wav, orig_freq=sr, new_freq=target_sr)
+            sr = target_sr
 
         if wav.shape[0] > 1:
             wav = wav.mean(axis=0)
 
         wav = wav.squeeze(0).numpy()
         if not start or not end:
-            return wav
+            return wav, sr
                 
         start = int(start - offset)
         end = int(end - offset)
 
-        return wav[(start * target_sr) : (end * target_sr)]
-        
-    
-
-    def load_audio(self, audio, start=None, end=None, offset=0, target_sr=16000):
-        if not audio:
-            raise ValueError('Missing audio file...')
-        
-        if isinstance(audio, dict):
-            if 'bytes' in audio.keys():
-                audio = io.BytesIO(audio['bytes'])
-        audio, sr = sf.read(audio, dtype='float32')
-        
-        # Check for multiple channels and convert to mono
-        if audio.ndim > 1:
-            audio = audio.mean(axis=1)
-
-        print(librosa.__file__)
-        print(librosa.resample)
-        print(librosa.resample.__module__)
-
-        if sr != target_sr:
-            audio = librosa.resample(
-                audio,
-                orig_sr=sr,
-                target_sr=target_sr,
-            )
-            audio = audio.astype("float32")
-    
-        if not start or not end:
-            return audio
-        
-        start = int(start - offset)
-        end = int(end - offset)
-
-        audio = audio[(start * sr) : (end * sr)]
-        return audio
-
-    def stream_audio(self, audio_arr, overlap: int = 5, offset: int = 0, chunk_size: int = 30, target_sr: int = 16000):
-        if overlap >= chunk_size:
-            raise ValueError("overlap must be smaller than chunk_size")
-
-        chunk_samples = int(chunk_size * target_sr)
-        step_samples = int((chunk_size - overlap) * target_sr)
-        start = int(offset * target_sr)
-        total_samples = len(audio_arr)
-
-        chunks = []
-        while start < total_samples:
-            chunk = audio_arr[start : start + chunk_samples]
-            if len(chunk) == 0:
-                break
-                
-            chunks.append({
-                'start': start / target_sr,
-                'overlap': overlap,
-                'audio_chunk': chunk 
-            })
-            
-            # Move forward by (chunk_size - overlap)
-            start += step_samples
-            if start + (target_sr * 0.5) >= total_samples: # ignore tiny trailing noise (<0.5s)
-                break
-
-        return chunks
-
+        return wav[(start * target_sr) : (end * target_sr)], sr
  
 
     def collator(self, batch):
         return batch
-        # Verify the duration of the audio samples dont exceed XX seconds
-        audio_batch = []
-        metadata_batch = []
-        sample_to_segment = {}
-
-        for i, item in enumerate(batch):
-            start = 0 if 'start' not in item.keys() else item['start']
-            end = len(item['audio']) / self.target_sr if 'end' not in item.keys() else item['end']
-            duration = end - start
-            if duration > self.max_duration:
-                output = self.search_cutoff_points(
-                    audio_np=item['audio'],
-                )
-            else:
-                output = [item['audio']]
-        
-            sample_to_segment[i] = list(range(len(audio_batch), (len(audio_batch) + len(output))))
-            audio_batch.extend([item for item in output])
-            metadata_batch.append({
-                'audio_id': item['audio_id'],
-                'segment_id': item['segment_id'] if 'segment_id' in item.keys() else i,
-                'text': item['text'] if 'text' in item.keys() else '',
-                'start': start,
-                'end': end
-            })
-
-        return audio_batch, metadata_batch, sample_to_segment
-        """
-                # Create a mapping from the index of the audio sample to the original audio id.
-                start_index = len(audio_batch)
-                end_index = start_index + len(output)
-                ref = list(range(start_index, end_index))
-                audio_ref = [{
-                    'ref_indices': ref_index,
-                    'start': out['start']
-                } for ref_index, out in zip(ref, output)]
-
-                audio_batch.extend([out['audio_chunk'] for out in output])
-            else:
-                audio_ref = [{
-                    'ref_indices': len(audio_batch),
-                    'start': start
-                }]
-                audio_batch.extend([item['audio']])
-
-            #audio_batch = [pad_or_trim(audio, length=self.max_duration * self.target_sr) for audio in audio_batch]
-            metadata_batch.append({
-                'audio_id': item['audio_id'],
-                'segment_id': item['segment_id'],
-                'audio_batch_info': audio_ref,
-                'text': item['text'],
-                'start': start,
-                'end': end
-            })
-        return audio_batch, metadata_batch
-        """
         
 
-    def search_cutoff_points(self, audio_np, sample_info, sr=16000, max_sec=30, search_window_sec=5, lookahead_sec=2, grace_sec: float = 0.5, min_remainder_sec: int = 10):
+    def search_cutoff_points(self, audio_np, sample_info, sr: int = 16000, max_sec: int = 30, search_window_sec: int = 5, grace_sec: float = 0.5, min_remainder_sec: int = 10):
+        """
+            Takes an audio sample and checks if the length of the audio is within the maximum audio duration set. If shorter, then returns the full audio array.
+            Otherwise, it uses the Silero VAD model to look for natural pauses in the audio. 
+            In case the audio is much longer than the max_sec, e.g. tens of minutes, a search_window_range is defined. Meaning the hard cut-off point which is the 
+            max_samples value, gets encapsulated by a search_window, such that the VAD model only searches for speech segments in the range: [max_samples - search_window : max_samples + search_window].
+
+            Once the cut-off index has been determined, it checks if the duration of the remainder of the audio after the cut-off index, is less than a pre-determined 
+            lower-bound on a minimum audio length. This is to minimize the risk of ASR hallucinations or infinite decoding loops, since that is proven more likely on 
+            very short audio segments.
+            So, if the remainder of audio is less than the minimum duration threshold, it concatenates the remainder to the audio segment. Meaning the maximum audio duration
+            is max_sec + min_remainder_sec.
+
+            Parameters:
+                - audio_np\: Numpy array representing the audio file
+                - sample_info\: A dict object containing metadata information on the sample
+                - sr\: Integer representing the samplerate of the audio file
+                - max_sec\: Integer representing the maximum duration, allowed to be yielded, of an audio sample
+                - search_window_sec\: Integer representing the range of samples surrounding the max_samples to be passed to the VAD model
+                - grace_sec\: Float representing the grace period after the hard cut-off point to allow as a possible cut-off index, since the aim is to choose the cut-off index closest to the max_sec
+                - min_remainder_sec\: Integer representing the minimum duration of an audio sample allowed
+        """
+
         max_samples = int(max_sec * sr)
         grace_samples = int(grace_sec * sr)
         min_remainder = int(min_remainder_sec * sr)
@@ -249,393 +168,166 @@ class AudioDataset(IterableDataset):
         iter = 0
         while current_start < total_length:
             theoretical_end = current_start + max_samples
-
             iter += 1
             
             if theoretical_end >= total_length:
                 yield {
-                    'audio_id': sample_info['audio_id'],
+                    'sample_id': sample_info['sample_id'],
                     'audio': audio_np[current_start:],
-                    'text': sample_info['text'],
-                    'segment_id': sample_info['segment_id'] if 'segment_id' in sample_info.keys() else iter,
-                    'start': current_start,
-                    'end': total_length
+                    'samplerate': sr,
+                    'start': current_start / self.target_sr,
+                    'end': total_length / self.target_sr
                 }
-                #chunks.append(audio_np[current_start:])
                 break
                 
             search_start = max(current_start, theoretical_end - int(search_window_sec * sr))
-            search_end = min(total_length, theoretical_end + int(lookahead_sec * sr))
-            
+            search_end = min(total_length, theoretical_end + int(search_window_sec * sr))
             # Extract the search window for Silero VAD
             window_slice = audio_np[search_start:search_end]
             window_tensor = torch.from_numpy(window_slice).float()
             speech_intervals = get_speech_timestamps(window_tensor, vad_model, sampling_rate=sr)
-            
-            cut_index = theoretical_end # Default fallback: hard cut at max_sec
-            
-            if not speech_intervals:
-                # If no speech in the window, cut safely at the start of the window
-                cut_index = search_start
-            else:
-                candidates = []
 
-                for i, segment in enumerate(speech_intervals):
-                    segment_start = search_start + segment['start']
-                    segment_end = search_start + segment['end']
+            cut_index = self._find_cut_index(
+                speech_intervals=speech_intervals,
+                search_start=search_start,
+                search_end=search_end,
+                theoretical_end=theoretical_end,
+                grace_samples=grace_samples
+            )
 
-                    if i + 1 < len(speech_intervals):
-                        gap_end = search_start + speech_intervals[i+1]['start']
-                    else:
-                        gap_end = search_end
-                    mid_point = (segment_end + gap_end) // 2
+            if cut_index > total_length:
+                raise IndexError('Index out of bounds. Cut_index %i is greater than the length of the audio array')
+            elif cut_index < 0:
+                raise IndexError('Index is less than zero.')
 
-                    candidates.append({
-                        'speech_end': segment_end,
-                        'mid_point': mid_point
-                    })
-
-                candidate_found = False
-                for candidate in candidates:
-                    if theoretical_end <= candidate['speech_end'] <= theoretical_end + grace_samples:
-                        cut_index = candidate['mid_point']
-                        candidate_found = True
-                        break
-
-                if not candidate_found:
-                    before = [
-                        candidate for candidate in candidates
-                        if candidate['speech_end'] <= theoretical_end
-                    ]
-                    if before:
-                        cut_index = before[-1]['mid_point']
-                    else:
-                        cut_index = theoretical_end
 
             remaining = total_length - cut_index
 
             if remaining < min_remainder:
                 yield {
-                    'audio_id': sample_info['audio_id'],
+                    'sample_id': sample_info['sample_id'],
                     'audio': audio_np[current_start:],
-                    'text': sample_info['text'],
-                    'segment_id': sample_info['segment_id'] if 'segment_id' in sample_info.keys() else iter,
+                    'samplerate': sr,
                     'start': len(audio_np[:current_start]) / self.target_sr,
-                    'end': total_length
+                    'end': total_length / self.target_sr
                 }
-                #chunks.append(audio_np[current_start:])
                 break
             else:
                 audio_chunk = audio_np[current_start:cut_index]
                 yield {
-                    'audio_id': sample_info['audio_id'],
+                    'sample_id': sample_info['sample_id'],
                     'audio': audio_chunk,
-                    'text': sample_info['text'] if 'text' in sample_info.keys() else '',
-                    'segment_id': sample_info['segment_id'] if 'segment_id' in sample_info.keys() else iter,
+                    'samplerate': sr,
                     'start': len(audio_np[:current_start]) / self.target_sr,
-                    'end': (total_length - len(audio_chunk)) / self.target_sr
+                    'end': (len(audio_np[:current_start]) + len(audio_chunk)) / self.target_sr
                 }
-                #chunks.append(audio_np[current_start:cut_index])
                 current_start = cut_index
         return chunks
 
-        
 
 
-class AudioData(IterableDataset):
-    """
-    Data wrapper class to load either local or Huggingface datasets. Perform preprocessing, resampling and formatting as preparation for model training and inference.
-    """
-    logger = logging.getLogger(name='AudioData')
-
-    def __init__(
-            self,  
-            target_sr=16000, 
-            max_segment_duration=30, 
-            vad_filter=True, 
-            clip_timestamps=False,
-            batch_size=5
-            ):
-        super().__init__()
-        self.clip_timestamps = clip_timestamps
-        self.vad_filter = vad_filter
-        self.target_sr = target_sr
-        self.max_segment_duration = max_segment_duration
-        self.ds = None
-        self.batch_size = batch_size
-        self.chunk_buffer = []
-        
-        
-
-    def load(self, path):
+    def _find_cut_index(self, speech_intervals: list[dict] | None, search_start: int, search_end: int, theoretical_end: int, grace_samples: float) -> int:
         """
-        Loads a dataset either from local or online resource.
-        If the path does not exist in the DATA dict, then it is assumed local, and will be loaded manually.
+            Given a list of time intervals for speech segments in speech_intervals, it looks through the search interval,
+            defined by search_start and search_end, and saves the midpoint between each speech segment that is within the
+            search index.
+            Then it terates through all the collected candidate cut_indices, and checks if the speech ending point is within
+            the grace-period given at the end of each speech segment in order to get as many segments close to the 
+            desired audio duration. E.g. it would be preferable to cut 0.5 seconds after the theoretical_end, then at the
+            midpoint; theoretical_end / 2.
+
+            If no candiate is found near the theoretical_end (within the grace-period), it just returns the last cut_index 
+            midpoint before reaching the theoretical_end value.
+
+            Parameters:
+                - speech_intervals\: List of {start, end} dict objects returned by VAD speech detection
+                - search_start\: Integer representing the start of a search window
+                - search_end\: Integer representing the end of a search window
+                - theoretical_end\: Integer representing the desired length of each speech segment. Acts as the default if no valid cut_index is found
+                - grace_samples\: Integer representing the number of samples around the theoretical_end which can be seen as valid cut_indices (a grace-period).
+    
         """
-        self.ds = Dataset.from_csv(path_or_paths=path, split='test').to_iterable_dataset()
-        self.id_to_audio = {item['id']: item['audio'] for item in self.ds}  
 
-    def __iter__(self):
-        current_audio = []
-        current_metadata = []
-        current_audio_id = None
-        offset = 0
+        if not speech_intervals:
+            return search_start
 
-        for item in self.ds:
-            if not item["audio"]:
-                continue
+        candidates = []
 
-            #offset = item.get("start", 0)
+        for i, segment in enumerate(speech_intervals):
+            segment_end = search_start + segment["end"]
 
-            for chunk in self.preprocess(sample=item):
-
-                if current_audio_id is None:
-                    current_audio_id = chunk["audio_id"]
-
-                if chunk["audio_id"] != current_audio_id:
-                    # Yield previous audio
-                    yield {
-                        "audio_id": current_audio_id,
-                        "offset": offset,
-                        "audio": current_audio,
-                        "chunk_metadata": current_metadata,
-                    }
-
-                    # Start new audio
-                    current_audio_id = chunk["audio_id"]
-                    current_audio = []
-                    current_metadata = []
-                    offset = item.get("start", 0)
-
-                # Always append the current chunk
-                current_audio.append(chunk["audio"])
-                current_metadata.append(chunk["chunk_metadata"])
-                offset = item.get("start", 0)
-
-        # Yield the last audio
-        if current_audio:
-            yield {
-                "audio_id": current_audio_id,
-                "offset": offset,
-                "audio": current_audio,
-                "chunk_metadata": current_metadata,
-            }
-
-
-    def collator_fn(self, batch):
-        return batch
-
-
-    def preprocess(self, sample):
-        try:
-            audio = sample['audio'] if 'audio' in sample.keys() else None
-
-            if audio == None:
-                raise Exception('Missong audio in dataset sample!')
-            
-            audio = sample['audio']['bytes'] if type(sample['audio']) == dict else sample['audio']
-            audio = self.read_audio(audio=audio)
-
-            offset, clip_timestamps, audio = get_timestamps(
-                data_sample=sample,
-                audio=audio,
-                duration=audio.shape[0],
-                clip_timestamps=self.clip_timestamps,
-                vad_filter=self.vad_filter
-            )
-            
-            yield from collect_audio_chunks(
-                id=sample['id'],
-                audio=audio,
-                clip_timestamps=clip_timestamps,
-                offset=offset
-            )
-        except Exception as e:
-            self.logger.error('Failed in preprocess() with error... ', e)
-
-
-    def read_audio(self, audio, target_sr=16000):
-        try: 
-            if isinstance(audio, bytes):
-                audio_ = io.BytesIO(audio)
+            if i + 1 < len(speech_intervals):
+                temp = speech_intervals[i + 1]["start"]
+                print(f'Next speech start: {temp}')
+                gap_end = search_start + temp
+                print(f'Search_start: {search_start}')
+                print(f'Gap end: {gap_end}')
+                print(f'Segment_end: {segment_end}')
             else:
-                audio_ = Path(CWD, audio)
-            wav, sr = sf.read(audio_, dtype='float32')
+                gap_end = search_end
+
+            candidates.append({
+                "speech_end": segment_end,
+                "mid_point": (segment_end + gap_end) // 2,
+            })
             
-            # Check for multiple channels and convert to mono
-            if wav.ndim > 1:
-                wav = wav.mean(axis=1)
+            print(candidates)
 
-            if sr != target_sr:
-                wav = librosa.resample(
-                    wav,
-                    orig_sr=sr,
-                    target_sr=target_sr,
-                )
-                wav = wav.astype("float32")
-            return wav
-        except Exception as e:
-            print('Failed with exception: ', e)
+        for candidate in candidates:
+            print(candidate)
+            if theoretical_end <= candidate["speech_end"] <= theoretical_end + grace_samples:
+                return candidate["mid_point"]
 
+        before = [
+            c for c in candidates
+            if c["speech_end"] <= theoretical_end
+        ]
+
+        print(before)
+
+        if before:
+            return before[-1]["mid_point"]
+
+        return theoretical_end
+    
+
+
+def validate_filepath(filepath: str) -> str | tuple[str, str, Path]:
+    # First check if the filepath is to a local dataset:
+    if filepath == None:
+        raise ValueError('Filepath is None.')
+    if not isinstance(filepath, str):
+        raise ValueError('Filepath must be a string.')
+    filepath = filepath.strip()
+    if len(filepath) < 1:
+        raise ValueError('Filepath is empty.')
     
     
 
-class SegmentedData(AudioData):
-    def __init__(
-            self, 
-            target_sr=16000, 
-            max_segment_duration=30
-            ):
-        self.target_sr = target_sr
-        self.max_segment_duration = max_segment_duration
-        
-    def load(self, path: str = 'CoRal-project/coral-v3', name: str = 'conversation', split: str = 'test'):
-        # If the path is from an online resource, then load it using datasets built-in function:
-            self.ds = load_dataset(
-                path=path,
-                name=name,
-                split=split,
-                streaming=True
-            )
-            # Ensure it does not decode audio using torchDecoder
-            self.ds = self.ds.cast_column('audio', Audio(decode=False))
-            self.ds = self.ds.rename_column('id_conversation', 'id')
+    valid_ext = {
+        '.csv', '.tsv', '.json', '.jsonl', '.parquet', '.arrow', '.txt', '.xml', '.gz'
+    }
 
-    def collator(self, batch):
-        return super().collator(batch)
+    path = Path(filepath)
+    if path.exists():  
+        print(path)
+        valid_extensions = [ext for ext in path.suffixes if ext in valid_ext]
+        print(valid_extensions)
+        unique_exts = list(set(valid_extensions))
+        if len(unique_exts) > 1:
+            raise TypeError('The dataset files must have the same extension format')
 
-    def __iter__(self):
-        
-        current_speaker = None
-        current_segments = []
-        current_duration = 0
-        total_duration = 0
-        current_audio = np.array([], dtype=np.float32)
-        try:
-            iter = 0
-            for item in self.ds:
-                if current_speaker is None:
-                    current_speaker = item['id_speaker']
-                audio = item['audio'] if 'audio' in item.keys() else None
+        if path.is_dir():
+            return 'local', 'dir', path.resolve()
 
-                if audio is None:
-                    raise Exception('Missong audio in dataset sample!')
-                
-                audio = item['audio']['bytes'] if type(item['audio']) == dict else item['audio']
-                wav = self.read_audio(audio=audio)
-                
-                chunk_start = 0
-                chunk_end = wav.shape[0]
+        return 'local', 'file', path.resolve()
 
-                if item['id_speaker'] != current_speaker:
-                    yield {
-                        "batch_id": iter,
-                        "audio": current_audio,
-                        "chunk_metadata": {
-                            'offset': total_duration / self.target_sr,
-                            "duration": (chunk_end - chunk_start) / self.target_sr,
-                            "segments": current_segments,
-                        },
-                    }
+    # Next check if the filepath is to a Huggingface dataset:
+    try:
+        dataset_info(repo_id=filepath)
+        return 'hub', 'repo', None
+    except HFValidationError as e:
+        pass
 
-                    total_duration += current_duration
-                    current_segments = []
-                    current_segments.append({
-                            'id': item['id'],
-                            'id_speaker': item['id_speaker'],
-                            'age': item['age'],
-                            'gender': item['gender'],
-                            'country_birth': item['country_birth'],
-                            'dialect': item['dialect'],
-                            'overlap': item['overlap'],
-                            'text': item['text'],
-                            'start': 0,
-                            'end': wav.shape[0]
-                        })
-
-                    current_audio = wav
-                    current_duration = chunk_end - chunk_start
-                    current_speaker = item['id_speaker']
-                else:
-                    if (
-                        current_duration + chunk_end - chunk_start
-                        > self.max_segment_duration * self.target_sr
-                    ):
-    
-                        yield {
-                            "batch_id": iter,
-                            "audio": current_audio,
-                            "chunk_metadata": {
-                                'offset': total_duration / self.target_sr,
-                                "duration": current_duration / self.target_sr,
-                                "segments": current_segments,
-                            },
-                        }
-                        
-                        total_duration += current_duration
-                        current_segments = []
-                        current_audio = wav
-                        current_duration = chunk_end - chunk_start
-                        current_speaker = item['id_speaker']
-
-                        current_segments.append({
-                            'id': item['id'],
-                            'id_speaker': item['id_speaker'],
-                            'age': item['age'],
-                            'gender': item['gender'],
-                            'country_birth': item['country_birth'],
-                            'dialect': item['dialect'],
-                            'overlap': item['overlap'],
-                            'text': item['text'],
-                            'start': 0,
-                            'end': wav.shape[0]
-                        })
-                    else:
-                        current_segments.append({
-                            'id': item['id'],
-                            'id_speaker': item['id_speaker'],
-                            'age': item['age'],
-                            'gender': item['gender'],
-                            'country_birth': item['country_birth'],
-                            'dialect': item['dialect'],
-                            'overlap': item['overlap'],
-                            'text': item['text'],
-                            'start': 0,
-                            'end': wav.shape[0]
-                        })
-                        current_audio = np.concatenate(
-                            (current_audio, wav)
-                        )
-
-                        current_duration += chunk_end - chunk_start
-                        current_speaker = item['id_speaker']
-
-                iter += 1
-
-            yield {
-                "batch_id": iter,
-                "audio": current_audio,
-                "chunk_metadata": {
-                    'offset': total_duration / self.target_sr,
-                    "duration": (chunk_end - chunk_start) / self.target_sr,
-                    "segments": current_segments,
-                },
-            }
-        except Exception as e:
-            self.logger.error('Failed in collator...')
-
-"""
-def cast(object: dict):
-    return SingleSegment(
-        start=object['start'],
-        end=object['end'],
-        text=object['text'],
-        avg_logprob=object['avg_logprob']
-    )
-"""
-
-
-
-
-
-
+    # Finally, raise error if no file was found at either location
+    raise FileNotFoundError('The file %s was not found either locally or on Huggingface', filepath)

@@ -8,6 +8,12 @@ from num2words import num2words
 from jiwer import wer, cer
 import json
 import pickle
+import platform
+import torch
+from optimum.onnxruntime.configuration import (
+    AutoQuantizationConfig,
+    QuantizationConfig,
+)
 
 
 LOGGING_CONFIG = {
@@ -74,6 +80,38 @@ LOGGING_CONFIG = {
         }
     },
 }
+
+
+def get_config_type(quant_config: dict) -> (AutoQuantizationConfig | QuantizationConfig):
+    """
+    Reads what type of CPU instruction set extensions are supported by the current computer hardware,
+    and based on that information decides what specific CPU vector instructions to use for the quantization configuration.
+
+    Args:
+        quant_config (dict): An object of valid configuration parameters to use when creating the QuantizationConfig object.
+    Returns:
+        QuantizationConfig: The type of quantization configuration with the correctly configured vector instruction for what is compatible with current hardware.
+    """
+    architecture = platform.machine().lower()
+
+    # For ARM Architecture
+    if 'arm' in architecture or 'aarch64' in architecture:
+        return AutoQuantizationConfig.arm64(**quant_config)
+
+    # For IBM PowerPC 64-bit Little Endian
+    if "ppc64le" in architecture or "powerpc" in architecture:
+        return AutoQuantizationConfig.ppc64le(**quant_config)
+
+    # For x86-64 Architecture
+    capabilities = torch.backends.cpu.get_cpu_capability()
+    match capabilities:
+        case 'AVX512':
+            return AutoQuantizationConfig.avx512(**quant_config)
+        case 'AVX2':
+            return AutoQuantizationConfig.avx2(**quant_config)
+        case _:
+            # DEFAULT architecture detected...
+            return QuantizationConfig(**quant_config)
 
 
 # USING PSUTIL FOR MEMORY PROFILING OF INDIVIDUAL FUNCTIONS

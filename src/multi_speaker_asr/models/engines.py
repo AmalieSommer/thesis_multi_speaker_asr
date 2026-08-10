@@ -1,36 +1,37 @@
-from optimum.onnxruntime import ORTModelForSpeechSeq2Seq, ORTModelForCTC
+import optimum.onnxruntime as opt_onnx
+from optimum.onnxruntime import ORTModelForSpeechSeq2Seq, ORTModelForCTC, ORTOptimizer, ORTQuantizer
 from transformers import (
     pipeline, 
     AutoModelForSpeechSeq2Seq, 
-    Wav2Vec2Processor, 
     AutoModelForCTC, 
     AutoProcessor, 
-    WhisperForConditionalGeneration, 
-    WhisperProcessor, 
-    WhisperConfig, 
-    AutoConfig,
-    WhisperTimeStampLogitsProcessor,
-    AutoTokenizer
+    WhisperProcessor,
+    AutoTokenizer,
+    AutoFeatureExtractor,
+    Wav2Vec2ProcessorWithLM,
+    AutomaticSpeechRecognitionPipeline
     )
-from huggingface_hub import hf_hub_download
+from datasets import Dataset
+from multi_speaker_asr.data import AudioDataset
+import ctranslate2.converters.transformers as ct2_transformers
+from optimum.exporters.tasks import TasksManager
+from optimum.onnxruntime.configuration import OptimizationConfig, AutoQuantizationConfig, AutoCalibrationConfig
+from huggingface_hub import hf_hub_download, list_repo_files
 from faster_whisper.tokenizer import Tokenizer
-import tokenizers
 import os
+from huggingface_hub import repo_exists
+from ctranslate2.models import Wav2Vec2
 from pyctcdecode import build_ctcdecoder
-import torchaudio
-from optimum.quanto import requantize
-from safetensors.torch import load_file
-from faster_whisper import WhisperModel, BatchedInferencePipeline
-from faster_whisper.audio import decode_audio, pad_or_trim
+from faster_whisper import WhisperModel
+from faster_whisper.audio import pad_or_trim
 import numpy as np
 import torch
-import json
-from ..utils.utils import profile, LOGGING_CONFIG
+from ..utils.utils import profile, LOGGING_CONFIG, get_config_type
 import logging
 import logging.config
 from pathlib import Path
-from accelerate import init_empty_weights
 from pywhispercpp.model import Model
+import onnxruntime as ort
 
 
 logging.config.dictConfig(LOGGING_CONFIG)
@@ -38,32 +39,56 @@ logger = logging.getLogger(name='Engine')
 HF_TOKEN = os.getenv('HF_TOKEN')
 
 class BaseEngine:
-    def __init__(self, model_path: str, device: str = 'cpu', sr: int = 16000, language: str = 'da', task: str = 'transcribe'):
+    def __init__(
+            self, 
+            model_path: str, 
+            model_type: str,
+            model_name: str,
+            device: str = 'cpu', 
+            sr: int = 16000, 
+            language: str = 'da', 
+            task: str = 'automatic-speech-recognition'
+            ):
         
-        self.model_path = model_path
+        self.model_name = model_name
+        self.model_type = model_type
         self.device = device
         self.sr = sr
         self.language = language
         self.task = task
 
+        if not isinstance(model_path, str) or not model_path.strip():
+            raise ValueError('Parameter model_path must be a non-empty string.')
+        self.model_path = model_path
+       
+
         self.processor = self.load_processor()
-        processor_memory = self.load_processor.memory_stats[0]
-        logger.info('Type: %s. Memory Stats of Processor...: Before load: %f, After load: %f, Delta: %f', self.model_type, processor_memory['before'], processor_memory['after'], processor_memory['delta'])
-
         self.model = self.load_model()
-        model_memory = self.load_model.memory_stats[0]
-        logger.info('Type: %s. Memory Stats of Model...: Before load: %f, After load: %f, Delta: %f', self.model_type, model_memory['before'], model_memory['after'], model_memory['delta'])
 
-    @profile
-    def load_processor(self):
+    def load_processor(self) -> AutoProcessor:
         return AutoProcessor.from_pretrained(self.model_path)
 
-    @profile
-    def load_model(self):
+
+    def load_model(self) -> AutoModelForSpeechSeq2Seq:
         return AutoModelForSpeechSeq2Seq.from_pretrained(self.model_path)
 
 
-    def transcribe(self, audio):
+    def save_model(self, output_path: str) -> None:
+        """
+        Save a model locally on disk at the specified output_path.
+        
+        Args:
+            output_path (str): The local path to store the model
+        """
+        write_path = Path(output_path)
+        if os.path.isfile(write_path) and os.path.exists(write_path):
+            raise ValueError('Cannot override existing filepath.')
+        
+        self.model.save_pretrained(output_path)
+        self.processor.save_pretrained(output_path)
+
+
+    def transcribe(self, audio, return_timestamps: bool):
         if not isinstance(audio, np.array):
             raise TypeError('Audio must be a numpy array')
         
@@ -72,253 +97,559 @@ class BaseEngine:
         pred_ids = self.model.generate(input_features)
 
         # Decode token ids back to text
-        transcription = self.processor.batch_decode(pred_ids, skip_special_tokens=True)
+        output = self.processor.batch_decode(pred_ids, skip_special_tokens=True)
+        if not return_timestamps:
+            return output
+        
+        transcription = []
+        for i, segment in enumerate(output):
+            end = len(audio[i]) / self.sr
+            transcription.append([{
+                'start': item['timestamp'][0],
+                'end': end if item['timestamp'][1] == None else item['timestamp'][1],
+                'text': item['text']
+            } for item in segment['chunks']])
+        
+        logger.debug('Model output: %s', transcription)
         return transcription
 
-    
+
+    def _get_model_path(self):
+        return self.model_path
+
+
+    def has_language_model(self) -> bool:
+        """
+        Helper function to determine whether to load the default processor with an LM or a custom one without the
+        LM, but with a standard CTC BeamSearch Decoder.
+
+        Returns:
+            bool: An indicator for whether a CTC model has an LM
+        """
+        required_files = {
+            'language_model',
+            'language_model.bin',
+            'language_model.arpa'
+        }
+        filepath = Path(self.model_path)
+        if filepath.exists():
+            has_lm = any((filepath / f).exists() for f in required_files)
+        else:
+            hf_files = list_repo_files(self.model_path)
+            has_lm = any('language_model' in f for f in hf_files)
+        return has_lm
+
+
+    def validate_filepath(self) -> str:
+        """
+        Given a filepath it will check whether the filepath is valid to either a local model or to a remote directory
+        on Huggingface containing a valid model.
+        """
+        filepath = self.model_path
+        if filepath == None:
+            raise ValueError('Filepath is None.')
+        if not isinstance(filepath, str):
+            raise ValueError('Filepath must be a string.')
+        filepath = filepath.strip()
+        if len(filepath) < 1:
+            raise ValueError('Filepath is empty.')
+        
+        path = Path(filepath)
+        if path.exists():
+            return 'local'
+
+        # Next check if the filepath is to a Huggingface model directory:
+        if repo_exists(repo_id=filepath):
+            return 'hub'
+
+        # Finally, raise error if no file was found at either location
+        raise FileNotFoundError('The file %s was not found either locally or on Huggingface', filepath)
+        
 
 class PytorchEngine(BaseEngine):
     def __init__(
             self, 
-            model_path, 
-            device = 'cpu', 
-            model_type: str = 'whisper',
+            model_path,
+            model_name: str,
+            model_type: str,
+            device = 'cpu',
             cpu_threads: int = 4,
-            compute_type: str = 'float32'
+            compute_type: str = 'float32',
+            language: str = 'da', 
+            task: str = 'automatic-speech-recognition'
             ):
-        
-        self.model_type = model_type
         self.compute_type = compute_type
-        super().__init__(model_path, device)
+        self.cpu_threads = cpu_threads
+        super().__init__(
+            model_path=model_path,
+            model_type=model_type,
+            model_name=model_name,
+            device=device,
+            language=language,
+            task=task
+        )
 
 
-    @profile
-    def load_model(self):            
-        if self.model_type == 'whisper':
-            model = pipeline(
-                                task='automatic-speech-recognition',
-                                model=self.model_path,
-                                language='da',
-                                dtype=torch.float32
-                            )
-        elif self.model_type == 'wav2vec2':
-            model = pipeline(
-                                task='automatic-speech-recognition',
-                                model=self.model_path,
-                                language='da',
-                                dtype=torch.float32
-                            )
-        return model
+    def load_model(self) -> AutomaticSpeechRecognitionPipeline:
+        model = None
+        match self.model_type:
+            case 'seq2seq':
+                model = AutoModelForSpeechSeq2Seq.from_pretrained(pretrained_model_name_or_path=self.model_path)
+            case 'ctc':
+                model = AutoModelForCTC.from_pretrained(pretrained_model_name_or_path=self.model_path)
+            case _:
+                raise ValueError('Parameter: model_type value is unknown. Pass in either ctc or seq2seq.')
+            
+        return  pipeline(
+                    task='automatic-speech-recognition',
+                    model=model,
+                    language='da',
+                    dtype=torch.float32,
+                    tokenizer=self.processor.tokenizer,
+                    feature_extractor=self.processor.feature_extractor
+                )
     
         
-    @profile
-    def load_processor(self):
-        path = self.model_path
+    def load_processor(self) -> (AutoProcessor | Wav2Vec2ProcessorWithLM):
+        match self.model_type:
+            case 'seq2seq':
+                return AutoProcessor.from_pretrained(pretrained_model_name_or_path=self.model_path)
+            case 'ctc':
+                if not self.has_language_model():
+                    return AutoProcessor.from_pretrained(self.model_path)
 
-        if self.model_type == 'whisper':
-            return WhisperProcessor.from_pretrained(path)
-        elif self.model_type == 'wav2vec2':
-            processor = Wav2Vec2Processor.from_pretrained(path)
-            vocab = processor.tokenizer.get_vocab()
-            sorted_vocab = [k for k, _ in sorted(vocab.items(), key=lambda x: x[1])]
-            self.ctc_decoder = build_ctcdecoder(
-                labels=sorted_vocab
-            )
-            return processor
-        else: 
-            return super().load_processor()
+                tokenizer = AutoTokenizer.from_pretrained(pretrained_model_name_or_path=self.model_path)
+                feature_extractor = AutoFeatureExtractor.from_pretrained(pretrained_model_name_or_path=self.model_path)
+                decoder = build_ctcdecoder(tokenizer.get_vocab())
+
+                return Wav2Vec2ProcessorWithLM(
+                    feature_extractor=feature_extractor,
+                    tokenizer=tokenizer,
+                    decoder=decoder
+                )
             
 
-    def transcribe(self, audio, language='da'):
-        if self.model_type == 'whisper':
-            # Run audio through processor to get features and generate token ids
-            with torch.no_grad():
-                output = self.model(audio)
-        elif self.model_type == 'wav2vec2':
-            # Run audio through processor to get features and generate token ids
-            with torch.no_grad():
-                output = self.model(audio)
-        else:
-            raise ValueError('Unknown model type...')
-        return [item['text'] for item in output]
+    def transcribe(self, audio, return_timestamps: bool):
+        if self.model_type not in ("seq2seq", "ctc"):
+            raise ValueError("Unknown model type...")
+
+        
+        with torch.no_grad():
+            output = self.model(audio)
+    
+        if not return_timestamps:
+            return [out['text'] for out in output]
+
+        transcription = []
+        for i, segment in enumerate(output):
+            end = len(audio[i]) / self.sr
+            transcription.append([{
+                'start': item['timestamp'][0],
+                'end': end if item['timestamp'][1] == None else item['timestamp'][1],
+                'text': item['text']
+            } for item in segment['chunks']])
+        
+        logger.debug('Model output: %s', transcription)
+        return transcription
 
 
 class OnnxEngine(BaseEngine):
     def __init__(
             self, 
             model_path, 
-            model_type: str = 'whisper', 
+            model_type: str, 
+            model_name: str,
             device = 'cpu', 
             sr = 16000, 
             language = 'da', 
-            task = 'transcribe',
-            use_saved_model: bool = False,
-            local_models_dir: str = None,
+            task = 'automatic-speech-recognition',
             cpu_threads: int = 4,
             compute_type: str = 'float32'
         ):
-        self.model_type = model_type
-        self.sr = sr
-        self.language = language
-        self.task = task
-        self.use_saved_model = use_saved_model
-        self.local_models_dir = local_models_dir
         self.cpu_threads = cpu_threads
         self.compute_type = compute_type
-        super().__init__(model_path, device)
+
+        super().__init__(
+            model_path=model_path,
+            model_type=model_type,
+            model_name=model_name,
+            device=device,
+            sr=sr,
+            language=language,
+            task=task
+        )
 
 
-    @profile
-    def load_model(self):
-        if self.model_type == 'whisper':
-            if self.compute_type == 'fp32':
-                model = ORTModelForSpeechSeq2Seq.from_pretrained(
-                            model_id='AmalieSommer/roest-v3-whisper-1.5b-onnx',
-                            encoder_file_name='encoder_model.onnx',
-                            decoder_file_name='decoder_model.onnx',
-                            decoder_with_past_file_name="decoder_with_past_model.onnx",
-                        )
-            elif self.compute_type == 'int8':
-                model = ORTModelForSpeechSeq2Seq.from_pretrained(
-                            model_id='AmalieSommer/roest-v3-whisper-1.5b-onnx-qint8',
-                            encoder_file_name='encoder_model_quantized.onnx',
-                            decoder_file_name='decoder_model_quantized.onnx',
-                            decoder_with_past_file_name="decoder_with_past_model_quantized.onnx",
-                        )
-            self.processor.feature_extractor.return_attention_mask = True
-            return pipeline(
-                    task='automatic-speech-recognition',
-                    model=model,
-                    tokenizer=self.processor.tokenizer,
-                    feature_extractor=self.processor.feature_extractor,
-                    return_timestamps=True,
-                    generate_kwargs={
-                        "language": "da"
-                    }
-                )
-        elif self.model_type == 'wav2vec2':
-            if self.compute_type == 'fp32':
-                model = ORTModelForCTC.from_pretrained(
-                            model_id='AmalieSommer/roest-v3-wav2vec2-315m-onnx'
-                        )
-            elif self.compute_type == 'int8':
-                model = ORTModelForCTC.from_pretrained(
-                            model_id='AmalieSommer/roest-v3-wav2vec2-315m-onnx-qint8'
-                        )
-            return pipeline(
-                task='automatic-speech-recognition',
-                model=model,
-                return_timestamps=True
-            )
+    def is_exported(self) -> bool:
+        """
+        Will check if the model directory contains .onnx files or not, to determine whether to include export=True
+        in the .from_pretrained() call.
+        """
+        path_location = self.validate_filepath()
+        if path_location == 'local':
+            path = Path(self.model_path)
+            if any(suffix =='.onnx' for suffix in path.suffixes):
+                return True
+
+        elif path_location == 'hub':
+            if any(suffix == '.onnx' for suffix in list_repo_files(repo_id=self.model_path)):
+                return True
+        return False
+                    
+
+    def load_model(self) -> AutomaticSpeechRecognitionPipeline:
+        supported_models = list(TasksManager.get_supported_model_type_for_task(task=self.task, exporter='onnx'))
+        if self.model_name in supported_models:
+
+            # Check whether the model_path is valid and if it leads to a local or a remote model repo:
+            export = False if self.is_exported() else True
+            model = None
+            input_name_attr = None
+            match self.model_type:
+                case 'seq2seq':
+                    model = ORTModelForSpeechSeq2Seq.from_pretrained(self.model_path, export=export)
+                    input_name_attr = 'input_features'
+                case 'ctc':
+                    model = ORTModelForCTC.from_pretrained(self.model_path, export=export)
+                    input_name_attr = 'input_values'
+                case _:
+                    raise ValueError('Parameter: model_type value is unknown. Pass in either ctc or seq2seq.')
+
+            if not hasattr(model, 'main_input_name'):
+                model.main_input_name = getattr(model.config, 'main_input_name', input_name_attr)
+            return  opt_onnx.pipeline(
+                        task=self.task,
+                        model=model,
+                        language=self.language,
+                        dtype=torch.float32,
+                        tokenizer=self.processor.tokenizer,
+                        feature_extractor=self.processor.feature_extractor
+                    )
         else:
-            raise ValueError('Model type was not recognized...')
+            # The model with model_name is not supported by transformer.onnx api for model export...
+            raise ValueError('The model %s is not supported for the task %s. Please select a different task or different model.', self.model_name, self.task)
 
         
 
+    def load_processor(self) -> (AutoProcessor | Wav2Vec2ProcessorWithLM):
+        match self.model_type:
+            case 'seq2seq':
+                return AutoProcessor.from_pretrained(pretrained_model_name_or_path=self.model_path)
+            case 'ctc':
+                if not self.has_language_model():
+                    return AutoProcessor.from_pretrained(self.model_path)
 
-    @profile
-    def load_processor(self):
-        if self.model_type == 'whisper':
-            if self.compute_type == 'fp32':
-                return WhisperProcessor.from_pretrained(
-                    pretrained_model_name_or_path='AmalieSommer/roest-v3-whisper-1.5b-onnx'
+                tokenizer = AutoTokenizer.from_pretrained(pretrained_model_name_or_path=self.model_path)
+                feature_extractor = AutoFeatureExtractor.from_pretrained(pretrained_model_name_or_path=self.model_path)
+                vocab = tokenizer.get_vocab()
+                sorted_vocab = sorted((id, token) for token, id in vocab.items())
+                labels = [token for id, token in sorted_vocab]
+                decoder = build_ctcdecoder(labels)
+
+                return Wav2Vec2ProcessorWithLM(
+                    feature_extractor=feature_extractor,
+                    tokenizer=tokenizer,
+                    decoder=decoder
                 )
-            elif self.compute_type == 'int8':
-                return WhisperProcessor.from_pretrained(
-                    pretrained_model_name_or_path='AmalieSommer/roest-v3-whisper-1.5b-onnx-qint8'
-                )
+
+
+    def apply_optimizations(self, optimizations_config: dict, output_path: str) -> str:
+        """
+        Uses Optimum OnnxRuntime optimization API to apply a series of selected optimization strategies to the currently loaded model.
+        It saves the optimized model to the chosen directory. If one wants to use the optimized model afterwards, simply pass the output_path 
+        into the .from_pretrained() function.
+
+        Args:
+            optimizations_config (dict): A dictionary of valid optimization parameters for the OptimizationConfig object.
+            output_path (str): A valid string representation for a path to a local directory for saving the optimized model
+
+        Returns:
+            str: The path to the local directory storing the optimized model
+        """
+        if self.model is None:
+            raise ValueError('Failed because model is None')
+        if optimizations_config is None or output_path is None:
+            raise ValueError('Parameter cannot be None.')
+        if not isinstance(optimizations_config, dict) or len(optimizations_config.keys()) == 0:
+            raise TypeError('Parameter quant_config must be a non-empty dictionary.')
+        if not isinstance(output_path, str) or len(output_path.strip()) == 0:
+            raise TypeError('Parameter output_path must be a non-empty string.')
+        try: 
+            optimizer = ORTOptimizer.from_pretrained(model_or_path=self.model.model)
+        except NotImplementedError as e:
+            logger.info(e)
+
+            # Optimization not supported by Optimum... Applying optimization using OnnxRuntime
+            exported_onnx_path = Path(self.model.model.model_save_dir) / "model.onnx"
+            session_options = ort.SessionOptions()
+            optimization_level = optimizations_config.get('optimization_level')
+            if optimization_level == 1:
+                session_options.graph_optimization_level = ort.GraphOptimizationLevel.ORT_ENABLE_BASIC
+            elif optimization_level == 2:
+                session_options.graph_optimization_level = ort.GraphOptimizationLevel.ORT_ENABLE_EXTENDED
+
+            opt_filepath = Path(output_path) / 'model.onnx'
+            session_options.optimized_model_filepath = str(opt_filepath)
+            _ = ort.InferenceSession(path_or_bytes=str(exported_onnx_path), sess_options=session_options)
+            return Path(os.path.dirname(opt_filepath))
+
+        configuration = OptimizationConfig(**optimizations_config)
+        return optimizer.optimize(save_dir=output_path, optimization_config=configuration)
+
+
+    def apply_quantization(
+            self, 
+            quantization_type: str, 
+            quant_config: dict, 
+            output_path: str, 
+            calibration_data_config: dict = None,
+            calibration_num_samples: int = 50
+            ) -> Path:
+        """
+        Uses Optimum[OnnxRuntime] API for applying either dynamic or static quantization.
+        It will apply quantization according to the valid parameters specified in the quantization configuration.
+
+        A note from the library is that only dynamic quantization is supported for Seq2Seq models.
+
+        Args:
+            quantization_type (str): Should be either \'dynamic\' or \'static\' to represent the type of quantization to perform
+            quant_config (dict): A dictionary object containing the valid configuration parameters to apply
+            output_path (str): Path to the directory for saving the model
+
+        Returns:
+            Path: The path of the resulting quantized model.
+        """
+        # ------------- Valid input check -------------
+        if quantization_type is None or quant_config is None or output_path is None:
+            raise ValueError('Parameter cannot be None.')
+        if not isinstance(quantization_type, str) or len(quantization_type.strip()) == 0:
+            raise TypeError('Parameter quantization_type must be a non-empty string.')
+        if not isinstance(quant_config, dict) or len(quant_config.keys()) == 0:
+            raise TypeError('Parameter quant_config must be a non-empty dictionary.')
+        if not isinstance(output_path, str) or len(output_path.strip()) == 0:
+            raise TypeError('Parameter output_path must be a non-empty string.')
+
+        if self.model is None:
+            raise ValueError('Failed because model is currently None')
+        
+        # Define the quantization strategy:
+        match quantization_type:
+            case 'dynamic':
+                # Apply dynamic quantization:
+                dynamic_quant_config = get_config_type(quant_config=quant_config)
+                if self.model_type == 'seq2seq':
+                    # Iterate over each .onnx file and apply the quantization strategy
+                    model_dir = self.model.model.model_save_dir
+                    onnx_models = list(Path(model_dir).glob(pattern='*.onnx'))
+                    # Create a quantizer for each onnx file
+                    quantizers = [
+                        ORTQuantizer.from_pretrained(model_or_path=model_dir, file_name=onnx_model.name)
+                        for onnx_model in onnx_models
+                    ]
+                    # Apply the quantization config to each onnx model
+                    quant_modelpath = Path('')
+                    for quant in quantizers:
+                        quant_modelpath = quant.quantize(
+                            quantization_config=dynamic_quant_config,
+                            save_dir=output_path
+                        )
+                    return quant_modelpath
+                else:
+                    # Quantize just the single .onnx file
+                    quantizer = ORTQuantizer.from_pretrained(model_or_path=self.model.model)
+                    return quantizer.quantize(
+                        quantization_config=dynamic_quant_config,
+                        save_dir=output_path
+                    )
             
-        elif self.model_type == 'wav2vec2':
-            return Wav2Vec2Processor.from_pretrained('AmalieSommer/roest-v3-wav2vec2-315m-onnx')
-        else: 
-            return super().load_processor()
+            case 'static':
+                static_quant_config = get_config_type(quant_config=quant_config)
 
-
-    def transcribe(self, audio, language: str = 'da'):
-        transcription = []
-        if self.model_type == 'whisper':
-            with torch.no_grad():
-                output = self.model(audio)
-
-                for i, segment in enumerate(output):
-                    end = len(audio[i]) / self.sr
-                    transcription.append([{
-                        'start': item['timestamp'][0],
-                        'end': end if item['timestamp'][1] == None else item['timestamp'][1],
-                        'text': item['text']
-                    } for item in segment['chunks']])
+                if self.model_type == 'seq2seq':
+                    raise TypeError('Optimum-ONNX currently do not provide static quantization support for Seq2Seq models.')
+                if calibration_data_config is None:
+                    raise ValueError('Parameter calibration_data is None')
                 
-                logger.debug('Model output: %s', transcription)
-          
-        elif self.model_type == 'wav2vec2':
-            with torch.no_grad():
-                output = self.model(audio)
-                for i, segment in enumerate(output):
-                    end = len(audio[i]) / self.sr
-                    transcription.append([{
-                        'start': item[0],
-                        'end': end if item[1] == None else item[1],
-                        'text': item['text']
-                    } for item in segment['chunks']])           
-                logger.debug('Model output: %s', transcription)
-        else:
-            raise ValueError('Unknown model type...')
+                quantizer = ORTQuantizer.from_pretrained(model_or_path=self.model.model)
+                calib_ds = Dataset.from_list(self.generate_calibration_dataset(ds_config=calibration_data_config, num_samples=calibration_num_samples))
+                calibration_config = AutoCalibrationConfig.minmax(calib_ds)
+                ranges = quantizer.fit(
+                    dataset=calib_ds,
+                    calibration_config=calibration_config,
+                    operators_to_quantize=static_quant_config.operators_to_quantize
+                )
+                return quantizer.quantize(
+                    save_dir=output_path,
+                    calibration_tensors_range=ranges,
+                    quantization_config=static_quant_config
+                )
+            case _:
+                raise ValueError('The quantization_type must be either \'dynamic\' or \'static\', but found %s', quantization_type)
+            
+
+    def generate_calibration_dataset(self, ds_config: dict, num_samples: int = 50) -> list[dict]:
+        """
+        A custom function for generating the calibration dataset to be used for Post-Training Quantization (PTQ).
+
+        Args:
+            ds_config (dict): A dictionary with configuration parameters to initialize the dataset
+            num_samples (int): The number of samples to include in the calibration dataset
+        
+        Returns:
+            list: A list of audio numpy arrays
+        """
+        ds = AudioDataset(data_config=ds_config)
+
+        count = 0
+        result = []
+        for sample in ds:
+            if count >= num_samples:
+                return result
+
+            result.append({
+                'input_values': sample['audio']
+            })
+            count += 1
+        return result
+        
+
+    def transcribe(self, audio, return_timestamps: bool) -> list[list | str]:
+        if self.model_type not in ("seq2seq", "ctc"):
+            raise ValueError("Unknown model type...")
+
+        
+        with torch.no_grad():
+            output = self.model(audio)
+    
+        if not return_timestamps:
+            return [out['text'] for out in output]
+
+        transcription = []
+        for i, segment in enumerate(output):
+            end = len(audio[i]) / self.sr
+            transcription.append([{
+                'text': item['text'],
+                'start': item['timestamp'][0],
+                'end': end if item['timestamp'][1] == None else item['timestamp'][1]
+            } for item in segment['chunks']])
+        
+        logger.debug('Model output: %s', transcription)
         return transcription
 
 
 class CT2(BaseEngine):
-    def __init__(self, model_path, model_type, device = 'cpu', compute_type: str = 'int8', cpu_threads: int = 6, intra_batched_inference: bool = False):
-        self.compute_type = 'float32' if compute_type == 'fp32' else 'int8'
+    def __init__(
+            self, 
+            model_path, 
+            model_name: str,
+            model_type: str, 
+            device = 'cpu',
+            sr: int = 16000,
+            compute_type: str = 'int8', 
+            cpu_threads: int = 6,
+            language: str = 'da', 
+            task: str = 'automatic-speech-recognition'
+            ):
+
+        supported_architectures = sorted(list(ct2_transformers._SUPPORTED_MODELS.keys()))
+        if model_name not in supported_architectures:
+            raise ValueError('The model: %s is not currently supported by the CTranslate2 library', model_name)
+
+
+        if not isinstance(model_path, str) or not model_path.strip():
+            raise ValueError('Parameter model_path must be a non-empty string.')
+
+        if (not repo_exists(repo_id=model_path)) and (not os.path.exists(path=model_path)):
+            raise FileNotFoundError('The model_path %s was not found on Huggingface or locally. Please verify that the model exists either locally or remotely.') 
+
+        self.compute_type = compute_type
         self.cpu_threads = cpu_threads
-        self.model_type = model_type
-        self.intra_batched_inference = intra_batched_inference
-        super().__init__(model_path, device)
 
+        self.processor = self.load_processor()
+        self.model = self.load_model()
+        self.tokenizer = self.load_tokenizer()
 
-    @profile
-    def load_model(self):
-        model = WhisperModel(
-            model_size_or_path='pluttodk/roest-v3-whisper-1.5b-ct2', 
-            device=self.device,
-            compute_type=self.compute_type,
-            cpu_threads=self.cpu_threads
+        super().__init__(
+            model_path=model_path,
+            model_type=model_type,
+            model_name=model_name,
+            device=device,
+            sr=sr,
+            language=language,
+            task=task
         )
-        if self.intra_batched_inference:
-            return BatchedInferencePipeline(
-                model=model
-            )
-        return model
 
-    @profile
+
+
+    def load_model(self) -> (WhisperModel | Wav2Vec2):
+        if str.lower(self.model_name) == 'whisper':
+            return WhisperModel(
+                model_size_or_path=self.model_path, 
+                device=self.device,
+                compute_type=self.compute_type,
+                cpu_threads=self.cpu_threads
+            )
+        
+        if str.lower(self.model_name) == 'wav2vec2':
+            return Wav2Vec2(self.model_path)
+
+        # TODO: Add support for additional ASR models
+        raise ValueError('Currently only support CTranslate2 engines for Whisper and Wav2Vec2 models.')
+
+
     def load_processor(self):
-        processor = WhisperProcessor.from_pretrained('pluttodk/roest-v3-whisper-1.5b-ct2')
+        processor = WhisperProcessor.from_pretrained(self.model_path)
         return processor
 
 
-    def transcribe(self, audio_batch, language: str = 'da', task: str = 'transcribe', chunk_length: int = 30):
+    def load_tokenizer(self):
+        tokenizer = Tokenizer(
+            self.model.hf_tokenizer,
+            self.model.model.is_multilingual,
+            task=self.task,
+            language=self.language,
+        )
+        return tokenizer
+
+
+    def timestamps_helper(
+            self,
+            tokenizer: Tokenizer,
+            tokens: list[int],
+            time_precision: float = 0.02
+    ):
+        segments = []
+        current_start = None
+        text_tokens = []
+
+        for token in tokens:
+            if token >= tokenizer.timestamp_begin:
+                timestamp = (token - tokenizer.timestamp_begin) * time_precision
+
+                if current_start is None:
+                    current_start = timestamp
+                else:
+                    if text_tokens:
+                        segments.append(
+                            {
+                                "start": current_start,
+                                "end": timestamp,
+                                "text": tokenizer.decode(text_tokens).strip(),
+                            }
+                        )
+                    current_start = timestamp
+                    text_tokens = []
+            else:
+                text_tokens.append(token)
+
+        return segments
+
+
+    def transcribe(self, audio_batch, return_timestamps: bool, chunk_length: int = 30):
         if not isinstance(audio_batch, (list, np.ndarray)):
             audio_batch = [audio_batch]
 
-        if self.intra_batched_inference:
-            output, _ = self.model.transcribe(
-                        audio_batch[0],
-                        language=self.language,
-                        vad_filter=True,
-                        word_timestamps=False,
-                        without_timestamps=False
-                        )
-            result = []
-            for segment in output:
-                result.append({
-                    'text': segment.text,
-                    'start': segment.start,
-                    'end': segment.end,
-                    'tokens': segment.tokens,
-                    'avg_logprob': segment.avg_logprob
-                })
-            return result
 
-        # Otherwise, run a normal inter-batched inference run
         features_list = []
         previous_tokens = []
         for audio in audio_batch:
@@ -326,15 +657,10 @@ class CT2(BaseEngine):
             features_list.append(pad_or_trim(feature))
         batched_features = np.stack(features_list)
 
-        tokenizer = Tokenizer(
-                    self.model.hf_tokenizer,
-                    self.model.model.is_multilingual,
-                    task=task,
-                    language=language,
-                )
+        
         
         prompt = self.model.get_prompt(
-            tokenizer=tokenizer,
+            tokenizer=self.tokenizer,
             previous_tokens=previous_tokens,
             without_timestamps=True
         )
@@ -350,8 +676,16 @@ class CT2(BaseEngine):
         transcriptions = []
         for result in results:
             tokens = result.sequences_ids[0]
-            text = tokenizer.decode(tokens).strip()
-            transcriptions.append(text)
+
+            if return_timestamps:
+                segments = self.timestamps_helper(tokenizer=self.tokenizer, tokens=tokens)
+                transcriptions.append({
+                    'text': ''.join([item['text'] for item in segments]),
+                    'segments': segments
+                })
+            else:
+                text = self.tokenizer.decode(tokens).strip()
+                transcriptions.append(text)
         return transcriptions
 
 
@@ -372,9 +706,14 @@ class WhisperCPP(BaseEngine):
 
         if model_type != 'whisper':
             raise ValueError('Model_type must be a whisper model when using the Whisper.cpp engine...')
-
-        self.model_type = model_type
-        super().__init__(model_path, device, sr, language, task)
+        super().__init__(
+            model_path=model_path,
+            model_type=model_type,
+            device=device,
+            sr=sr,
+            language=language,
+            task=task
+        )
 
     @profile
     def load_model(self):
@@ -405,7 +744,7 @@ class WhisperCPP(BaseEngine):
     def load_processor(self):
         pass
         
-    def transcribe(self, audio, language='da'):
+    def transcribe(self, audio):
         if not isinstance(audio, (list, tuple)):
             return self.model.transcribe(audio, extract_probability=True)
 

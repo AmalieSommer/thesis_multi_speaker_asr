@@ -1,8 +1,7 @@
-from multi_speaker_asr.data import AudioDataset, Audio, AudioData
-from multi_speaker_asr.models.asr import WhisperPipeline, RoestASR
+from multi_speaker_asr.data import AudioDataset
+from multi_speaker_asr.models.asr import ASR
 from pyannote.audio.pipelines.utils.hook import ProgressHook
-from multi_speaker_asr.models.diarization import Diarize, RollingClusters
-from datasets import Dataset
+from multi_speaker_asr.models.diarization import SpeakerDiarizationPipeline
 from multi_speaker_asr.models.alignment import Wav2Vec2
 import torch
 from multi_speaker_asr.utils.utils import LOGGING_CONFIG, profile, save_asr_results, save_logits
@@ -38,16 +37,6 @@ logging.getLogger("faster_whisper").setLevel(logging.DEBUG)
 
 logger = logging.getLogger(name='Evaluate')
 proc = psutil.Process(os.getpid())
-
-
-def warmup(inference_fn, model, init_input, num_runs, cleanup=False):
-    metadata = Dataset.from_csv(init_input).to_iterable_dataset()
-    dataset = AudioDataset(metadata=metadata, mode='segments')
-    loader = DataLoader(dataset=dataset, batch_size=3, shuffle=False, num_workers=1, collate_fn=dataset.collator)
-    start_time = time.perf_counter()
-    _ = inference_fn(None, loader, model, num_runs, True)
-    return time.perf_counter() -start_time
-    
 
 
 
@@ -95,7 +84,6 @@ def evaluate_inference(output_filepath: str, loader: DataLoader, model: RoestASR
     except Exception as e:
         traceback.print_exc()
         raise RuntimeError(e)
-        #logger.error('Failed with error: %s', e)
     finally:
         del loader
         del model
@@ -105,7 +93,6 @@ def evaluate_inference(output_filepath: str, loader: DataLoader, model: RoestASR
 
 def evaluate_diarization(output_filepath: str, loader: DataLoader, max_epochs: int = 3):
     try:
-        cluster_registry = RollingClusters()
         model = Diarize()
         model.load()
         tracker = CarbonTracker(epochs=max_epochs)
