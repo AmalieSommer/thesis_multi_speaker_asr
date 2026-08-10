@@ -31,7 +31,7 @@ CWD = os.getcwd()
 
 COLUMN_MAPPING = {
     "audio": ["audio", "wav_path", "file", "filepath", "audio_filepath", 'path'],
-    "sample_id": ["sample_id", "id", "utterance_id", "id_recording", 'id_conversation', 'meeting_id'],
+    "sample_id": ["sample_id", "id", "utterance_id", "id_recording", 'id_conversation', 'meeting_id', 'audio_id']
 }
 
 

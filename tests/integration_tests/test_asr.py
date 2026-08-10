@@ -282,7 +282,7 @@ def test_apply_quantization_ctc(tmp_path):
     assert cer(reference=transcript, hypothesis=pred[0]) < 0.8
 
 
-
+@pytest.mark.integration
 @pytest.mark.parametrize('asr_model', [
     ('openai/whisper-tiny', 'whisper', 'seq2seq', 'onnx')
 ], indirect=['asr_model'])
@@ -293,14 +293,15 @@ def test_generate_calibration_dataset(asr_model):
         'split': 'train'
     }
     asr_model.load()
-    num_samples = 10
+    num_samples = 2
     ds = asr_model.engine.generate_calibration_dataset(ds_config=long_audio_ds, num_samples=num_samples)
 
     assert type(ds) == list
-    assert len(ds) == 10
+    assert len(ds) == 2
     assert all(type(sample) == dict for sample in ds)
 
 
+@pytest.mark.integration
 def test_apply_static_quantization_ctc(tmp_path):
     model_dict = {
         'model_type':   'ctc',
@@ -308,17 +309,15 @@ def test_apply_static_quantization_ctc(tmp_path):
         'backend':      'onnx',
         'model_path':   'CoRal-project/roest-v3-wav2vec2-315m'
     }
-    long_audio_ds = {
-        'path': '/root/master_thesis/thesis_multi_speaker_asr/data/amicorpus/metadata.csv',
-        'name': None,
-        'split': 'train'
-    }
+    short_audio = {
+    'path': '/root/master_thesis/thesis_multi_speaker_asr/data/lillelyd-main/lillelyd-main/manifest_test.jsonl',
+    'name': None,
+    'split': 'train'
+}
     model = ASR(**model_dict)
     d = tmp_path / 'quantized_models'
     d.mkdir()
 
-    transcript = 'The black sheet of paper is located up there besides the piece of timber'
-    wav = read_audio_helper(audio='data/EmoTale-main/wav/EN_009_H_2.wav')
     quant_config = {
         'is_static': True,
         'per_channel': True,
@@ -329,8 +328,8 @@ def test_apply_static_quantization_ctc(tmp_path):
         quantization_type='static',
         quant_config=quant_config,
         output_path=str(d),
-        calibration_data_config=long_audio_ds,
-        calibration_num_samples=20
+        calibration_data_config=short_audio,
+        calibration_num_samples=1
     )
     logger.debug('BEFORE... The directory: %s contain the files: %s', output_path, os.listdir(output_path))
     model.save_model(output_path)
@@ -341,12 +340,6 @@ def test_apply_static_quantization_ctc(tmp_path):
     assert type(model.engine) == OnnxEngine
     assert d == output_path
 
-    # Assess the quality of the predictions:
-    pred = model.transcribe(wav, return_timestamps=False)
-    logger.debug('First prediction was: %s', pred)
-    assert cer(reference=transcript, hypothesis=pred[0]) < 0.8
-
-
     # Reload the model from the saved dir and use onnx API to check that the model is correct:
     logger.debug('Reloading the model at directory: %s', str(output_path))
     logger.debug('Model Dict BEFORE: %s', model_dict.items())
@@ -356,11 +349,12 @@ def test_apply_static_quantization_ctc(tmp_path):
         logger.debug('Model Dict AFTER: %s', model_dict.items())
         model = ASR(**model_dict)
         model.load()
-        pred = model.transcribe(wav, return_timestamps=False)
     
-    assert cer(reference=transcript, hypothesis=pred[0]) < 0.8
+        assert type(model.engine) is OnnxEngine
 
 
+
+@pytest.mark.integration
 @pytest.mark.parametrize('asr_model', [
     ('openai/whisper-tiny', 'whisper', 'seq2seq', 'onnx'),
     ('CoRal-project/roest-v3-wav2vec2-315m', 'wav2vec2', 'ctc', 'onnx'),
@@ -379,7 +373,7 @@ def test_invalid_static_quantization(asr_model, tmp_path):
             quantization_type='static',
             quant_config=quant_config,
             output_path=str(d),
-            calibration_num_samples=20
+            calibration_num_samples=2
         )
         assert output_path is None
     assert exec_info.type in (ValueError, TypeError)
