@@ -2,6 +2,7 @@ from multi_speaker_asr.models.alignment import Alignment
 import pytest
 from transformers import Wav2Vec2ForCTC
 import torchaudio
+import torchaudio.functional as F
 from whisperx.types import AlignedTranscriptionResult, SingleSegment
 
 
