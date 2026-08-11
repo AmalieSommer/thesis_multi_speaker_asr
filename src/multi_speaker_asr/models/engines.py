@@ -89,13 +89,15 @@ class BaseEngine:
     def transcribe(self, audio, return_timestamps: bool):
         if not isinstance(audio, np.array):
             raise TypeError('Audio must be a numpy array')
-        
-        # Run audio through processor to get features and generate token ids
-        input_features = self.processor(audio, sampling_rate=self.sr, return_tensors='pt').input_features
-        pred_ids = self.model.generate(input_features)
 
-        # Decode token ids back to text
-        output = self.processor.batch_decode(pred_ids, skip_special_tokens=True)
+        with torch.no_grad():
+            # Run audio through processor to get features and generate token ids
+            input_features = self.processor(audio, sampling_rate=self.sr, return_tensors='pt').input_features
+            pred_ids = self.model.generate(input_features)
+
+            # Decode token ids back to text
+            output = self.processor.batch_decode(pred_ids, skip_special_tokens=True)
+
         if not return_timestamps:
             return output
         
@@ -120,16 +122,21 @@ class BaseEngine:
 
         if not return_timestamps:
             log.debug('MODEL TYPE (%s).... Model output: %s', self.model_type, output)
-            return [[{'text': out['text']}] for out in output]
+            return [{'text': out['text']} for out in output]
 
         transcription = []
         for i, segment in enumerate(output):
             end = len(audio[i]) / self.sr
-            transcription.append([{
-                'start': item['timestamp'][0],
-                'end': end if item['timestamp'][1] == None else item['timestamp'][1],
-                'text': item['text']
-            } for item in segment['chunks']])
+            transcription.append({
+                'text': segment.get('text', ''),
+                'chunks': [
+                    {
+                        'start': item['timestamp'][0],
+                        'end': end if item['timestamp'][1] is None else item['timestamp'][1],
+                        'text': item['text']
+                    } for item in segment['chunks']
+                ]
+            })
         
         log.debug('MODEL TYPE (%s).... Model output: %s', self.model_type, transcription)
         return transcription
@@ -550,7 +557,7 @@ class OnnxEngine(BaseEngine):
 
         with torch.no_grad():
             output = self.model(audio, return_timestamps=return_timestamps)
-        return self.format_output(output=output, audio=audio, return_timestamps=return_timestamps)    
+        return self.format_output(output=output, audio=audio, return_timestamps=return_timestamps)
         
 
 

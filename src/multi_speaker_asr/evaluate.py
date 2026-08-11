@@ -1,6 +1,5 @@
 from multi_speaker_asr.data import AudioDataset
-from pyannote.audio.pipelines.utils.hook import ProgressHook
-from multi_speaker_asr.models.alignment import Wav2Vec2
+from multi_speaker_asr.models.asr import ASR
 import torch
 import gc
 import time
@@ -18,12 +17,107 @@ import librosa
 from carbontracker.tracker import CarbonTracker
 import traceback
 import inspect
+import os
+import json
+from multi_speaker_asr.utils.memory_tracking import MemoryTracker
 
 
 log = logging.getLogger(__name__)
 
 
-def evaluate_inference(output_filepath: str, loader: DataLoader, model: RoestASR, max_epochs=3, warmup=False):
+
+def asr_inference(results_filepath: str, data_config: dict, model_config: dict, batch_size: int = 5, timestamps: bool = True) -> list[dict]:
+    """
+    A function for running inference of the asr module of the pipeline. 
+    It creates a dataset, loader and the ASR model to be used, then process all batches while saving the results to a .jsonl file, as well as returns all results.
+
+    Args:
+        results_filepath (str): The filepath for saving the results
+        data_config (dict): A dictionary object for holding all relevant configuration parameters
+        model_config (dict): A dictionary object for holding all relevant configuration parameters for instantiating the model
+        batch_size (int): Number of samples in a batch
+        timestamps (bool): A boolean value to indicate whether to return word-based timestamps or no timestamps at all
+    
+    Returns:
+        list[dict]: A list of dictionary objects, one for each audio sample.
+    """
+    if results_filepath is None:
+        raise ValueError('Filepath was None.')
+    os.makedirs(os.path.dirname(results_filepath), exist_ok=True)
+    if os.path.exists(results_filepath):
+        log.info('Result already exists. Loading results from existing directory: %s', results_filepath)
+        loaded_results = []
+        with open(results_filepath, 'r', encoding='utf-8') as f:
+            for line in f:
+                if line.strip():
+                    loaded_results.append(json.loads(line))
+        return loaded_results
+
+    log.info('Loading audio batch for ASR:')
+    data = AudioDataset(data_config=data_config)
+    loader = DataLoader(
+        dataset=data,
+        batch_size=batch_size,
+        collate_fn=data.collator
+    )
+    pipeline = ASR(**model_config)
+    pipeline.load()
+
+    # Start memory tracking:
+    mem_tracker = MemoryTracker()
+    mem_tracker.start()
+
+    output_results = []
+    with open(results_filepath, 'w', encoding="utf-8") as f:
+        for batch in loader:
+            if not batch:
+                continue
+            try:
+                ts = None
+                if timestamps:
+                    if pipeline.model_type == 'ctc':
+                        ts = 'word'
+                    elif pipeline.model_type == 'seq2seq':
+                        ts = True
+                log.info('Running transcription')
+                prediction = pipeline.transcribe(audio_batch=batch['audio'], return_timestamps=ts)
+            except Exception as e:
+                log.error('Failed with error: %s', e)
+                continue
+
+            batch_result = [
+                    {'sample_id': s_id, 'result': pred} 
+                    for s_id, pred in zip(batch['sample_id'], prediction)
+                ]
+            for item in batch_result:
+                f.write(json.dumps(item, ensure_ascii=False) + '\n')
+                output_results.append(item)
+
+    # Stop the memory tracker and log the memory use:
+    avg_mem, peak_mem = mem_tracker.stop()
+    log.info('ASR inference... Avg memory: %s, Peak memory: %s', avg_mem, peak_mem)
+
+    del pipeline
+    del loader
+    return output_results
+
+
+
+def diarization_inference():
+    pass
+
+
+
+def alignment_inference():
+    pass
+
+
+
+
+
+
+
+def evaluate_inference(output_filepath: str, loader: DataLoader, model: RoestASR, max_epochs=3):
     
     tracker = CarbonTracker(epochs=max_epochs)
     try:

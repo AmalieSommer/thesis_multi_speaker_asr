@@ -3,19 +3,15 @@ import io
 from datasets import load_dataset, Audio, Dataset
 from torch.utils.data import IterableDataset
 from faster_whisper.vad import VadOptions, get_speech_timestamps
-from faster_whisper.audio import decode_audio, pad_or_trim
-import soundfile as sf
-from multi_speaker_asr.utils.utils import LOGGING_CONFIG
-from multi_speaker_asr.utils.vad import collect_audio_chunks, get_timestamps
 import logging
 from pathlib import Path
 import torch
-from silero_vad import load_silero_vad, read_audio, get_speech_timestamps
+from silero_vad import load_silero_vad, get_speech_timestamps
 import torchaudio
 import torchaudio.functional as F
 from huggingface_hub import dataset_info
 from huggingface_hub.errors import HFValidationError
-from datasets import load_dataset, load_from_disk
+from datasets import load_dataset
 
 
 log = logging.getLogger(__name__)
@@ -123,8 +119,22 @@ class AudioDataset(IterableDataset):
         return wav[(start * target_sr) : (end * target_sr)], sr
  
 
-    def collator(self, batch):
-        return batch
+    def collator(self, batch) -> dict[list]:
+        """
+        Takes a list of sample dict objects and changes their format to a dict of lists, where each key, value
+        pair corresponds to a single sub-part of the original sample.
+
+        Args:
+            batch (list[dict]): The list of yielded samples from the iterable dataset
+
+        Returns:
+            dict: A dictionary with k,v pairs mapping to lists.
+        """
+        if batch is None or len(batch) == 0:
+            return {}
+
+        return {k: [sample[k] for sample in batch] for k in batch[0].keys()}
+    
         
 
     def search_cutoff_points(self, audio_np, sample_info, sr: int = 16000, max_sec: int = 30, search_window_sec: int = 5, grace_sec: float = 0.5, min_remainder_sec: int = 10):
@@ -140,14 +150,14 @@ class AudioDataset(IterableDataset):
             So, if the remainder of audio is less than the minimum duration threshold, it concatenates the remainder to the audio segment. Meaning the maximum audio duration
             is max_sec + min_remainder_sec.
 
-            Parameters:
-                - audio_np\: Numpy array representing the audio file
-                - sample_info\: A dict object containing metadata information on the sample
-                - sr\: Integer representing the samplerate of the audio file
-                - max_sec\: Integer representing the maximum duration, allowed to be yielded, of an audio sample
-                - search_window_sec\: Integer representing the range of samples surrounding the max_samples to be passed to the VAD model
-                - grace_sec\: Float representing the grace period after the hard cut-off point to allow as a possible cut-off index, since the aim is to choose the cut-off index closest to the max_sec
-                - min_remainder_sec\: Integer representing the minimum duration of an audio sample allowed
+            Args:
+                audio_np (ndarray): Numpy array representing the audio file
+                sample_info (dict): A dict object containing metadata information on the sample
+                sr (int): Integer representing the samplerate of the audio file
+                max_sec (int): Integer representing the maximum duration, allowed to be yielded, of an audio sample
+                search_window_sec (int): Integer representing the range of samples surrounding the max_samples to be passed to the VAD model
+                grace_sec (float): Float representing the grace period after the hard cut-off point to allow as a possible cut-off index, since the aim is to choose the cut-off index closest to the max_sec
+                min_remainder_sec (int): Integer representing the minimum duration of an audio sample allowed
         """
 
         max_samples = int(max_sec * sr)
