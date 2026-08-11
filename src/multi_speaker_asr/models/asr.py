@@ -1,18 +1,14 @@
-import json
-from optimum.quanto import quantize, qtype, freeze, quantization_map
-from ..utils.utils import LOGGING_CONFIG
 import logging
-import logging.config
 from .engines import BaseEngine, CT2, OnnxEngine, PytorchEngine, WhisperCPP
 import os
 from pathlib import Path
 from huggingface_hub.utils import validate_repo_id
 from huggingface_hub.errors import HFValidationError
-import torch
 from transformers import Wav2Vec2Processor, Wav2Vec2ProcessorWithLM
 
-logging.config.dictConfig(LOGGING_CONFIG)
-logger = logging.getLogger(name='ASR')
+
+log = logging.getLogger(__name__)
+
 
 class ASR:
     def __init__(self, model_type: str, model_name: str, model_path: str, backend: str, device: str = 'cpu', batch_size=4):

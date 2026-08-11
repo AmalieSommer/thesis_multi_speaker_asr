@@ -1,4 +1,3 @@
-from multi_speaker_asr.utils.utils import LOGGING_CONFIG
 import os
 from multi_speaker_asr.evaluate import (
     asr_inference,
@@ -14,22 +13,13 @@ from dotenv import load_dotenv
 import yaml
 import argparse
 import logging
-import logging.config
-import timeit
 from multi_speaker_asr.data import AudioData, AudioDataset
 from datasets import load_dataset, Dataset, Audio
 from torch.utils.data import DataLoader
 from multi_speaker_asr.models.asr import RoestASR
 from optimum.quanto import qint8, qint4, qint2
 
-
- 
-
-
-
-
-logging.config.dictConfig(LOGGING_CONFIG)
-logger = logging.getLogger(name='Main')
+log = logging.getLogger(__name__)
 
 torch.set_num_threads(6)
 torch.set_num_interop_threads(6)

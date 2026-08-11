@@ -1,6 +1,4 @@
-from ..utils.utils import profile, LOGGING_CONFIG
 import logging
-import logging.config
 import os
 import numpy as np
 from einops import rearrange
@@ -25,10 +23,9 @@ from diart import SpeakerDiarization, SpeakerDiarizationConfig
 from diart.inference import StreamingInference
 from diart.sources import AudioSource
 
-logging.config.dictConfig(LOGGING_CONFIG)
-logger = logging.getLogger(name='Diarization')
-HF_TOKEN = os.getenv('HF_TOKEN')
 
+HF_TOKEN = os.getenv('HF_TOKEN')
+log = logging.getLogger(__name__)
 
 
 class NumpyArrAudioSource(AudioSource):
@@ -70,7 +67,7 @@ class NumpyArrAudioSource(AudioSource):
         TODO: Could refactor the input reformatting to the Dataset class, such that the audio passed to the NumpyAudioSource is a list of chunks of the correct size already.
         """
         # Stream blocks
-        logger.debug('Reading the input stream...')
+        log.debug('Reading the input stream...')
         # Split into blocks
         waveform = torch.tensor(self.audio)
         _, num_samples = waveform.shape
@@ -188,7 +185,7 @@ class SpeakerDiarizationPipeline:
         speaker_segments = []
         try:
             for segment, _, speaker in result.itertracks(yield_label=True):
-                logger.info('Assigned speaker label: %s', speaker)
+                log.info('Assigned speaker label: %s', speaker)
 
                 speaker_segments.append({
                     'speaker': speaker,
@@ -197,7 +194,7 @@ class SpeakerDiarizationPipeline:
                     'duration': segment.duration
                 })
         except Exception as e:
-            logger.error('Failed with error: %s', e)
+            log.error('Failed with error: %s', e)
 
         return speaker_segments
 
@@ -265,7 +262,7 @@ class SpeakerDiarizationPipeline:
                     for speaker_label, emb in zip(diarization.labels(), embeddings)
                 }
         except ValueError as e:
-            logger.error(e)
+            log.error(e)
 
         try:
             for segment, _, speaker in diarization.itertracks(yield_label=True):
@@ -281,7 +278,7 @@ class SpeakerDiarizationPipeline:
                     'duration': segment.duration
                 })
         except ValueError as e:
-            logger.error(e)
+            log.error(e)
         
         return {
             'segments': speaker_segments,

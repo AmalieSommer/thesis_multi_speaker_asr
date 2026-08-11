@@ -1,6 +1,4 @@
 import os
-import librosa
-import re
 import io
 from datasets import load_dataset, Audio, Dataset
 from torch.utils.data import IterableDataset
@@ -10,11 +8,7 @@ import soundfile as sf
 from multi_speaker_asr.utils.utils import LOGGING_CONFIG
 from multi_speaker_asr.utils.vad import collect_audio_chunks, get_timestamps
 import logging
-import logging.config
-import numpy as np
 from pathlib import Path
-import itertools
-import numpy as np
 import torch
 from silero_vad import load_silero_vad, read_audio, get_speech_timestamps
 import torchaudio
@@ -24,8 +18,7 @@ from huggingface_hub.errors import HFValidationError
 from datasets import load_dataset, load_from_disk
 
 
-
-logging.config.dictConfig(LOGGING_CONFIG)
+log = logging.getLogger(__name__)
 CWD = os.getcwd()
 
 

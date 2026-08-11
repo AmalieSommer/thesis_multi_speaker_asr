@@ -26,17 +26,15 @@ from faster_whisper import WhisperModel
 from faster_whisper.audio import pad_or_trim
 import numpy as np
 import torch
-from ..utils.utils import profile, LOGGING_CONFIG, get_config_type
 import logging
-import logging.config
 from pathlib import Path
 from pywhispercpp.model import Model
 import onnxruntime as ort
 
 
-logging.config.dictConfig(LOGGING_CONFIG)
-logger = logging.getLogger(name='Engine')
 HF_TOKEN = os.getenv('HF_TOKEN')
+log = logging.getLogger(__name__)
+
 
 class BaseEngine:
     def __init__(
@@ -110,7 +108,7 @@ class BaseEngine:
                 'text': item['text']
             } for item in segment['chunks']])
         
-        logger.debug('Model output: %s', transcription)
+        log.debug('Model output: %s', transcription)
         return transcription
 
 
@@ -121,7 +119,7 @@ class BaseEngine:
             raise ValueError('Audio is None')
 
         if not return_timestamps:
-            logger.debug('MODEL TYPE (%s).... Model output: %s', self.model_type, output)
+            log.debug('MODEL TYPE (%s).... Model output: %s', self.model_type, output)
             return [[{'text': out['text']}] for out in output]
 
         transcription = []
@@ -133,7 +131,7 @@ class BaseEngine:
                 'text': item['text']
             } for item in segment['chunks']])
         
-        logger.debug('MODEL TYPE (%s).... Model output: %s', self.model_type, transcription)
+        log.debug('MODEL TYPE (%s).... Model output: %s', self.model_type, transcription)
         return transcription
         
 
@@ -220,7 +218,7 @@ class PytorchEngine(BaseEngine):
             case 'seq2seq':
                 model = AutoModelForSpeechSeq2Seq.from_pretrained(pretrained_model_name_or_path=self.model_path)
             case 'ctc':
-                logger.debug('Loading model: %s', self.model_type)
+                log.debug('Loading model: %s', self.model_type)
                 model = AutoModelForCTC.from_pretrained(pretrained_model_name_or_path=self.model_path)
             case _:
                 raise ValueError('Parameter: model_type value is unknown. Pass in either ctc or seq2seq.')
@@ -400,7 +398,7 @@ class OnnxEngine(BaseEngine):
         try: 
             optimizer = ORTOptimizer.from_pretrained(model_or_path=self.model.model)
         except NotImplementedError as e:
-            logger.info(e)
+            log.info(e)
 
             # Optimization not supported by Optimum... Applying optimization using OnnxRuntime
             exported_onnx_path = Path(self.model.model.model_save_dir) / "model.onnx"

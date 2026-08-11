@@ -1,7 +1,4 @@
-from ..utils.utils import profile, LOGGING_CONFIG
 import logging
-import logging.config
-logging.config.dictConfig(LOGGING_CONFIG)
 import numpy as np
 from whisperx import load_align_model, align, assign_word_speakers
 from whisperx.types import AlignedTranscriptionResult, SingleSegment
@@ -9,8 +6,8 @@ import pandas as pd
 import os
 
 
-logger = logging.getLogger(name='Wav2Vec2')
 HF_TOKEN = os.getenv('HF_TOKEN')
+log = logging.getLogger(__name__)
 
 class Alignment:
     def __init__(self, align_config: dict):
@@ -26,7 +23,7 @@ class Alignment:
         if 'language_code' not in align_config.keys():
             raise ValueError('Language_code was not found in the config parameter. Please pass in a language code.')
         if 'device' not in align_config.keys():
-            logger.info('Device configuration is missing. Setting it to a default value of CPU.')
+            log.info('Device configuration is missing. Setting it to a default value of CPU.')
             align_config['device'] = 'cpu'
         if not isinstance(align_config['language_code'], str):
             raise TypeError('Language code must be a string. Instead it was type: %s', type(align_config['language_code']))
@@ -62,9 +59,9 @@ class Alignment:
                 device=self.device,
                 return_char_alignments=False
             )
-            logger.debug('Result is: %s', aligned_result)
+            log.debug('Result is: %s', aligned_result)
         except Exception as e:
-            logger.error('Failed with error: %s', e)
+            log.error('Failed with error: %s', e)
 
         return aligned_result
 
@@ -88,7 +85,7 @@ class Alignment:
             end=item['end'],
             text=item['text']
         ) for item in asr_output]
-        logger.debug('Formatted segments: %s', segments)
+        log.debug('Formatted segments: %s', segments)
         return segments
 
 
@@ -146,7 +143,7 @@ class Alignment:
                         transcript_result=asr_output
                     )
         except Exception as e:
-            logger.error('Failed with error: %s', e)
+            log.error('Failed with error: %s', e)
         pass
 
 

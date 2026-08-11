@@ -2,6 +2,9 @@ import os
 import time
 import threading
 import psutil
+import logging
+
+log = logging.getLogger(__name__)
 
 class MemoryTracker:
     def __init__(self, interval=0.1):

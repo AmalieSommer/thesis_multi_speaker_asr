@@ -1,43 +1,26 @@
 from multi_speaker_asr.data import AudioDataset
-from multi_speaker_asr.models.asr import ASR
 from pyannote.audio.pipelines.utils.hook import ProgressHook
-from multi_speaker_asr.models.diarization import SpeakerDiarizationPipeline
 from multi_speaker_asr.models.alignment import Wav2Vec2
 import torch
-from multi_speaker_asr.utils.utils import LOGGING_CONFIG, profile, save_asr_results, save_logits
 import gc
 import time
 import logging
-import logging.config
 from multiprocessing import Process, Queue
 import json
 from torch.utils.data import DataLoader
 import timeit
 import itertools
-from .utils.vad import collect_word_chunks
 from .utils.utils import clean_transcription
-import psutil, os
 from time import perf_counter, process_time
 import soundfile as sf
 from scipy.spatial.distance import cdist
-import numpy as np
 import librosa
 from carbontracker.tracker import CarbonTracker
-from pathlib import Path
-from jiwer import wer, cer
 import traceback
 import inspect
 
 
-
-
-
-logging.config.dictConfig(LOGGING_CONFIG)
-logging.getLogger("faster_whisper").setLevel(logging.DEBUG)
-
-logger = logging.getLogger(name='Evaluate')
-proc = psutil.Process(os.getpid())
-
+log = logging.getLogger(__name__)
 
 
 def evaluate_inference(output_filepath: str, loader: DataLoader, model: RoestASR, max_epochs=3, warmup=False):
