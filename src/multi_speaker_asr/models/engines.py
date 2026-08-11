@@ -114,6 +114,30 @@ class BaseEngine:
         return transcription
 
 
+    def format_output(self, output: list, audio: list, return_timestamps: bool | str) -> list:
+        if output is None:
+            raise ValueError('Prediction is None')
+        if audio is None:
+            raise ValueError('Audio is None')
+
+        if not return_timestamps:
+            logger.debug('MODEL TYPE (%s).... Model output: %s', self.model_type, output)
+            return [[{'text': out['text']}] for out in output]
+
+        transcription = []
+        for i, segment in enumerate(output):
+            end = len(audio[i]) / self.sr
+            transcription.append([{
+                'start': item['timestamp'][0],
+                'end': end if item['timestamp'][1] == None else item['timestamp'][1],
+                'text': item['text']
+            } for item in segment['chunks']])
+        
+        logger.debug('MODEL TYPE (%s).... Model output: %s', self.model_type, transcription)
+        return transcription
+        
+
+
     def _get_model_path(self):
         return self.model_path
 
@@ -196,14 +220,15 @@ class PytorchEngine(BaseEngine):
             case 'seq2seq':
                 model = AutoModelForSpeechSeq2Seq.from_pretrained(pretrained_model_name_or_path=self.model_path)
             case 'ctc':
+                logger.debug('Loading model: %s', self.model_type)
                 model = AutoModelForCTC.from_pretrained(pretrained_model_name_or_path=self.model_path)
             case _:
                 raise ValueError('Parameter: model_type value is unknown. Pass in either ctc or seq2seq.')
             
         return  pipeline(
-                    task='automatic-speech-recognition',
+                    task=self.task,
                     model=model,
-                    language='da',
+                    language=self.language,
                     dtype=torch.float32,
                     tokenizer=self.processor.tokenizer,
                     feature_extractor=self.processor.feature_extractor
@@ -220,7 +245,10 @@ class PytorchEngine(BaseEngine):
 
                 tokenizer = AutoTokenizer.from_pretrained(pretrained_model_name_or_path=self.model_path)
                 feature_extractor = AutoFeatureExtractor.from_pretrained(pretrained_model_name_or_path=self.model_path)
-                decoder = build_ctcdecoder(tokenizer.get_vocab())
+                vocab = tokenizer.get_vocab()
+                sorted_vocab = sorted((id, token) for token, id in vocab.items())
+                labels = [token for _, token in sorted_vocab]
+                decoder = build_ctcdecoder(labels)
 
                 return Wav2Vec2ProcessorWithLM(
                     feature_extractor=feature_extractor,
@@ -229,28 +257,23 @@ class PytorchEngine(BaseEngine):
                 )
             
 
-    def transcribe(self, audio, return_timestamps: bool):
+    def transcribe(self, audio, return_timestamps: bool | str) -> list[list[str | dict]]:
+        """
+        The function call for transcribing a list of audio array(s). Depending on the model type, i.e. CTC (e.g. Wav2Vec2) or Seq2Seq (e.g. Whisper),
+        it can also predict timestamps either at the word-level for CTC-based models or at the segment level for Seq2Seq-based models.
+
+        Args:
+            audio (list): A list of np.ndarrays representing the loaded audio files
+            return_timestamps (bool | str): A value to determine whether to predict timestamps and what type to predict given the model. For transformer models, set to True, and for phoneme models set to \'word\' or \'char\'.
+        Returns:
+            list[list[str | dict]]: It returns a list of lists, where each sublist correspond to the predictions for a single of the audio arrays passed to the function.
+        """
         if self.model_type not in ("seq2seq", "ctc"):
             raise ValueError("Unknown model type...")
-
         
         with torch.no_grad():
-            output = self.model(audio)
-    
-        if not return_timestamps:
-            return [out['text'] for out in output]
-
-        transcription = []
-        for i, segment in enumerate(output):
-            end = len(audio[i]) / self.sr
-            transcription.append([{
-                'start': item['timestamp'][0],
-                'end': end if item['timestamp'][1] == None else item['timestamp'][1],
-                'text': item['text']
-            } for item in segment['chunks']])
-        
-        logger.debug('Model output: %s', transcription)
-        return transcription
+            output = self.model(audio, return_timestamps=return_timestamps)
+        return self.format_output(output=output, audio=audio, return_timestamps=return_timestamps)
 
 
 class OnnxEngine(BaseEngine):
@@ -343,7 +366,7 @@ class OnnxEngine(BaseEngine):
                 feature_extractor = AutoFeatureExtractor.from_pretrained(pretrained_model_name_or_path=self.model_path)
                 vocab = tokenizer.get_vocab()
                 sorted_vocab = sorted((id, token) for token, id in vocab.items())
-                labels = [token for id, token in sorted_vocab]
+                labels = [token for _, token in sorted_vocab]
                 decoder = build_ctcdecoder(labels)
 
                 return Wav2Vec2ProcessorWithLM(
@@ -513,28 +536,24 @@ class OnnxEngine(BaseEngine):
         return result
         
 
-    def transcribe(self, audio, return_timestamps: bool) -> list[list | str]:
+    def transcribe(self, audio, return_timestamps: bool | str) -> list[list[str | dict]]:
+        """
+        Engine function for transcribing a single audio file or a batch of audio files.
+
+        Args:
+            audio (list): A list of either a single audio array or multiple audio arrays.
+            return_timestamps (bool | str): Depending on whether the model is e.g. Whisper, it should be given a value of True, or if the model is e.g. Wav2Vec2, it should have the value \'word\' or \'char\'.
+
+        Returns:
+            list[list[str | dict]]: It returns a list of lists, where each sublist correspond to the predictions for a single of the audio arrays passed to the function.
+        """
         if self.model_type not in ("seq2seq", "ctc"):
             raise ValueError("Unknown model type...")
 
-        
         with torch.no_grad():
-            output = self.model(audio)
-    
-        if not return_timestamps:
-            return [out['text'] for out in output]
-
-        transcription = []
-        for i, segment in enumerate(output):
-            end = len(audio[i]) / self.sr
-            transcription.append([{
-                'text': item['text'],
-                'start': item['timestamp'][0],
-                'end': end if item['timestamp'][1] == None else item['timestamp'][1]
-            } for item in segment['chunks']])
+            output = self.model(audio, return_timestamps=return_timestamps)
+        return self.format_output(output=output, audio=audio, return_timestamps=return_timestamps)    
         
-        logger.debug('Model output: %s', transcription)
-        return transcription
 
 
 class CT2(BaseEngine):

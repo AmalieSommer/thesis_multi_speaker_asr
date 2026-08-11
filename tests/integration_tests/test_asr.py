@@ -379,3 +379,49 @@ def test_invalid_static_quantization(asr_model, tmp_path):
     assert exec_info.type in (ValueError, TypeError)
     
 
+
+@pytest.mark.parametrize('asr_model, timestamps', [
+    (('openai/whisper-tiny', 'whisper', 'seq2seq', 'onnx'), False),
+    (('CoRal-project/roest-v3-wav2vec2-315m', 'wav2vec2', 'ctc', 'onnx'), None),
+    (('openai/whisper-tiny', 'whisper', 'seq2seq', 'torch'), False),
+    (('CoRal-project/roest-v3-wav2vec2-315m', 'wav2vec2', 'ctc', 'torch'), None)
+], indirect=['asr_model'])
+def test_transcription_without_timestamps(asr_model, timestamps):
+    test_wav = read_audio_helper(audio='/root/master_thesis/thesis_multi_speaker_asr/data/lillelyd-main/lillelyd-main/9859dab0/rec_9_boredom.flac')
+    wav_ref = 'Det sorte ark papir er placeret deroppe ved siden af tømmerstykket'
+
+    asr_model.load()
+    result = asr_model.transcribe(audio_batch=test_wav, return_timestamps=timestamps)
+    first_result = result[0]
+
+    assert type(result) is list
+    assert type(first_result) is list
+    assert len(result) > 0
+    assert len(first_result) > 0
+    assert all(type(item) is dict for item in first_result)
+    assert cer(reference=wav_ref, hypothesis=first_result[0]['text']) != None
+
+
+
+
+@pytest.mark.parametrize('asr_model, timestamps', [
+    (('openai/whisper-tiny', 'whisper', 'seq2seq', 'onnx'), True),
+    (('CoRal-project/roest-v3-wav2vec2-315m', 'wav2vec2', 'ctc', 'onnx'), 'word'),
+    (('openai/whisper-tiny', 'whisper', 'seq2seq', 'torch'), True),
+    (('CoRal-project/roest-v3-wav2vec2-315m', 'wav2vec2', 'ctc', 'torch'), 'word')
+], indirect=['asr_model'])
+def test_transcription_with_timestamps(asr_model, timestamps):
+    test_wav = read_audio_helper(audio='/root/master_thesis/thesis_multi_speaker_asr/data/lillelyd-main/lillelyd-main/9859dab0/rec_9_boredom.flac')
+    wav_ref = 'Det sorte ark papir er placeret deroppe ved siden af tømmerstykket'
+
+    asr_model.load()
+    result = asr_model.transcribe(audio_batch=test_wav, return_timestamps=timestamps)
+    first_result = result[0]
+
+    assert type(result) is list
+    assert type(first_result) is list
+    assert len(result) > 0
+    assert len(first_result) > 0
+    assert all(type(item) is dict for item in first_result)
+    assert 'start' in first_result[0].keys() and 'end' in first_result[0].keys() and 'text' in first_result[0].keys()
+    assert cer(reference=wav_ref, hypothesis=first_result[0]['text']) != None
