@@ -26,14 +26,15 @@ from faster_whisper import WhisperModel
 from faster_whisper.audio import pad_or_trim
 import numpy as np
 import torch
-import logging
+from multi_speaker_asr.utils.logging_config import get_logger
 from pathlib import Path
 from pywhispercpp.model import Model
 import onnxruntime as ort
+from multi_speaker_asr.utils.utils import get_config_type
 
 
 HF_TOKEN = os.getenv('HF_TOKEN')
-log = logging.getLogger(__name__)
+log = get_logger(__name__)
 
 
 class BaseEngine:
@@ -45,16 +46,19 @@ class BaseEngine:
             device: str = 'cpu', 
             sr: int = 16000, 
             language: str = 'da', 
-            task: str = 'automatic-speech-recognition'
+            task: str = 'automatic-speech-recognition',
+            compute_type: str = 'int8', 
+            cpu_threads: int = 6
             ):
-        
+
         self.model_name = model_name
         self.model_type = model_type
         self.device = device
         self.sr = sr
         self.language = language
         self.task = task
-
+        self.compute_type = compute_type
+        self.cpu_threads = cpu_threads
         if not isinstance(model_path, str) or not model_path.strip():
             raise ValueError('Parameter model_path must be a non-empty string.')
         self.model_path = model_path
@@ -133,7 +137,7 @@ class BaseEngine:
                     {
                         'start': item['timestamp'][0],
                         'end': end if item['timestamp'][1] is None else item['timestamp'][1],
-                        'text': item['text']
+                        'word': item['text']
                     } for item in segment['chunks']
                 ]
             })
@@ -166,6 +170,7 @@ class BaseEngine:
         else:
             hf_files = list_repo_files(self.model_path)
             has_lm = any('language_model' in f for f in hf_files)
+        return True # Temporary...
         return has_lm
 
 
@@ -184,7 +189,9 @@ class BaseEngine:
             raise ValueError('Filepath is empty.')
         
         path = Path(filepath)
+        log.debug('Validating filepath: %s', filepath)
         if path.exists():
+            log.debug('Path exists!!!')
             return 'local'
 
         # Next check if the filepath is to a Huggingface model directory:
@@ -196,27 +203,8 @@ class BaseEngine:
         
 
 class PytorchEngine(BaseEngine):
-    def __init__(
-            self, 
-            model_path,
-            model_name: str,
-            model_type: str,
-            device = 'cpu',
-            cpu_threads: int = 4,
-            compute_type: str = 'float32',
-            language: str = 'da', 
-            task: str = 'automatic-speech-recognition'
-            ):
-        self.compute_type = compute_type
-        self.cpu_threads = cpu_threads
-        super().__init__(
-            model_path=model_path,
-            model_type=model_type,
-            model_name=model_name,
-            device=device,
-            language=language,
-            task=task
-        )
+    def __init__(self, config: dict):
+        super().__init__(**config)
 
 
     def load_model(self) -> AutomaticSpeechRecognitionPipeline:
@@ -282,30 +270,8 @@ class PytorchEngine(BaseEngine):
 
 
 class OnnxEngine(BaseEngine):
-    def __init__(
-            self, 
-            model_path, 
-            model_type: str, 
-            model_name: str,
-            device = 'cpu', 
-            sr = 16000, 
-            language = 'da', 
-            task = 'automatic-speech-recognition',
-            cpu_threads: int = 4,
-            compute_type: str = 'float32'
-        ):
-        self.cpu_threads = cpu_threads
-        self.compute_type = compute_type
-
-        super().__init__(
-            model_path=model_path,
-            model_type=model_type,
-            model_name=model_name,
-            device=device,
-            sr=sr,
-            language=language,
-            task=task
-        )
+    def __init__(self, config: dict):
+        super().__init__(**config)
 
 
     def is_exported(self) -> bool:
@@ -314,9 +280,11 @@ class OnnxEngine(BaseEngine):
         in the .from_pretrained() call.
         """
         path_location = self.validate_filepath()
+        log.debug('Validated filepath returned: %s', path_location)
         if path_location == 'local':
             path = Path(self.model_path)
-            if any(suffix =='.onnx' for suffix in path.suffixes):
+            if any(item for item in path.glob('*.onnx')):
+                log.debug('An onnx file was found...')
                 return True
 
         elif path_location == 'hub':
@@ -331,6 +299,7 @@ class OnnxEngine(BaseEngine):
 
             # Check whether the model_path is valid and if it leads to a local or a remote model repo:
             export = False if self.is_exported() else True
+            log.debug('Export: %s', export)
             model = None
             input_name_attr = None
             match self.model_type:
@@ -364,7 +333,7 @@ class OnnxEngine(BaseEngine):
             case 'seq2seq':
                 return AutoProcessor.from_pretrained(pretrained_model_name_or_path=self.model_path)
             case 'ctc':
-                if not self.has_language_model():
+                if not self.has_language_model(): # TODO CHANGE IT FROM DETECTING WHETHER AN LM IS PRESENT TO A FLAG INSTEAD!
                     return AutoProcessor.from_pretrained(self.model_path)
 
                 tokenizer = AutoTokenizer.from_pretrained(pretrained_model_name_or_path=self.model_path)
@@ -562,48 +531,23 @@ class OnnxEngine(BaseEngine):
 
 
 class CT2(BaseEngine):
-    def __init__(
-            self, 
-            model_path, 
-            model_name: str,
-            model_type: str, 
-            device = 'cpu',
-            sr: int = 16000,
-            compute_type: str = 'int8', 
-            cpu_threads: int = 6,
-            language: str = 'da', 
-            task: str = 'automatic-speech-recognition'
-            ):
+    def __init__(self, config: dict):
+        super().__init__(**config)
 
         supported_architectures = sorted(list(ct2_transformers._SUPPORTED_MODELS.keys()))
-        if model_name not in supported_architectures:
-            raise ValueError('The model: %s is not currently supported by the CTranslate2 library', model_name)
+        if config['model_name'] not in supported_architectures:
+            raise ValueError('The model: %s is not currently supported by the CTranslate2 library', config['model_name'])
 
 
-        if not isinstance(model_path, str) or not model_path.strip():
+        if not isinstance(config['model_path'], str) or not config['model_path'].strip():
             raise ValueError('Parameter model_path must be a non-empty string.')
 
-        if (not repo_exists(repo_id=model_path)) and (not os.path.exists(path=model_path)):
+        if (not repo_exists(repo_id=config['model_path'])) and (not os.path.exists(path=config['model_path'])):
             raise FileNotFoundError('The model_path %s was not found on Huggingface or locally. Please verify that the model exists either locally or remotely.') 
 
-        self.compute_type = compute_type
-        self.cpu_threads = cpu_threads
-
-        self.processor = self.load_processor()
-        self.model = self.load_model()
         self.tokenizer = self.load_tokenizer()
 
-        super().__init__(
-            model_path=model_path,
-            model_type=model_type,
-            model_name=model_name,
-            device=device,
-            sr=sr,
-            language=language,
-            task=task
-        )
-
-
+        
 
     def load_model(self) -> (WhisperModel | Wav2Vec2):
         if str.lower(self.model_name) == 'whisper':
@@ -714,32 +658,14 @@ class CT2(BaseEngine):
 
 
 class WhisperCPP(BaseEngine):
-    def __init__(
-            self, 
-            model_path, 
-            model_type: str = 'whisper', 
-            device = 'cpu', 
-            sr = 16000, 
-            language = 'da', 
-            task = 'transcribe',
-            cpu_threads: int = 6,
-            compute_type: str = 'float32'
-            ):
-        self.cpu_threads = cpu_threads
-        self.compute_type = compute_type
+    def __init__(self, config: dict):
 
-        if model_type != 'whisper':
+        if config['model_type'] != 'whisper':
             raise ValueError('Model_type must be a whisper model when using the Whisper.cpp engine...')
-        super().__init__(
-            model_path=model_path,
-            model_type=model_type,
-            device=device,
-            sr=sr,
-            language=language,
-            task=task
-        )
+        
+        super().__init__(**config)
 
-    @profile
+
     def load_model(self):
         if self.compute_type == 'fp32':
             model_name = 'ggml-roest-v3-model.bin'
@@ -764,7 +690,6 @@ class WhisperCPP(BaseEngine):
             n_threads=self.cpu_threads
         )
 
-    @profile
     def load_processor(self):
         pass
         

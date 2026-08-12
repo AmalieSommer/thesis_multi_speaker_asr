@@ -28,14 +28,8 @@ load_dotenv()
 HF_TOKEN = os.getenv('HF_TOKEN')
 
 tqdm.monitor_interval = 0 # Stops the tqdm from creating monitoring threads causing shutdown-race conditions...
-# BECAUSE OF PYTORCH LOAD() CHANGE FOR PYTORCH>=2.6
-original_torch_load = torch.load
 
-# Modified function to always trust the download source, setting the weights_only flag to False
-def trusted_torch_load(*args, **kwargs):
-    kwargs['weights_only'] = False
-    return original_torch_load(*args, **kwargs)
-torch.load = trusted_torch_load
+
 
 
 def load_config():

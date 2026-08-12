@@ -1,4 +1,3 @@
-import logging
 import os
 import numpy as np
 from einops import rearrange
@@ -8,6 +7,7 @@ from pathlib import Path
 import sys
 import types
 import torch
+from multi_speaker_asr.utils.logging_config import get_logger
 # ------ HACKY WORKAROUND FOR USING DIART WITHOUT INSTALLING PORTAUDIO FOR STREAMING, SINCE ONLINE STREAMING IS NOT USED ----------
 sd = types.ModuleType("sounddevice")
 
@@ -25,7 +25,7 @@ from diart.sources import AudioSource
 
 
 HF_TOKEN = os.getenv('HF_TOKEN')
-log = logging.getLogger(__name__)
+log = get_logger(__name__)
 
 
 class NumpyArrAudioSource(AudioSource):
@@ -38,9 +38,9 @@ class NumpyArrAudioSource(AudioSource):
     """
     def __init__(
             self, 
-            audio_arr: np.ndarray, 
+            audio_arr: np.ndarray | list, 
             chunk_size: float = 0.5, 
-            uri: str = 'local_path',
+            uri: str = '',
             sample_rate: int = 16000, 
             is_closed: bool = False
             ):
@@ -49,7 +49,14 @@ class NumpyArrAudioSource(AudioSource):
         self.is_closed = is_closed
 
         if not isinstance(audio_arr, np.ndarray):
-            raise TypeError('The parameter audio_arr must be either a numpy array or a list. The found type was invalid.')
+            if not isinstance(audio_arr, list):
+                raise TypeError('The parameter audio_arr must be either a numpy array or a list. The found type was invalid.')
+        
+            if len(audio_arr) == 1:
+                audio_arr = audio_arr[0]
+            else:
+                raise ValueError('Please pass only one audio array at a time.')
+
 
         if audio_arr.ndim == 1:
             # Should expand to (channels, samples) as Diart API expects

@@ -5,42 +5,31 @@ from pathlib import Path
 from huggingface_hub.utils import validate_repo_id
 from huggingface_hub.errors import HFValidationError
 from transformers import Wav2Vec2Processor, Wav2Vec2ProcessorWithLM
+from multi_speaker_asr.utils.logging_config import get_logger
 
-
-log = logging.getLogger(__name__)
-
+log = get_logger(__name__)
 
 class ASR:
-    def __init__(self, model_type: str, model_name: str, model_path: str, backend: str, device: str = 'cpu', batch_size=4):
-        self.batch_size = batch_size
-        self.device = device
+    def __init__(self, config: dict):
         self.engine = None
+        self.pipeline_config = config
 
-        if not isinstance(model_type, str) or not model_type.strip():
+        if not isinstance(config['model_type'], str) or len(config['model_type'].strip()) == 0:
             raise ValueError('Parameter: model_type must be a non-empty string.')
-        if not isinstance(model_path, str) or not model_path.strip():
+        if not isinstance(config['model_path'], str) or len(config['model_path'].strip()) == 0:
             raise ValueError('Parameter: model_path must be a non-empty string.')
-        if not isinstance(model_name, str) or not model_name.strip():
+        if not isinstance(config['model_name'], str) or len(config['model_name'].strip()) == 0:
             raise ValueError('Parameter: model_name must be a non-empty string.')
-        if not isinstance(backend, str) or not backend.strip():
-            raise ValueError('Parameter: backend must be a non-empty string.')
 
-        path = Path(model_path)
-        if path.exists():
-            self.model_path = model_path
-        else:
+        path = Path(config['model_path'])
+        if not path.exists():
             try:
-                validate_repo_id(repo_id=model_path)
-                self.model_path = model_path
+                validate_repo_id(repo_id=config['model_path'])
             except HFValidationError as e:
                 raise ValueError('Parameter: model_path must be either a valid path to a local directory, or a valid ID to a Huggingface repo.')
-            
-        self.model_type = model_type
-        self.backend = backend
-        self.model_name = model_name
         
     
-    def load(self, compute_type: str = 'int8', cpu_threads: int = 6) -> None:
+    def load(self, backend: str) -> None:
         """
         Loads the specified engine type.
 
@@ -48,47 +37,16 @@ class ASR:
             compute_type (str): Precision type for computational arithmetic
             cpu_threads (int): Number of CPU threads allowed to be used by the OpenMP library when running the model
         """
-
-        if self.backend == 'ct2':
-            self.engine = CT2(
-                model_path=self.model_path,
-                model_name=self.model_name,
-                model_type=self.model_type,
-                compute_type=compute_type, 
-                cpu_threads=cpu_threads
-                )
-        elif self.backend == 'onnx':
-            self.engine = OnnxEngine(
-                model_path=self.model_path,
-                model_type=self.model_type,
-                model_name=self.model_name,
-                device=self.device,
-                cpu_threads=cpu_threads,
-                compute_type=compute_type,
-                )
-        elif self.backend == 'torch':
-            self.engine = PytorchEngine(
-                model_path=self.model_path,
-                model_name=self.model_name, 
-                model_type=self.model_type,
-                cpu_threads=cpu_threads,
-                compute_type=compute_type
-                )
-        elif self.backend == 'cpp':
-            self.engine = WhisperCPP(
-                model_path=self.model_path,
-                model_type=self.model_type,
-                device=self.device,
-                cpu_threads=cpu_threads,
-                compute_type=compute_type
-            )
+        if backend == 'ct2':
+            self.engine = CT2(config=self.pipeline_config)
+        elif backend == 'onnx':
+            self.engine = OnnxEngine(config=self.pipeline_config)
+        elif backend == 'torch':
+            self.engine = PytorchEngine(config=self.pipeline_config)
+        elif backend == 'cpp':
+            self.engine = WhisperCPP(config=self.pipeline_config)
         else:
-            self.engine = BaseEngine(
-                model_path=self.model_path,
-                model_name=self.model_name,
-                model_type=self.model_type,
-                device=self.device
-                )
+            self.engine = BaseEngine(**self.pipeline_config)
 
 
     def _get_engine(self):
@@ -107,8 +65,8 @@ class ASR:
             list: The transcribed speech segments
         """
         if not isinstance(audio_batch, (list, tuple)):
-                audio_batch = [audio_batch]
-        if self.model_type not in ('seq2seq', 'ctc'):
+            audio_batch = [audio_batch]
+        if self.engine.model_type not in ('seq2seq', 'ctc'):
             raise ValueError('Unknown model_type...')
 
         return self.engine.transcribe(audio_batch, return_timestamps=return_timestamps)

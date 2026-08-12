@@ -3,7 +3,7 @@ import io
 from datasets import load_dataset, Audio, Dataset
 from torch.utils.data import IterableDataset
 from faster_whisper.vad import VadOptions, get_speech_timestamps
-import logging
+
 from pathlib import Path
 import torch
 from silero_vad import load_silero_vad, get_speech_timestamps
@@ -12,9 +12,11 @@ import torchaudio.functional as F
 from huggingface_hub import dataset_info
 from huggingface_hub.errors import HFValidationError
 from datasets import load_dataset
+from multi_speaker_asr.utils.logging_config import get_logger
 
 
-log = logging.getLogger(__name__)
+
+log = get_logger(__name__)
 CWD = os.getcwd()
 
 
