@@ -20,11 +20,9 @@ import torchaudio.functional as F
 from huggingface_hub.errors import HFValidationError
 from huggingface_hub import repo_exists
 from optimum.exporters.tasks import TasksManager
-from multi_speaker_asr.utils.utils import LOGGING_CONFIG
 import logging
-import logging.config
-logging.config.dictConfig(LOGGING_CONFIG)
-logger = logging.getLogger(name='ASR')
+from multi_speaker_asr.evaluate import asr_inference
+
 
 # ---------------- FIXTURES -------------------
 @pytest.fixture(scope='session')
@@ -93,10 +91,8 @@ def test_apply_optimization_ctc(tmp_path):
         optimizations_config=opt_config,
         output_path=str(d)
     )
-    logger.debug('BEFORE... The directory: %s contain the files: %s', output_path, os.listdir(output_path))
     model.save_model(output_path)
     model.save_processor(output_path)
-    logger.debug('AFTER... The directory: %s contain the files: %s', output_path, os.listdir(output_path))
 
     assert any('.onnx' in file.suffix for file in output_path.iterdir() if file.is_file()) == True
     assert type(model.engine) == OnnxEngine
@@ -104,17 +100,13 @@ def test_apply_optimization_ctc(tmp_path):
 
     # Assess the quality of the predictions:
     pred = model.transcribe(wav, return_timestamps=False)
-    logger.debug('First prediction was: %s', pred)
     assert cer(reference=transcript, hypothesis=pred[0]) < 0.8
 
 
     # Reload the model from the saved dir and use onnx API to check that the model is correct:
-    logger.debug('Reloading the model at directory: %s', str(output_path))
-    logger.debug('Model Dict BEFORE: %s', model_dict.items())
 
     with patch.object(OnnxEngine, 'is_exported', return_value=True):
         model_dict['model_path'] = str(output_path)
-        logger.debug('Model Dict AFTER: %s', model_dict.items())
         model = ASR(**model_dict)
         model.load()
         pred = model.transcribe(wav, return_timestamps=False)
@@ -146,10 +138,8 @@ def test_apply_optimization_seq2seq(tmp_path):
         optimizations_config=opt_config,
         output_path=str(d)
     )
-    logger.debug('BEFORE... The directory: %s contain the files: %s', output_path, os.listdir(output_path))
     model.save_model(output_path)
     model.save_processor(output_path)
-    logger.debug('AFTER... The directory: %s contain the files: %s', output_path, os.listdir(output_path))
 
     assert any('.onnx' in file.suffix for file in output_path.iterdir() if file.is_file()) == True
     assert type(model.engine) == OnnxEngine
@@ -157,17 +147,12 @@ def test_apply_optimization_seq2seq(tmp_path):
 
     # Assess the quality of the predictions:
     pred = model.transcribe(wav, return_timestamps=False)
-    logger.debug('First prediction was: %s', pred)
     assert cer(reference=transcript, hypothesis=pred[0]) < 0.8
 
 
     # Reload the model from the saved dir and use onnx API to check that the model is correct:
-    logger.debug('Reloading the model at directory: %s', str(output_path))
-    logger.debug('Model Dict BEFORE: %s', model_dict.items())
-
     with patch.object(OnnxEngine, 'is_exported', return_value=True):
         model_dict['model_path'] = str(output_path)
-        logger.debug('Model Dict AFTER: %s', model_dict.items())
         model = ASR(**model_dict)
         model.load()
         pred = model.transcribe(wav, return_timestamps=False)
@@ -199,10 +184,8 @@ def test_apply_quantization_seq2seq(tmp_path):
         output_path=str(d),
         quant_config=quant_config
     )
-    logger.debug('BEFORE... The directory: %s contain the files: %s', output_path, os.listdir(output_path))
     model.save_model(output_path)
     model.save_processor(output_path)
-    logger.debug('AFTER... The directory: %s contain the files: %s', output_path, os.listdir(output_path))
 
     assert any('.onnx' in file.suffix for file in output_path.iterdir() if file.is_file()) == True
     assert type(model.engine) == OnnxEngine
@@ -210,17 +193,12 @@ def test_apply_quantization_seq2seq(tmp_path):
 
     # Assess the quality of the predictions:
     pred = model.transcribe(wav, return_timestamps=False)
-    logger.debug('First prediction was: %s', pred)
     assert cer(reference=transcript, hypothesis=pred[0]) < 0.8
 
 
     # Reload the model from the saved dir and use onnx API to check that the model is correct:
-    logger.debug('Reloading the model at directory: %s', str(output_path))
-    logger.debug('Model Dict BEFORE: %s', model_dict.items())
-
     with patch.object(OnnxEngine, 'is_exported', return_value=True):
         model_dict['model_path'] = str(output_path)
-        logger.debug('Model Dict AFTER: %s', model_dict.items())
         model = ASR(**model_dict)
         model.load()
         pred = model.transcribe(wav, return_timestamps=False)
@@ -253,10 +231,8 @@ def test_apply_quantization_ctc(tmp_path):
         quant_config=quant_config,
         output_path=str(d)
     )
-    logger.debug('BEFORE... The directory: %s contain the files: %s', output_path, os.listdir(output_path))
     model.save_model(output_path)
     model.save_processor(output_path)
-    logger.debug('AFTER... The directory: %s contain the files: %s', output_path, os.listdir(output_path))
 
     assert any('.onnx' in file.suffix for file in output_path.iterdir() if file.is_file()) == True
     assert type(model.engine) == OnnxEngine
@@ -264,17 +240,12 @@ def test_apply_quantization_ctc(tmp_path):
 
     # Assess the quality of the predictions:
     pred = model.transcribe(wav, return_timestamps=False)
-    logger.debug('First prediction was: %s', pred)
     assert cer(reference=transcript, hypothesis=pred[0]) < 0.8
 
 
     # Reload the model from the saved dir and use onnx API to check that the model is correct:
-    logger.debug('Reloading the model at directory: %s', str(output_path))
-    logger.debug('Model Dict BEFORE: %s', model_dict.items())
-
     with patch.object(OnnxEngine, 'is_exported', return_value=True):
         model_dict['model_path'] = str(output_path)
-        logger.debug('Model Dict AFTER: %s', model_dict.items())
         model = ASR(**model_dict)
         model.load()
         pred = model.transcribe(wav, return_timestamps=False)
@@ -331,22 +302,16 @@ def test_apply_static_quantization_ctc(tmp_path):
         calibration_data_config=short_audio,
         calibration_num_samples=1
     )
-    logger.debug('BEFORE... The directory: %s contain the files: %s', output_path, os.listdir(output_path))
     model.save_model(output_path)
     model.save_processor(output_path)
-    logger.debug('AFTER... The directory: %s contain the files: %s', output_path, os.listdir(output_path))
 
     assert any('.onnx' in file.suffix for file in output_path.iterdir() if file.is_file()) == True
     assert type(model.engine) == OnnxEngine
     assert d == output_path
 
     # Reload the model from the saved dir and use onnx API to check that the model is correct:
-    logger.debug('Reloading the model at directory: %s', str(output_path))
-    logger.debug('Model Dict BEFORE: %s', model_dict.items())
-
     with patch.object(OnnxEngine, 'is_exported', return_value=True):
         model_dict['model_path'] = str(output_path)
-        logger.debug('Model Dict AFTER: %s', model_dict.items())
         model = ASR(**model_dict)
         model.load()
     
@@ -425,3 +390,138 @@ def test_transcription_with_timestamps(asr_model, timestamps):
     assert all(type(item) is dict for item in first_result)
     assert 'start' in first_result[0].keys() and 'end' in first_result[0].keys() and 'text' in first_result[0].keys()
     assert cer(reference=wav_ref, hypothesis=first_result[0]['text']) != None
+
+
+
+# -------------- Pipeline Testing ------------------------
+@pytest.mark.integration
+@pytest.mark.parametrize('model_config', [
+    ({
+        'model_path': 'openai/whisper-tiny',
+        'model_type': 'seq2seq',
+        'model_name': 'whisper',
+        'device': 'cpu'
+    }),
+    ({
+        'model_path': 'CoRal-project/roest-v3-wav2vec2-315m',
+        'model_type': 'ctc',
+        'model_name': 'wav2vec2',
+        'device': 'cpu'
+    })
+])
+def test_torch_asr_pipeline_timestamps(model_config, tmp_path):
+    output_filepath = tmp_path / "test_results.jsonl"
+    data_config = {
+        'path': '/root/master_thesis/thesis_multi_speaker_asr/data/lillelyd-main/lillelyd-main/test_manifest.jsonl',
+        'split': 'train',
+        'name': None
+    }
+    align_config = {
+        'language_code': 'da',
+        'device': 'cpu',
+        'model_name': 'CoRal-project/roest-v3-wav2vec2-315m',
+        'model_dir': None
+    }
+
+    result = asr_inference(
+        results_filepath=output_filepath, 
+        backend='torch', 
+        data_config=data_config, 
+        model_config=model_config, 
+        timestamps=True,
+        align_config=align_config
+        )
+
+    assert result is not None
+    assert isinstance(result, list)
+    assert type(result[0]) == dict
+    assert len(list(result[0].keys())) > 0
+    assert 'sample_id' in result[0].keys() and 'result' in result[0].keys()
+
+
+@pytest.mark.parametrize('model_config', [
+    ({
+        'model_path': '/root/master_thesis/thesis_multi_speaker_asr/src/multi_speaker_asr/models/saved_models/coral_whisper_onnx/',
+        'model_type': 'seq2seq',
+        'model_name': 'whisper',
+        'device': 'cpu'
+    }),
+    ({
+        'model_path': '/root/master_thesis/thesis_multi_speaker_asr/src/multi_speaker_asr/models/saved_models/coral_wav2vec2_onnx/',
+        'model_type': 'ctc',
+        'model_name': 'wav2vec2',
+        'device': 'cpu'
+    })
+])
+def test_onnx_asr_pipeline_timestamps(model_config, tmp_path):
+    output_filepath = tmp_path / "test_results.jsonl"
+    data_config = {
+        'path': '/root/master_thesis/thesis_multi_speaker_asr/data/lillelyd-main/lillelyd-main/test_manifest.jsonl',
+        'split': 'train',
+        'name': None
+    }
+    align_config = {
+        'language_code': 'da',
+        'device': 'cpu',
+        'model_name': '/root/master_thesis/thesis_multi_speaker_asr/src/multi_speaker_asr/models/saved_models/coral_wav2vec2',
+        'model_dir': None
+    }
+
+    result = asr_inference(
+        results_filepath=output_filepath, 
+        backend='onnx', 
+        data_config=data_config, 
+        model_config=model_config, 
+        timestamps=True,
+        align_config=align_config
+        )
+
+    assert result is not None
+    assert isinstance(result, list)
+    assert type(result[0]) == dict
+    assert len(list(result[0].keys())) > 0
+    assert 'sample_id' in result[0].keys() and 'result' in result[0].keys()
+    chunks = result[0]['result']['chunks'][0]
+    assert 'start' in chunks.keys()
+    assert 'end' in chunks.keys()
+    assert 'word' in chunks.keys()
+
+
+
+
+@pytest.mark.parametrize('model_config', [
+    ({
+        'model_path': '/root/master_thesis/thesis_multi_speaker_asr/src/multi_speaker_asr/models/saved_models/coral_whisper_onnx/',
+        'model_type': 'seq2seq',
+        'model_name': 'whisper',
+        'device': 'cpu'
+    }),
+    ({
+        'model_path': '/root/master_thesis/thesis_multi_speaker_asr/src/multi_speaker_asr/models/saved_models/coral_wav2vec2_onnx/',
+        'model_type': 'ctc',
+        'model_name': 'wav2vec2',
+        'device': 'cpu'
+    })
+])
+def test_onnx_asr_pipeline_no_timestamps(model_config, tmp_path):
+    output_filepath = tmp_path / "test_results.jsonl"
+    data_config = {
+        'path': '/root/master_thesis/thesis_multi_speaker_asr/data/lillelyd-main/lillelyd-main/test_manifest.jsonl',
+        'split': 'train',
+        'name': None
+    }
+
+    result = asr_inference(
+        results_filepath=output_filepath, 
+        backend='onnx', 
+        data_config=data_config, 
+        model_config=model_config, 
+        timestamps=False,
+        align_config=None
+        )
+
+    assert result is not None
+    assert isinstance(result, list)
+    assert type(result[0]) == dict
+    assert len(list(result[0].keys())) > 0
+    assert 'sample_id' in result[0].keys() and 'result' in result[0].keys()

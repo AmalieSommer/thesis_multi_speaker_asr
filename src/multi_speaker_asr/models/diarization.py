@@ -192,7 +192,7 @@ class SpeakerDiarizationPipeline:
         speaker_segments = []
         try:
             for segment, _, speaker in result.itertracks(yield_label=True):
-                log.info('Assigned speaker label: %s', speaker)
+                #log.info('Assigned speaker label: %s', speaker)
 
                 speaker_segments.append({
                     'speaker': speaker,

@@ -112,7 +112,7 @@ class BaseEngine:
                 'start': item['timestamp'][0],
                 'end': end if item['timestamp'][1] == None else item['timestamp'][1],
                 'text': item['text']
-            } for item in segment['chunks']])
+            } for item in segment['words']])
         
         log.debug('Model output: %s', transcription)
         return transcription
@@ -133,7 +133,7 @@ class BaseEngine:
             end = len(audio[i]) / self.sr
             transcription.append({
                 'text': segment.get('text', ''),
-                'chunks': [
+                'words': [
                     {
                         'start': item['timestamp'][0],
                         'end': end if item['timestamp'][1] is None else item['timestamp'][1],
@@ -142,7 +142,7 @@ class BaseEngine:
                 ]
             })
         
-        log.debug('MODEL TYPE (%s).... Model output: %s', self.model_type, transcription)
+        #log.debug('MODEL TYPE (%s).... Model output: %s', self.model_type, transcription)
         return transcription
         
 

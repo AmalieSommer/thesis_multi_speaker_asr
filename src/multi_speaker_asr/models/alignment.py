@@ -1,6 +1,6 @@
 import numpy as np
 from whisperx import load_align_model, align, assign_word_speakers
-from whisperx.types import AlignedTranscriptionResult, SingleSegment
+from whisperx.types import AlignedTranscriptionResult, SingleSegment, SingleWordSegment, SingleAlignedSegment
 import pandas as pd
 import os
 from multi_speaker_asr.utils.logging_config import get_logger
@@ -102,12 +102,12 @@ class Alignment:
         segments = model_result['segments'][0]
         return {
             'text': segments['text'],
-            'chunks': [{'start': x['start'], 'end': x['end'], 'word': x['word']} for x in segments['words']]
+            'words': [{'start': x['start'], 'end': x['end'], 'word': x['word']} for x in segments['words']]
         }
         
 
 
-def align_words_speakers(sd_output: list[dict], asr_output: AlignedTranscriptionResult) -> dict:
+def align_words_speakers(sd_output: dict, asr_output: AlignedTranscriptionResult) -> dict:
     """
     Function to be called on the combined output from speaker diarization and speech recognition modules.
     It calls the assign_word_speakers() from WhisperX to provide a complete SA-ASR transcript
@@ -125,26 +125,24 @@ def align_words_speakers(sd_output: list[dict], asr_output: AlignedTranscription
         raise ValueError('Parameter asr_output is None')
     if type(asr_output) != dict:
         raise TypeError('Parameter asr_output must have the type AlignedTranscriptionResult, but instead the type %s was found.', type(asr_output))
-    if not isinstance(sd_output, list):
+    if not isinstance(sd_output, dict):
         raise TypeError('Parameter sd_output must be a list, but instead the type %s was found.', type(sd_output))
-    if any(not isinstance(item, dict) for item in sd_output):
-        raise TypeError('Parameter sd_output must be a list containing dictionary objects.')
     if any(
             "start" not in item or
             "end" not in item or
             "speaker" not in item
-            for item in sd_output
+            for item in sd_output['segments']
         ):
         raise ValueError('The list of dictionary objects must contain \'start\', \'end\', and \'speaker\'.')
-
-    diarization_df = pd.DataFrame(data=sd_output, columns=['start', 'end', 'speaker'])
+    diarization_df = pd.DataFrame(data=sd_output['segments'], columns=['start', 'end', 'speaker'])
+    asr_output['segments'] = [asr_output['segments']] if not isinstance(asr_output['segments'], list) else asr_output['segments']
     try:
-        return  assign_word_speakers(
+        return assign_word_speakers(
                     diarize_df=diarization_df,
                     transcript_result=asr_output
                 )
     except Exception as e:
-        log.error('Failed with error: %s', e)
+        log.exception('Failed with error')
 
 
 
