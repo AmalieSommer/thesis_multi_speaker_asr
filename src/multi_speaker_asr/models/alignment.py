@@ -10,7 +10,7 @@ HF_TOKEN = os.getenv('HF_TOKEN')
 log = get_logger(__name__)
 
 class Alignment:
-    def __init__(self, align_config: dict):
+    def __init__(self, cfg: dict):
         """
         Initialize the alignment object with a dict object (kwargs) containing at least the following:
             - language_code
@@ -20,26 +20,31 @@ class Alignment:
         Passing in a language code assumes that WhisperX already contains a model instance for that language.
         If you want to use a specific model from a remote source, pass in the values for model_name and model_dir
         """
-        if align_config is None:
+        if cfg is None:
             raise ValueError('Align Config parameter is None.')
-        if 'language_code' not in align_config.keys():
+        if 'language_code' not in cfg.keys():
             raise ValueError('Language_code was not found in the config parameter. Please pass in a language code.')
-        if 'device' not in align_config.keys():
+        if 'device' not in cfg.keys():
             log.info('Device configuration is missing. Setting it to a default value of CPU.')
-            align_config['device'] = 'cpu'
-        if not isinstance(align_config['language_code'], str):
-            raise TypeError('Language code must be a string. Instead it was type: %s', type(align_config['language_code']))
-        elif len(align_config['language_code'].strip()) == 0:
+            cfg['device'] = 'cpu'
+        if not isinstance(cfg['language_code'], str):
+            raise TypeError('Language code must be a string. Instead it was type: %s', type(cfg['language_code']))
+        elif len(cfg['language_code'].strip()) == 0:
             raise ValueError('Language code must be a non-empty string.')
-        if 'model_name' in align_config.keys():
-            if not isinstance(align_config['model_name'], str):
-                raise TypeError('Model name must be a string type. Instead it was type: %s', type(align_config['model_name']))
-            if len(align_config['model_name'].strip()) == 0:
+        if 'model_name' in cfg.keys():
+            if not isinstance(cfg['model_name'], str):
+                raise TypeError('Model name must be a string type. Instead it was type: %s', type(cfg['model_name']))
+            if len(cfg['model_name'].strip()) == 0:
                 raise ValueError('Model name must be a non-empty string.')
         else:
             raise ValueError('Missing a parameter: model_name.')
-        self.device = align_config['device']
-        self.model, self.metadata = load_align_model(**align_config)
+        self.device = cfg['device']
+        self.model, self.metadata = load_align_model(
+            language_code=cfg['language_code'],
+            device=cfg['device'],
+            model_name=cfg['model_name'],
+            model_dir=cfg['model_dir']
+        )
 
 
     def align(self, prediction: list, audio: np.ndarray) -> list[dict]:

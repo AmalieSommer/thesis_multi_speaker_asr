@@ -1,0 +1,14 @@
+defaults:
+  - asr: wav2vec2
+  - diarization: streaming_diart
+  - alignment: null
+  - engine: torch
+  - data: coral
+  - _self_
+
+task: pipeline
+
+output:
+  asr_filepath: outputs/asr.jsonl
+  diarize_filepath: outputs/diarization.jsonl
+  transcription_filepath: outputs/transcription.jsonl

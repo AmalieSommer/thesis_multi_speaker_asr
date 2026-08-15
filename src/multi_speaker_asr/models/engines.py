@@ -15,8 +15,10 @@ from datasets import Dataset
 from multi_speaker_asr.data import AudioDataset
 import ctranslate2.converters.transformers as ct2_transformers
 from optimum.exporters.tasks import TasksManager
-from optimum.onnxruntime.configuration import OptimizationConfig, AutoQuantizationConfig, AutoCalibrationConfig
+from optimum.onnxruntime.configuration import OptimizationConfig, AutoCalibrationConfig
 from huggingface_hub import hf_hub_download, list_repo_files
+from huggingface_hub.utils import validate_repo_id
+from huggingface_hub.errors import HFValidationError
 from faster_whisper.tokenizer import Tokenizer
 import os
 from huggingface_hub import repo_exists
@@ -39,29 +41,31 @@ log = get_logger(__name__)
 
 class BaseEngine:
     def __init__(
-            self, 
-            model_path: str, 
-            model_type: str,
+            self,
             model_name: str,
-            device: str = 'cpu', 
-            sr: int = 16000, 
-            language: str = 'da', 
-            task: str = 'automatic-speech-recognition',
-            compute_type: str = 'int8', 
-            cpu_threads: int = 6
+            model_type: str,
+            config
             ):
 
         self.model_name = model_name
         self.model_type = model_type
-        self.device = device
-        self.sr = sr
-        self.language = language
-        self.task = task
-        self.compute_type = compute_type
-        self.cpu_threads = cpu_threads
-        if not isinstance(model_path, str) or not model_path.strip():
+        self.device = config['device']
+        self.language = config['language']
+        self.task = config['task']
+        self.compute_type = config['compute_type']
+        self.cpu_threads = config['cpu_threads']
+
+        path = config['model_path']
+        if not isinstance(path, str) or not path.strip():
             raise ValueError('Parameter model_path must be a non-empty string.')
-        self.model_path = model_path
+        path = Path(path)
+        if not path.exists():
+            try:
+                validate_repo_id(repo_id=path)
+            except HFValidationError as e:
+                raise ValueError('Parameter: model_path must be either a valid path to a local directory, or a valid ID to a Huggingface repo.')
+            
+        self.model_path = path
        
 
         self.processor = self.load_processor()
@@ -118,7 +122,7 @@ class BaseEngine:
         return transcription
 
 
-    def format_output(self, output: list, audio: list, return_timestamps: bool | str) -> list:
+    def format_output(self, output: list, audio: list, return_timestamps: bool | str, samplerate: int) -> list:
         if output is None:
             raise ValueError('Prediction is None')
         if audio is None:
@@ -130,7 +134,7 @@ class BaseEngine:
 
         transcription = []
         for i, segment in enumerate(output):
-            end = len(audio[i]) / self.sr
+            end = len(audio[i]) / samplerate
             transcription.append({
                 'text': segment.get('text', ''),
                 'words': [
@@ -142,7 +146,6 @@ class BaseEngine:
                 ]
             })
         
-        #log.debug('MODEL TYPE (%s).... Model output: %s', self.model_type, transcription)
         return transcription
         
 
@@ -203,8 +206,8 @@ class BaseEngine:
         
 
 class PytorchEngine(BaseEngine):
-    def __init__(self, config: dict):
-        super().__init__(**config)
+    def __init__(self, model_name, model_type, cfg):
+        super().__init__(model_name, model_type, cfg)
 
 
     def load_model(self) -> AutomaticSpeechRecognitionPipeline:
@@ -266,12 +269,13 @@ class PytorchEngine(BaseEngine):
         
         with torch.no_grad():
             output = self.model(audio, return_timestamps=return_timestamps)
+        return output
         return self.format_output(output=output, audio=audio, return_timestamps=return_timestamps)
 
 
 class OnnxEngine(BaseEngine):
-    def __init__(self, config: dict):
-        super().__init__(**config)
+    def __init__(self, model_name, model_type, cfg):
+        super().__init__(model_name, model_type, cfg)
 
 
     def is_exported(self) -> bool:
@@ -526,23 +530,24 @@ class OnnxEngine(BaseEngine):
 
         with torch.no_grad():
             output = self.model(audio, return_timestamps=return_timestamps)
-        return self.format_output(output=output, audio=audio, return_timestamps=return_timestamps)
+        return output
+        #return self.format_output(output=output, audio=audio, return_timestamps=return_timestamps)
         
 
 
 class CT2(BaseEngine):
-    def __init__(self, config: dict):
-        super().__init__(**config)
+    def __init__(self, model_name, model_type, cfg):
+        super().__init__(model_name, model_type, cfg)
 
         supported_architectures = sorted(list(ct2_transformers._SUPPORTED_MODELS.keys()))
-        if config['model_name'] not in supported_architectures:
-            raise ValueError('The model: %s is not currently supported by the CTranslate2 library', config['model_name'])
+        if model_name not in supported_architectures:
+            raise ValueError('The model: %s is not currently supported by the CTranslate2 library', model_name)
 
 
-        if not isinstance(config['model_path'], str) or not config['model_path'].strip():
+        if not isinstance(cfg['model_path'], str) or not cfg['model_path'].strip():
             raise ValueError('Parameter model_path must be a non-empty string.')
 
-        if (not repo_exists(repo_id=config['model_path'])) and (not os.path.exists(path=config['model_path'])):
+        if (not repo_exists(repo_id=cfg['model_path'])) and (not os.path.exists(path=cfg['model_path'])):
             raise FileNotFoundError('The model_path %s was not found on Huggingface or locally. Please verify that the model exists either locally or remotely.') 
 
         self.tokenizer = self.load_tokenizer()
@@ -658,12 +663,12 @@ class CT2(BaseEngine):
 
 
 class WhisperCPP(BaseEngine):
-    def __init__(self, config: dict):
+    def __init__(self, model_name, model_type, cfg):
 
-        if config['model_type'] != 'whisper':
+        if model_type != 'whisper':
             raise ValueError('Model_type must be a whisper model when using the Whisper.cpp engine...')
         
-        super().__init__(**config)
+        super().__init__(model_name, model_type, cfg)
 
 
     def load_model(self):

@@ -28,10 +28,29 @@ COLUMN_MAPPING = {
 
 
 class AudioDataset(IterableDataset):
-    def __init__(self, data_config: dict, target_sr: int = 16000, max_segment_duration: int = 30):
+    def __init__(self, config: dict, target_sr: int = 16000, max_duration: int = 30):
         self.target_sr = target_sr
-        self.max_duration = max_segment_duration
-        self.metadata = self.load_data(**data_config)
+        self.max_duration = max_duration if max_duration != None else 2**31 - 1
+        self.metadata = self.load_data(
+            path=config['path'],
+            name=config['name'],
+            split=config['split']
+        )
+
+    def __init__(self, audio: str, target_sr: int = 16000, max_duration: int = 30):
+        """
+        Init function for generating an AudioDataset for a single audio file, when using the system for single inference runs through the CLI command
+
+        Args:
+            audio (str): The string representing a filepath to the audio file
+        """
+        self.target_sr = target_sr
+        self.max_duration = max_duration
+        ds = Dataset.from_dict({
+            'sample_id': 'sample_0',
+            'audio': audio
+        })
+        self.metadata = ds.to_iterable_dataset()
 
 
     def _find_column(self, available_columns, possible_names):
@@ -43,12 +62,8 @@ class AudioDataset(IterableDataset):
         )
         
 
-    def load_data(self, **data_config) -> IterableDataset:
-        dataset_path = data_config['path']
-        split = data_config['split']
-        name = data_config['name']
-
-        data_type, ext_type, path = validate_filepath(dataset_path)
+    def load_data(self, path: str, name: str, split: str) -> IterableDataset:
+        data_type, ext_type, path = validate_filepath(path)
         if ext_type == 'file':
             file_ext = path.suffix.lstrip('.')
 
@@ -56,13 +71,13 @@ class AudioDataset(IterableDataset):
             if file_ext == 'jsonl':
                 file_ext = 'json'
 
-            metadata_path = Path(dataset_path).resolve()
+            metadata_path = Path(path).resolve()
             self.metadata_path = metadata_path.parent   # Setting the base directory for the local data
 
-            return load_dataset(file_ext, data_files=str(dataset_path), split=split, streaming=True)
+            return load_dataset(file_ext, data_files=str(path), split=split, streaming=True)
         elif data_type == 'hub':
             # Read data from Huggingface
-            data = load_dataset(path=dataset_path, name=name, split=split, streaming=True)        
+            data = load_dataset(path=path, name=name, split=split, streaming=True)        
             return data.cast_column('audio', Audio(decode=False))
 
 

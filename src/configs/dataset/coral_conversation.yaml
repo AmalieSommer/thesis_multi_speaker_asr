@@ -1,0 +1,5 @@
+# Config file for the data object
+
+path: CoRal-project/coral-v3
+name: conversation
+split: test

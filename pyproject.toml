@@ -44,7 +44,12 @@ dependencies = [
     "accelerate>=1.14.0",
     "pywhispercpp>=1.5.0",
     "optimum[onnx]>=2.1.0",
+    "hydra-core>=1.3.5",
 ]
+
+[project.scripts]
+multi-speaker-asr = "multi_speaker_asr.main:cli_main"
+multi-speaker-asr-exp = "multi_speaker_asr.main:hydra_main"
 
 [dependency-groups]
 dev = [

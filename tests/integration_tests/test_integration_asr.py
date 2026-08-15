@@ -21,7 +21,7 @@ from huggingface_hub.errors import HFValidationError
 from huggingface_hub import repo_exists
 from optimum.exporters.tasks import TasksManager
 import logging
-from multi_speaker_asr.evaluate import asr_inference
+from multi_speaker_asr.inference import asr_inference
 
 
 # ---------------- FIXTURES -------------------

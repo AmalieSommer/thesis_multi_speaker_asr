@@ -8,7 +8,7 @@ import io
 import torchaudio
 import torchaudio.functional as F
 from pyannote.core import Annotation
-from multi_speaker_asr.evaluate import diarization_inference, asr_inference, assign_words_speakers
+from multi_speaker_asr.inference import diarization_inference, asr_inference, assign_words_speakers
 
 
 

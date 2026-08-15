@@ -1,0 +1,5 @@
+
+language_code: da
+device: cpu
+model_name: CoRal-project/roest-v3-wav2vec2-315m
+model_dir: null

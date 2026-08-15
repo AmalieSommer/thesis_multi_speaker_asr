@@ -1,0 +1,10 @@
+# Baseline config for wav2vec2
+
+name: wav2vec2
+type: ctc
+
+timestamps: True
+batch_size: 5
+
+target_sr: 16000
+max_duration: 10

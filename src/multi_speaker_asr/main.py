@@ -1,23 +1,13 @@
 import os
-from multi_speaker_asr.evaluate import (
-    asr_inference,
-    aligner_inference,
-    evaluate_inference,
-    warmup,
-    diarize_inference,
-    evaluate_diarization
-    )
 import torch
-from tqdm import tqdm
 from dotenv import load_dotenv
-import yaml
 import argparse
 import logging
-from multi_speaker_asr.data import AudioData, AudioDataset
-from datasets import load_dataset, Dataset, Audio
-from torch.utils.data import DataLoader
-from multi_speaker_asr.models.asr import RoestASR
-from optimum.quanto import qint8, qint4, qint2
+import hydra
+from omegaconf import DictConfig
+from hydra import compose, initialize_config_dir
+from pathlib import Path
+from multi_speaker_asr.inference import asr_inference, diarization_inference, pipeline_inference
 
 log = logging.getLogger(__name__)
 
@@ -27,89 +17,137 @@ torch.set_num_interop_threads(6)
 load_dotenv()
 HF_TOKEN = os.getenv('HF_TOKEN')
 
-tqdm.monitor_interval = 0 # Stops the tqdm from creating monitoring threads causing shutdown-race conditions...
 
-
-
-
-def load_config():
+@hydra.main(version_base=None, config_path='../../configs', config_name='config')
+def hydra_main(config: DictConfig) -> None:
     """
-    Loads a .yaml configuration file with argument params.
+    This is the function for running an experiment using predefined config files with Hydra, in order
+    to be able to easily reproduce research results
+
+    Args:
+        config (DictConfig): The Hydra main configuration file containing default settings and the option to overwrite with other config files
     """
-    print('Loading config file...')
-    parser = argparse.ArgumentParser(description='ASR Inference Runs')
-    parser.add_argument('--config', type=str, required=True)
+    if config.task == 'asr':
+        asr_inference(
+            results_filepath=config.output.asr_filepath,
+            engine_config=config.engine,
+            data_config=config.data,
+            asr_config=config.asr,
+            align_config=config.alignment
+        )
+    elif config.task == 'diarize':
+        diarization_inference(
+            data_config=config.data,
+            diarize_config=config.diarization,
+            result_filepath=config.output.diarize_filepath
+        )
+    elif config.task == 'pipeline':
+        pipeline_inference(
+            asr_filepath=config.output.asr_filepath,
+            diarization_filepath=config.output.diarize_filepath,
+            transcription_filepath=config.output.transcription_filepath,
+            data_config=config.data,
+            asr_config=config.asr,
+            engine_config=config.engine,
+            diarize_config=config.diarization,
+            align_config=config.alignment
+        )
+    else:
+        raise ValueError('No valid task was found...')
+
+
+
+def build_parser():
+    """
+    Build the Argument Parser for receiving command-line input.
+    It allows for users to run either the full pipeline, or individual modules, using the cmd with just
+    an audio file and a filepath for the output.
+    """
+    parser = argparse.ArgumentParser(
+        prog='multi_speaker_asr',
+        description='Speaker Diarization and ASR Inference'
+    )
+
+    subparsers = parser.add_subparsers(dest='command', required=True)
+
+    asr_parser = subparsers.add_parser('asr')
+    asr_parser.add_argument('--audio', type=str, required=True)
+    asr_parser.add_argument('--output-filepath', type=str, required=True)
+    asr_parser.add_argument('--model', type=str, choices=['whisper', 'wav2vec2', 'parakeet'], help='Choice of ASR model (default is Whisper)', required=False)
+    asr_parser.add_argument('--engine', type=str, choices=['torch', 'onnx', 'ct2'], help='The inference engine to run ASR (default is Torch)', required=False)
+    asr_parser.set_defaults(fun=run_asr)
+
+    diarization_parser = subparsers.add_parser('diarize')
+    diarization_parser.add_argument('--audio', type=str, help='Path to the audio file', required=True)
+    diarization_parser.add_argument('--output-filepath', type=str, help='Path for the diarization output', required=True)
+    diarization_parser.set_defaults(fun=run_diarization)
+
+    pipeline_parser = subparsers.add_parser('pipeline')
+    pipeline_parser.add_argument('--audio', type=str, required=True)
+    pipeline_parser.add_argument('--output-filepath', type=str, required=True)
+    pipeline_parser.add_argument('--model', type=str, choices=['whisper', 'wav2vec2', 'parakeet'], help='Choice of ASR model (default is Whisper)', required=True)
+    pipeline_parser.add_argument('--engine', type=str, choices=['torch', 'onnx', 'ct2'], help='The inference engine for running ASR (default is Torch)', required=True)
+    pipeline_parser.set_defaults(fun=run_pipeline)
+
+    return parser
+
+
+def load_inference_configs(model: str = None, engine: str = None):
+    config_path = Path('../../configs').resolve()
+    alignment_model = 'whisperx' if model == 'whisper' else None
+    with initialize_config_dir(version_base=None, config_dir=str(config_path)):
+        config = compose(
+            config_name='config',
+            overrides=[
+                f'asr={model}',
+                f'engine={engine}',
+                f'alignment={alignment_model}'
+            ]
+        )
+    return config
+
+
+def run_asr(audio, output_filepath, model, engine):
+    cfg = load_inference_configs(model=model, engine=engine)
+    result = asr_inference(
+        results_filepath=output_filepath,
+        engine_config=cfg.engine,
+        asr_config=cfg.asr,
+        align_config=cfg.alignment,
+        data=audio
+    )
+    log.info('ASR Result: %s', result)
+
+
+def run_diarization(audio, output_filepath):
+    cfg = load_inference_configs()
+    result = diarization_inference(
+        data=audio,
+        diarize_config=cfg.diarization,
+        result_filepath=output_filepath
+    )
+    log.info('Diarization Result: %s', result)
+
+
+def run_pipeline(audio, output_filepath, model, engine):
+    cfg = load_inference_configs(model=model, engine=engine)
+    pipeline_inference(
+        asr_filepath='',
+        diarization_filepath='',
+        transcription_filepath=output_filepath,
+        data_config=audio,
+        asr_config=cfg.asr,
+        engine_config=cfg.engine,
+        diarize_config=cfg.diarization,
+        align_config=cfg.alignment
+    )
+
+    pass
+
+
+def cli_main():
+    parser = build_parser()
     args = parser.parse_args()
-    with open(args.config, 'r') as file:
-        return yaml.safe_load(file)
-
-def run_asr(config):
-    asr_inference(
-        data_type=config['data'],
-        vad_filter=config['vad_filter'],
-        clip_timestamps=config['clip_timestamps'],
-        batch_size=config['batchsize'],
-        computetype=config['computetype'],
-        cputhreads=config['cputhreads'],
-        device=config['device'],
-        model=config['model'],
-        filename=config['asr_output_filename']
-    )
-
-def run_alignment(config):
-    data = AudioData()
-    data.load(path=config['data'])
-    aligner_inference(
-        data.id_to_audio,
-        config['alignment_model'],
-        config['align_output_filename'],
-        config['asr_output_filename']
-    )
+    args.func(args)
 
 
-def exp_1(config):
-    if config['dataset_location'] == 'remote': # The dataset is loaded from remote, e.g. Huggingface
-        metadata = load_dataset('CoRal-project/coral-v3', 'conversation', split='test', streaming=True)
-        metadata = metadata.cast_column('audio', Audio(decode=False))
-        metadata = metadata.rename_column('id_conversation', 'audio_id')
-        metadata = metadata.rename_column('audio', 'segment')
-    elif config['dataset_location'] == 'local':
-        metadata = Dataset.from_csv(config['metadata']).to_iterable_dataset()
-    else:
-        raise ValueError('Unknown dataset_mode passed...')
-
-    dataset = AudioDataset(metadata=metadata, mode=config['dataset_mode'], max_segment_duration=config['max_duration'])
-    loader = DataLoader(dataset=dataset, batch_size=config['batch_size'], shuffle=False, num_workers=0, collate_fn=dataset.collator)
-
-    model = RoestASR(model_type=config['model_type'], batch_size=config['batch_size'], backend=config['backend_type'])
-    model.load(compute_type=config['computetype'], intra_batched_inference=config['intra_batched_inference'])
-   
-    evaluate_inference(output_filepath=config['asr_filepath'], loader=loader, model=model, warmup=False)
-
-
-def exp_2(config: yaml):
-    if config['dataset_location'] == 'local':
-        metadata = Dataset.from_csv(config['metadata']).to_iterable_dataset()
-    dataset = AudioDataset(metadata=metadata, mode=config['dataset_mode'])
-    loader = DataLoader(dataset=dataset, batch_size=config['batch_size'], shuffle=False, num_workers=0, collate_fn=dataset.collator)
-
-    evaluate_diarization(output_filepath=config['filepath'], loader=loader, max_epochs=3)
-
-
-def build_quantized_model(config):
-    model = RoestASR(model_type=config['model_type'], batch_size=config['batch_size'], backend=config['backend_type'])
-    model.load(local_models_dir=config['local_models_dir'], compute_type=config['computetype'])
-    model.save_quantized_model(compute_type=config['computetype'], weights_q=qint8)
-
-
-
-if __name__=='__main__':
-    config_file = load_config()
-    if config_file['build_model']:
-        build_quantized_model(config=config_file)
-    elif config_file['diarization']:
-        exp_2(config=config_file)
-    else:
-        exp_1(config=config_file)
-    
-    print('Finished...!')

@@ -1,0 +1,11 @@
+# Config for ct2 engine
+
+name: ct2
+model_path: src/multi_speaker_asr/models/saved_models/coral_wav2vec2_ct2
+
+device: cpu
+task: automatic-speech-recognition
+language: da
+
+compute_type: float16
+cpu_threads: 6

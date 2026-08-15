@@ -1,0 +1,6 @@
+# Config file for speaker diarization with Diart
+
+batch_size: 1
+target_sr: 16000
+max_duration: null
+max_speakers: 3

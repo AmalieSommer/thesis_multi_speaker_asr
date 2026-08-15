@@ -10,26 +10,20 @@ from multi_speaker_asr.utils.logging_config import get_logger
 log = get_logger(__name__)
 
 class ASR:
-    def __init__(self, config: dict):
-        self.engine = None
-        self.pipeline_config = config
-
-        if not isinstance(config['model_type'], str) or len(config['model_type'].strip()) == 0:
+    def __init__(self, asr_cfg, engine_cfg):
+        if not isinstance(asr_cfg['type'], str) or len(asr_cfg['type'].strip()) == 0:
             raise ValueError('Parameter: model_type must be a non-empty string.')
-        if not isinstance(config['model_path'], str) or len(config['model_path'].strip()) == 0:
-            raise ValueError('Parameter: model_path must be a non-empty string.')
-        if not isinstance(config['model_name'], str) or len(config['model_name'].strip()) == 0:
+        if not isinstance(asr_cfg['name'], str) or len(asr_cfg['name'].strip()) == 0:
             raise ValueError('Parameter: model_name must be a non-empty string.')
+        self.name = asr_cfg['name']
+        self.type = asr_cfg['type']
+        self.sr = asr_cfg['target_sr']
+        self.engine = self.load_engine(
+            config=engine_cfg
+        )
 
-        path = Path(config['model_path'])
-        if not path.exists():
-            try:
-                validate_repo_id(repo_id=config['model_path'])
-            except HFValidationError as e:
-                raise ValueError('Parameter: model_path must be either a valid path to a local directory, or a valid ID to a Huggingface repo.')
-        
     
-    def load(self, backend: str) -> None:
+    def load_engine(self, config) -> None:
         """
         Loads the specified engine type.
 
@@ -37,16 +31,17 @@ class ASR:
             compute_type (str): Precision type for computational arithmetic
             cpu_threads (int): Number of CPU threads allowed to be used by the OpenMP library when running the model
         """
+        backend = config['name']
         if backend == 'ct2':
-            self.engine = CT2(config=self.pipeline_config)
+            self.engine = CT2(self.name, self.type, config)
         elif backend == 'onnx':
-            self.engine = OnnxEngine(config=self.pipeline_config)
+            self.engine = OnnxEngine(self.name, self.type, config)
         elif backend == 'torch':
-            self.engine = PytorchEngine(config=self.pipeline_config)
+            self.engine = PytorchEngine(self.name, self.type, config)
         elif backend == 'cpp':
-            self.engine = WhisperCPP(config=self.pipeline_config)
+            self.engine = WhisperCPP(self.name, self.type, config)
         else:
-            self.engine = BaseEngine(**self.pipeline_config)
+            self.engine = BaseEngine(self.name, self.type, config)
 
 
     def _get_engine(self):
@@ -69,7 +64,14 @@ class ASR:
         if self.engine.model_type not in ('seq2seq', 'ctc'):
             raise ValueError('Unknown model_type...')
 
-        return self.engine.transcribe(audio_batch, return_timestamps=return_timestamps)
+        output = self.engine.transcribe(audio_batch)
+        return self.engine.format_output(
+            output=output,
+            audio=audio_batch,
+            return_timestamps=return_timestamps,
+            samplerate=self.sr
+        )
+        #return self.engine.transcribe(audio_batch, return_timestamps=return_timestamps)
 
 
 
